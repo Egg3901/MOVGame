@@ -13,8 +13,10 @@ work is shells, platform billing, packaging and store compliance.
 - `MOVGame-native` created and seeded with the `src-tauri/` shell extracted from
   `MOVGame@c1a08c80`, the icon set, and the generated Android project.
 - `web.pin` records the exact MOVGame commit this repo builds against.
-- Follow-up (not done yet): remove `src-tauri/` and the `tauri:*` scripts from
-  MOVGame so the web repo only publishes the web app.
+- Follow-up (in review): `MOVGame` PR #16 removes `src-tauri/`, the `tauri:*`
+  scripts and the `@tauri-apps/cli` dependency so the web repo publishes only
+  the web app. Merge order matters: land #16, then bump `web.pin` here so the
+  next native build fetches a post-split web revision.
 
 ## Phase 1 — Host path migration
 
@@ -63,9 +65,13 @@ Windows runner. Verify before committing to it.
 
 ## Phase 3 — Desktop
 
-- Linux bundle on this host (needs the Tauri Linux dependencies, webkit2gtk 4.1).
+- Linux is the furthest along: a verified `.deb` / `.rpm` / `.AppImage` build was
+  produced from this shell before the split. Re-verify from this repo and
+  smoke-test, then treat the direct-download channel as buildable.
 - Windows and macOS bundles require Windows/macOS runners: enable CI in this
   repo (GitHub Actions for Windows, Codemagic or a macOS runner for macOS).
+  `cargo-xwin` is installed on the ops host, so a Windows cross-build from Linux
+  may be possible — verify before relying on it.
 - Direct desktop (Lakeside checkout) and Steam (free client, DLC packs) are two
   separate channels built from two Vite modes. Steam DLC ownership must be wired
   before the Steam client ships.

@@ -43,6 +43,9 @@ Tauri configs here:
 
 Verified in the source tree:
 
+- **Desktop (Linux)**: a verified release build produced `.deb`, `.rpm` and
+  `.AppImage` packages from this shell before the repo split. The shell works;
+  see `docs/desktop.md`, and re-verify from this repo before shipping.
 - `src-tauri/` Tauri v2 project with `tauri.conf.json`, `tauri.android.conf.json`,
   `tauri.ios.conf.json` and `tauri.steam.conf.json`, `Cargo.toml` / `Cargo.lock`,
   `build.rs`, `src/main.rs`, `src/lib.rs`. Each channel config builds the web
@@ -52,20 +55,20 @@ Verified in the source tree:
   `icon.ico`.
 - Generated Android Studio project under `src-tauri/gen/android`, package
   `com.lakesidegames.electioneer`, Gradle wrapper included.
-- Web repo carries the matching `tauri:*` scripts and four `.env.<channel>`
-  profiles.
+- Web repo carries the matching four `.env.<channel>` distribution profiles.
 
 Unverified / not done:
 
-- **No Tauri build has ever been produced on this host.** `docs/desktop.md` in
-  MOVGame states no Rust toolchain was installed and no binary was built; that
-  is still true. Every "it will build" claim is unverified until someone runs it
-  and reports the artifact.
-- Android has never been built here (needs Android SDK + NDK + Rust targets).
+- Android has never been built: no APK or AAB exists. The SDK and NDK were
+  absent from the ops host until `scripts/bootstrap-android-sdk.sh` was added.
 - iOS project does not exist yet: `tauri:ios:init` requires macOS with Xcode.
 - Play Billing and StoreKit adapters are not implemented, so store pack sales
   must not launch.
+- Windows and macOS desktop bundles are unbuilt (and `cargo-xwin` cross-build is
+  unproven).
 - No release CI exists in either repo yet.
+
+Platform notes: `docs/desktop.md` and `docs/mobile.md`.
 
 ## Release gates (from MOVGame `docs/mobile.md`)
 
