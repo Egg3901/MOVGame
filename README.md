@@ -31,7 +31,10 @@ activation codes, and cloud-facing platform integration.
 
 The simulation core is kept separate from the interface. `src/engine` is pure
 TypeScript with no React, DOM, or browser dependencies, so it can run in the
-browser, in the Tauri desktop shell, in tests, or headless for calibration.
+browser, in the native shells, in tests, or headless for calibration. The native
+shells (Tauri 2 desktop, iOS, Android) live in the separate
+[`MOVGame-native`](https://github.com/Egg3901/MOVGame-native) repository and
+consume this one at a pinned commit — this repo publishes the web edition only.
 
 ```text
 src/
@@ -41,7 +44,6 @@ src/
   store/         Zustand state, autosave, replay, and entitlement state
   ui/            React game, setup, guide, leaderboard, and results screens
 server/          Accounts, scores, identity linking, and entitlements
-src-tauri/       Desktop shell
 ```
 
 The United States engine models state polling, demographic blocs, electoral
