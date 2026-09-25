@@ -1,5 +1,5 @@
 {
   "build": {
-    "beforeBuildCommand": "npm run build -- --mode steam"
+    "beforeBuildCommand": "./scripts/fetch-web.sh steam"
   }
 }

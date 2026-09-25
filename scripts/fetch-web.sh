@@ -3,11 +3,16 @@
 # bundle into ./dist, using the Vite mode for the requested distribution
 # channel. Never vendored: the web repo stays the source of truth.
 #
-# Usage: ./scripts/fetch-web.sh <channel>
-#   channel = web | desktop-direct | steam | android | ios
+# Usage: ./scripts/fetch-web.sh <channel> [--no-build]
+#   channel    = web | desktop-direct | steam | android | ios
+#   --no-build = fetch/checkout only (for `tauri dev`, which runs its own server)
 set -euo pipefail
 
 channel="${1:-desktop-direct}"
+no_build=false
+for arg in "$@"; do
+  [ "$arg" = "--no-build" ] && no_build=true
+done
 case "$channel" in
   web|desktop-direct|steam|android|ios) ;;
   *) echo "unknown channel: $channel" >&2; exit 64 ;;
@@ -29,10 +34,19 @@ if [ "$head_sha" != "$pin" ]; then
   exit 65
 fi
 
+if [ ! -d "$web/node_modules" ]; then
+  ( cd "$web" && npm ci )
+fi
+
+if [ "$no_build" = true ]; then
+  echo "web source $pin ready at $web (mode=$channel, no build)"
+  exit 0
+fi
+
 if [ "$channel" = "web" ]; then
-  ( cd "$web" && npm ci && npm run build )
+  ( cd "$web" && npm run build )
 else
-  ( cd "$web" && npm ci && npm run build -- --mode "$channel" )
+  ( cd "$web" && npm run build -- --mode "$channel" )
 fi
 
 rm -rf "$root/dist"

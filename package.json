@@ -1,0 +1,26 @@
+{
+  "name": "movgame-native",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Margin of Victory native clients — Tauri v2 shells for desktop, iOS and Android",
+  "scripts": {
+    "fetch:web": "./scripts/fetch-web.sh desktop-direct --no-build",
+    "build:web": "./scripts/fetch-web.sh desktop-direct",
+    "build:web:android": "./scripts/fetch-web.sh android",
+    "build:web:ios": "./scripts/fetch-web.sh ios",
+    "build:web:steam": "./scripts/fetch-web.sh steam",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "steam:build": "tauri build --config src-tauri/tauri.steam.conf.json",
+    "android:init": "tauri android init",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build",
+    "ios:init": "tauri ios init",
+    "ios:dev": "tauri ios dev",
+    "ios:build": "tauri ios build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0"
+  }
+}

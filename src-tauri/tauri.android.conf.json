@@ -1,5 +1,5 @@
 {
   "build": {
-    "beforeBuildCommand": "npm run build -- --mode android"
+    "beforeBuildCommand": "./scripts/fetch-web.sh android"
   }
 }

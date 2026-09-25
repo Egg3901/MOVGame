@@ -1,5 +1,5 @@
 {
   "build": {
-    "beforeBuildCommand": "npm run build -- --mode ios"
+    "beforeBuildCommand": "./scripts/fetch-web.sh ios"
   }
 }

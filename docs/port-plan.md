@@ -38,13 +38,28 @@ do not reset.
 
 ## Phase 2 — Android (only platform buildable on this Linux host)
 
-- Install Rust toolchain, Android NDK, Rust Android targets; set `ANDROID_HOME`
-  and `NDK_HOME`.
-- Produce a first `tauri:android:build` artifact and report the APK/AAB path —
-  this is the first real evidence that the shell works.
-- Implement Play Billing: non-consumable packs, purchase, restore, offline
-  entitlement refresh. No external checkout in the Android build.
-- Internal testing track submission once gates 1–5 pass.
+Verified on the ops host (2026-09-25): Rust 1.96 + cargo/rustup installed, and
+all four Android Rust targets already present (`aarch64-linux-android`,
+`armv7-linux-androideabi`, `i686-linux-android`, `x86_64-linux-android`),
+JDK 21, Node 22, `cargo-xwin` installed, 840 GB free on `/`.
+
+Missing, in order:
+
+1. `/root/Android/Sdk` exists but is **empty** — no `sdkmanager`, `adb` or NDK.
+   Install command-line tools, then `platform-tools`, `platforms;android-35`,
+   `build-tools;35.0.0` and an NDK, and export `ANDROID_HOME` / `NDK_HOME`.
+   Also add `cargo-ndk` (or rely on the Tauri CLI's NDK handling).
+2. `npm install` in this repo (brings `@tauri-apps/cli` 2.9).
+3. First `npm run android:build` artifact — report the APK/AAB path. This is the
+   first real evidence that the Tauri shell works at all; nothing in either repo
+   has ever produced a native binary.
+4. Implement Play Billing: non-consumable packs, purchase, restore, offline
+   entitlement refresh. No external checkout in the Android build.
+5. Internal testing track submission once gates 1–5 pass.
+
+Note for the desktop phase: `cargo-xwin` is installed, so a Windows desktop
+bundle can potentially be cross-compiled from Linux instead of waiting on a
+Windows runner. Verify before committing to it.
 
 ## Phase 3 — Desktop
 

@@ -43,9 +43,11 @@ Tauri configs here:
 
 Verified in the source tree:
 
-- `src-tauri/` Tauri v2 project with `tauri.conf.json`, `tauri.android.conf.json`
-  and `tauri.steam.conf.json`, `Cargo.toml` / `Cargo.lock`, `build.rs`,
-  `src/main.rs`, `src/lib.rs`.
+- `src-tauri/` Tauri v2 project with `tauri.conf.json`, `tauri.android.conf.json`,
+  `tauri.ios.conf.json` and `tauri.steam.conf.json`, `Cargo.toml` / `Cargo.lock`,
+  `build.rs`, `src/main.rs`, `src/lib.rs`. Each channel config builds the web
+  bundle through `./scripts/fetch-web.sh <channel>`, so the pinned web commit is
+  the only source of the frontend.
 - Icon set present under `src-tauri/icons/` including `icon.icns` and
   `icon.ico`.
 - Generated Android Studio project under `src-tauri/gen/android`, package
