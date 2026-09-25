@@ -1,9 +1,12 @@
 # MOVGame-native
 
-Native clients for **Margin of Victory** — one simulation, one interface, four
-storefronts. Tauri v2 shells for desktop (Windows, macOS, Linux), iOS, and
-Android, plus the platform billing adapters and release packaging the web
-edition does not need.
+Native clients for **Margin of Victory** — one simulation, two native mobile
+platforms, one desktop shell. Mobile uses Kotlin Multiplatform (shared engine)
+with Jetpack Compose (Android) and SwiftUI (iOS). Desktop stays Tauri v2.
+
+The Tauri Android/iOS shells that existed briefly in this repo served as proof
+that the build pipeline works. They are deprecated — the actual mobile apps are
+fully native.
 
 Web edition and shared source: **[MOVGame](https://github.com/Egg3901/MOVGame)**
 (renamed from `ahd-sim`, 2026-09-25). The `electioneer` slug is deliberately
@@ -11,11 +14,19 @@ retained everywhere it is user- or store-visible: public URLs, package
 identifiers (`com.lakesidegames.electioneer`), product IDs, database keys and
 existing entitlements.
 
+## Architecture
+
+| Platform | Technology | Status |
+| --- | --- | --- |
+| Android | KMP engine + Jetpack Compose UI | Planned (Phase 0) |
+| iOS | KMP engine + SwiftUI UI | Planned (Phase 4) |
+| Linux/Windows/macOS | Tauri v2 shell (webview) | ✅ Verified |
+
 ## Repo split
 
 | | MOVGame (web) | MOVGame-native (this repo) |
 | --- | --- | --- |
-| Owns | engine, UI, content, campaign server | `src-tauri/` shells, `gen/` platform projects, store billing, release CI |
+| Owns | web UI, web content, campaign server | shared KMP engine, native UIs, Tauri desktop shell, store billing, release CI |
 | Ships | free web play, web pack purchases | free native client, store IAP / DLC packs |
 | Publishes | Cloudflare Pages on `main` merge | store submissions and per-platform artifacts |
 
