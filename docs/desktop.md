@@ -1,45 +1,11 @@
-# Desktop builds
+# Desktop builds — moved
 
-## Current status
+The Tauri 2 desktop shell now lives in the
+[`MOVGame-native`](https://github.com/Egg3901/MOVGame-native) repository,
+together with the iOS and Android projects and the store billing adapters. This
+repository publishes the web edition only.
 
-The Tauri 2 shell is buildable on Linux. A verified release build produced
-`.deb`, `.rpm`, and `.AppImage` packages under
-`src-tauri/target/release/bundle`. The app uses the same Vite frontend and
-IndexedDB persistence as the browser edition.
-
-The checked-in master icon is
-`public/brand/margin-of-victory-icon.png`. Tauri-generated Linux, Windows,
-macOS, Android, and iOS icon sizes live under `src-tauri/icons`.
-
-## Build
-
-Install JavaScript dependencies and the platform requirements from the
-official Tauri 2 documentation, then run:
-
-```text
-npm install
-npm run tauri:dev
-npm run tauri:build
-```
-
-The normal desktop build uses Vite mode `desktop-direct`, which permits the
-existing Lakeside checkout. A Steam build uses a separate safety mode:
-
-```text
-npm run tauri:steam:build
-```
-
-The Steam mode removes external Lakeside store links and checkout actions.
-The base Steam client is free. Pack DLC ownership verification is not
-implemented, so paid DLC must not launch until that adapter is complete.
-
-## Remaining release work
-
-- Build and smoke-test Windows packages on Windows.
-- Build, sign, and notarize macOS packages on macOS.
-- Acquire signing identities before public direct downloads.
-- Implement and test Steam DLC ownership before selling packs on Steam.
-- Verify install, upgrade, uninstall, save retention, and offline startup on
-  every supported desktop operating system.
-
-Unsigned local packages are suitable for development, not public distribution.
+Build instructions, the verified package status, and the remaining release work
+are in `MOVGame-native/docs/desktop.md`. The native build fetches this repo at
+the commit recorded in `MOVGame-native/web.pin`, so a desktop build always
+compiles a known web revision.

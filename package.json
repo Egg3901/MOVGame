@@ -13,17 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "calibrate": "vitest run src/engine/__tests__/calibration.test.ts",
-    "typecheck": "tsc --noEmit",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "tauri:android:init": "tauri android init",
-    "tauri:android:dev": "tauri android dev",
-    "tauri:android:build": "tauri android build",
-    "tauri:ios:init": "tauri ios init",
-    "tauri:ios:dev": "tauri ios dev",
-    "tauri:ios:build": "tauri ios build",
-    "tauri:steam:build": "tauri build --config src-tauri/tauri.steam.conf.json"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@sentry/browser": "^10.64.0",
@@ -44,7 +34,6 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
-    "@tauri-apps/cli": "^2.9.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
