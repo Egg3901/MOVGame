@@ -37,7 +37,7 @@ checkout links exist at all:
 | Direct desktop | `desktop-direct` | `tauri.conf.json` | Lakeside checkout |
 | Steam | `steam` | `tauri.steam.conf.json` | Steam DLC only |
 | Android | `android` | `tauri.android.conf.json` | Play Billing only |
-| iOS | `ios` | (to add) | StoreKit only |
+| iOS | `ios` | `tauri.ios.conf.json` | StoreKit only |
 
 `beforeBuildCommand` in each Tauri config builds the fetched web copy with the
 right mode, so a native build can never accidentally ship the web checkout.

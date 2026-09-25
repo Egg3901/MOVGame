@@ -35,7 +35,7 @@ Tauri configs here:
 | Channel | Vite mode | Tauri config | Behaviour |
 | --- | --- | --- | --- |
 | Android | `--mode android` | `tauri.android.conf.json` | external Lakeside checkout disabled; Play Billing required |
-| iOS | `--mode ios` | (iOS config to be added) | external checkout disabled; StoreKit required |
+| iOS | `--mode ios` | `tauri.ios.conf.json` | external checkout disabled; StoreKit required |
 | Direct desktop | `--mode desktop-direct` | `tauri.conf.json` | Lakeside checkout allowed |
 | Steam | `--mode steam` | `tauri.steam.conf.json` | never shows Lakeside checkout; packs sold as Steam DLC |
 
