@@ -1,0 +1,20 @@
+# fetched web edition (see web.pin and scripts/fetch-web.sh)
+/web/
+# built web bundle copied in for the Tauri shell
+/dist/
+# rust
+/src-tauri/target/
+# android/gradle build output
+/src-tauri/gen/android/.gradle/
+/src-tauri/gen/android/build/
+/src-tauri/gen/android/app/build/
+/src-tauri/gen/android/local.properties
+# ios/xcode output (added in the iOS phase)
+/src-tauri/gen/apple/build/
+# node
+/node_modules/
+# artifacts
+*.apk
+*.aab
+*.ipa
+.DS_Store
