@@ -47,6 +47,9 @@ export function CountrySetup({ country, onBack, initialElection, initialSeed, in
         </div>
         <div className="title">{BRAND.name}</div>
         <p className="sub">{data.tagline}</p>
+        {country.id === "FR" && (
+          <p className="muted small">Campaign clock: six planning weeks compress the historical two-week runoff.</p>
+        )}
         {country.id === "FR" && FR_FIRST_ROUND[election] && (
           <div className="su-summary" style={{ textAlign: "left", marginBottom: 12 }}>
             <strong>Runoff starting point</strong>
