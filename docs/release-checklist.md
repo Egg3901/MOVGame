@@ -27,6 +27,21 @@ this track cannot perform headless.
 
 ## iOS (App Store)
 
+- [ ] Apple Developer: register the explicit iOS App ID
+  `com.lakesidegames.electioneer` in the existing team. In-App Purchase is
+  enabled by default for an explicit App ID.
+- [ ] Apple Developer: create an **App Store Connect** distribution profile
+  for that App ID using the existing Apple Distribution certificate (expires
+  2027-09-10). Download its `.mobileprovision` file. Codemagic already has
+  the matching certificate and App Store Connect API key in its encrypted
+  `mov-signing` group; the profile is the one missing signing input.
+- [ ] App Store Connect: create the iOS app record for that bundle ID with
+  name `Margin of Victory`, English primary language, and an internal SKU
+  such as `MOV-IOS-001`. The record must exist before Codemagic can upload.
+- [ ] Run Codemagic `ios-testflight` on the reviewed commit with
+  `MOV_REVIEW_COMMIT` set to its full SHA. Confirm a signed IPA uploads and
+  reaches Apple's `VALID` processing state. The workflow does not submit
+  to App Review; assign the build to internal testers after processing.
 - [ ] On a device: repeat the campaign close/reopen test and verify the shared
   save restores through the SwiftUI session.
 - [x] macOS verify: Codemagic `ios-verify` compiled the Kotlin framework and

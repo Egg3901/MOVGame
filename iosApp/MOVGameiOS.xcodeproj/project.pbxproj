@@ -35,6 +35,7 @@
 				7A0000010000000000000021,
 				7A0000010000000000000022,
 				7A000001000000000000002B,
+				7A000001000000000000002A,
 				7A0000010000000000000003,
 			);
 			sourceTree = "<group>";
@@ -106,6 +107,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A0000010000000000000029,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -202,6 +204,16 @@
 			isa = PBXBuildFile;
 			fileRef = 7A0000010000000000000022;
 		};
+		7A0000010000000000000029 = {
+			isa = PBXBuildFile;
+			fileRef = 7A000001000000000000002A;
+		};
+		7A000001000000000000002A = {
+			isa = PBXFileReference;
+			lastKnownFileType = folder.assetcatalog;
+			path = Assets.xcassets;
+			sourceTree = "<group>";
+		};
 		7A000001000000000000002B = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
@@ -294,6 +306,7 @@
 		7A0000010000000000000034 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
@@ -317,6 +330,7 @@
 		7A0000010000000000000035 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;

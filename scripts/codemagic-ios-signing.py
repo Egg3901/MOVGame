@@ -21,6 +21,35 @@ def fail(message: str) -> "NoReturn":
     raise SystemExit(f"mov-signing: {message}")
 
 
+def pin_project_signing(text: str, team: str, fingerprint: str, profile_uuid: str) -> str:
+    """Set signing in the two app target buildSettings dictionaries."""
+    blocks = re.split(r"(^\t\t[0-9A-F]{24} = \{\n)", text, flags=re.M)
+    out = [blocks[0]]
+    patched = 0
+    settings = (
+        f"\t\t\t\tDEVELOPMENT_TEAM = {team};\n"
+        f"\t\t\t\tCODE_SIGN_IDENTITY = \"{fingerprint}\";\n"
+        f"\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"{fingerprint}\";\n"
+        f"\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"{profile_uuid}\";\n"
+        f"\t\t\t\t\"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]\" = \"{profile_uuid}\";\n"
+    )
+    for i in range(1, len(blocks), 2):
+        header, body = blocks[i], blocks[i + 1]
+        if "PRODUCT_BUNDLE_IDENTIFIER = com.lakesidegames.electioneer;" in body and "isa = XCBuildConfiguration;" in body:
+            if not re.search(r"^\t\t\t\tCODE_SIGN_STYLE = Automatic;$", body, flags=re.M):
+                fail("expected automatic signing in app target")
+            body = re.sub(r"^(\t\t\t\tCODE_SIGN_STYLE = )Automatic;$", r"\1Manual;", body, flags=re.M)
+            marker = "\n\t\t\t};\n\t\t\tname = "
+            if body.count(marker) != 1:
+                fail("expected one app target buildSettings block")
+            body = body.replace(marker, "\n" + settings.rstrip("\n") + marker, 1)
+            patched += 1
+        out += [header, body]
+    if patched != 2:
+        fail(f"expected to patch 2 target configs, patched {patched}")
+    return "".join(out)
+
+
 def main() -> None:
     team = os.environ.get("MOV_APPLE_TEAM", "")
     if not re.fullmatch(r"[A-Z0-9]{10}", team):
@@ -89,32 +118,7 @@ def main() -> None:
     # Pin the app target configs (the ones carrying PRODUCT_BUNDLE_IDENTIFIER)
     # to manual signing with this identity and profile.
     pbx_path = Path("iosApp/MOVGameiOS.xcodeproj/project.pbxproj")
-    text = pbx_path.read_text()
-    blocks = re.split(r"(^\t\t[0-9A-F]{24} = \{\n)", text, flags=re.M)
-    out = [blocks[0]]
-    patched = 0
-    for i in range(1, len(blocks), 2):
-        header, body = blocks[i], blocks[i + 1]
-        end = body.find("\n\t\t};")
-        chunk, rest = body[:end], body[end:]
-        if "PRODUCT_BUNDLE_IDENTIFIER" in chunk and "isa = XCBuildConfiguration" in chunk:
-            chunk = re.sub(
-                r"CODE_SIGN_STYLE = \w+;",
-                "CODE_SIGN_STYLE = Manual;",
-                chunk,
-            )
-            chunk += (
-                f"\n\t\t\tDEVELOPMENT_TEAM = {team};"
-                f"\n\t\t\tCODE_SIGN_IDENTITY = {fingerprint};"
-                f"\n\t\t\t'\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\"' = {fingerprint};"
-                f"\n\t\t\tPROVISIONING_PROFILE_SPECIFIER = {profile_uuid};"
-                f"\n\t\t\t'\"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]\"' = {profile_uuid};"
-            )
-            patched += 1
-        out += [header, chunk + rest]
-    if patched != 2:
-        fail(f"expected to patch 2 target configs, patched {patched}")
-    pbx_path.write_text("".join(out))
+    pbx_path.write_text(pin_project_signing(pbx_path.read_text(), team, fingerprint, profile_uuid))
     print(f"signing pinned: team {team} profile {profile_uuid}")
 
 

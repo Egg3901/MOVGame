@@ -1,6 +1,6 @@
-# MOVGame-native iOS TestFlight via Codemagic. Manual trigger only: the app
-# record, provisioning profile, and Codemagic app + env group are owner-side
-# setup (see docs/release-checklist.md). Never attach signed artifacts to
+# MOVGame-native iOS TestFlight via Codemagic. Manual trigger only: the Apple
+# app record and provisioning profile are required (see docs/release-checklist.md).
+# Never attach signed artifacts to
 # public runs; submit_to_testflight stays false and builds are assigned to
 # the internal group via the ASC API after upload, mirroring AHDNative.
 workflows:
@@ -10,11 +10,6 @@ workflows:
     max_build_duration: 45
     environment:
       xcode: "26.6"
-    cache:
-      cache_paths:
-        - $HOME/.gradle
-        - $HOME/.konan
-        - $HOME/android-sdk
     scripts:
       - name: Select JDK 21 and Android platform
         script: |
@@ -54,11 +49,6 @@ workflows:
       xcode: "26.6"
       groups:
         - mov-signing
-    cache:
-      cache_paths:
-        - $HOME/.gradle
-        - $HOME/.konan
-        - $HOME/android-sdk
     scripts:
       - name: Confirm reviewed source
         script: |
