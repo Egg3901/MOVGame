@@ -223,7 +223,11 @@ export const FREE_SCENARIO_IDS = SCENARIO_REGISTRY.filter((s) => s.free).map((s)
 // (entitlement checks). While false, every scenario is playable by everyone;
 // the packs/activation machinery stays intact so flipping this back on
 // restores the paid tiers without further changes.
-export const PAYWALL_ENABLED = true;
+//
+// OFF for the pre-release / "free for now" period: the whole catalog is
+// playable and pack prices render struck through as a preview of the paid
+// tiers to come. Flip back to true when the paid tiers begin.
+export const PAYWALL_ENABLED = false;
 
 export function isFreeScenario(scenarioId: string): boolean {
   const meta = SCENARIOS_BY_ID[scenarioId];

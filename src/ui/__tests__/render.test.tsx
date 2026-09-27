@@ -154,6 +154,12 @@ describe("App renders without crashing", () => {
     }
     const m = mount();
     await m.flush(); // ResultsScreen is lazy-loaded
+    // Transforming the results chunk can outlast the fixed flush loop on a
+    // busy host. Wait for the actual screen, with a finite deadline.
+    const deadline = Date.now() + 10_000;
+    while (m.html().includes("Loading…") && Date.now() < deadline) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    }
     const html = m.html();
     expect(html).toMatch(/PROJECTED WINNER|CONTINGENT ELECTION/);
     expect(html).toContain("Post-Mortem");

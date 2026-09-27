@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { api, ApiError, clearSession, getStoredUser, getToken, lakesideCheckoutUrl, storeSession, type ApiUser, type Purchase, type Unlocked } from "@lib/api";
 import { isFreeScenario } from "@content/scenarioRegistry";
 import { PACKS_BY_ID } from "@content/packs";
+import { dailyAssignment, utcDateString } from "@lib/daily";
 
 // Post-redirect notices (Stripe success/cancel, Lakeside sign-in).
 export type AuthNotice =
@@ -137,6 +138,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   canPlay: (scenarioId) => {
     if (isFreeScenario(scenarioId)) return true;
+    // The Daily Challenge is free for everyone, every day, whatever the
+    // paywall says: it lands on a rotating scenario (often a paid one) and the
+    // server scores it ungated (routes/daily.ts). Keep the client in step so
+    // the daily never prompts for sign-in or purchase.
+    if (dailyAssignment(utcDateString()).scenarioId === scenarioId) return true;
     return get().unlocked.scenarioIds.includes(scenarioId);
   },
 }));

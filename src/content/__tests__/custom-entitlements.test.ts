@@ -8,12 +8,20 @@ import {
   parseCustomScenario,
 } from "@content/customScenario";
 import { packForScenario } from "@content/packs";
+import { PAYWALL_ENABLED } from "@content/scenarioRegistry";
+import { dailyAssignment, utcDateString } from "@lib/daily";
 import { useAuthStore } from "@store/authStore";
 
 // Reset entitlement state to a signed-out guest before each case.
 beforeEach(() => {
   useAuthStore.setState({ user: null, unlocked: { scenarioIds: [], packIds: [] } });
 });
+
+// A signed-out guest can play a paid base only when the paywall is off, or when
+// that base happens to be today's (always-free) Daily Challenge scenario.
+function guestCanPlay(id: string): boolean {
+  return !PAYWALL_ENABLED || dailyAssignment(utcDateString()).scenarioId === id;
+}
 
 describe("custom base-election entitlement mapping", () => {
   it("US customs build on the free generic map (no base pack)", () => {
@@ -51,10 +59,10 @@ describe("canPlay gate on custom base elections", () => {
     expect(id).toBeNull();
   });
 
-  it("paid UK base is blocked without entitlement", () => {
+  it("paid UK base gate follows the paywall flag when signed out", () => {
     const cs = makeDefaultMultiparty("uk");
     const id = baseScenarioIdForCustom(cs)!;
-    expect(useAuthStore.getState().canPlay(id)).toBe(false);
+    expect(useAuthStore.getState().canPlay(id)).toBe(guestCanPlay(id));
   });
 
   it("paid UK base is allowed once the scenario is unlocked", () => {
@@ -72,8 +80,8 @@ describe("import of a paid-base custom", () => {
     const id = baseScenarioIdForCustom(restored)!;
     // The doc is valid and imports fine...
     expect(restored.engine).toBe("country");
-    // ...but the base stays locked until the pack is owned.
-    expect(useAuthStore.getState().canPlay(id)).toBe(false);
+    // ...and the base gate follows the paywall flag (locked when it is on).
+    expect(useAuthStore.getState().canPlay(id)).toBe(guestCanPlay(id));
     expect(packForScenario(id)?.name).toBeTruthy();
   });
 });
