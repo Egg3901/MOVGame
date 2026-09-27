@@ -6,7 +6,7 @@ import { useUkStore } from "../ukStore";
 import { useCountryStore } from "../countryStore";
 import { mpPlannedCost } from "@engine/mpBudget";
 
-const flushSave = () => new Promise((resolve) => setTimeout(resolve, 30));
+const flushSave = () => useGameStore.getState().refreshSaves();
 
 describe("QA campaign safety", () => {
   afterEach(() => vi.unstubAllGlobals());
