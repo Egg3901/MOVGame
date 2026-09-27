@@ -178,7 +178,7 @@ fun advanceTurn(
         .sortedBy { it.day ?: 1 }
     for (action in playerActions) applyAction(game, action, rng)
     val aiActions = planAiActions(game, rng, cfg)
-    for (action in aiActions) applyAction(game, action, rng)
+    for (action in aiActions) applyAction(game, action, rng, cfg.actionPower)
 
     // 4. Decay transient quantities and refill resources.
     decay(game)

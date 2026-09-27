@@ -96,6 +96,10 @@ class MobileGame private constructor(
 
     fun playerCash(): Double = game.resources.getValue(game.playerCandidate.serial).cash
 
+    fun plannedSpend(): Double = game.queuedActions.sumOf { if (it.type == ActionType.ADVERTISE) it.spend ?: 0.0 else 0.0 }
+
+    fun availableCash(): Double = (playerCash() - plannedSpend()).coerceAtLeast(0.0)
+
     fun queuedCount(): Int = game.queuedActions.size
 
     fun plannedActions(): List<PlannedActionRow> = plannedActionRows(game)

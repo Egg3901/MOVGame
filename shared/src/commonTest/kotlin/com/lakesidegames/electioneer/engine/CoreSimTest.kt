@@ -81,7 +81,7 @@ class CoreSimTest {
         firedEventIds = mutableListOf(),
         queuedActions = emptyList(),
         causes = listOf(0.5, -0.5, 0.3, 0.3, -0.2, 0.1, 0.0, 1.5, -1.2, 0.8).mapIndexed { i, d ->
-            CauseEntry(turn = 1, cause = "c$i", marginDelta = d)
+            CauseEntry(turn = 1, cause = "c$i", marginDelta = d, actor = CandidateId.DEM)
         }.toMutableList(),
         lastRecap = emptyList(),
     )

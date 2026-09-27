@@ -30,6 +30,8 @@ workflows:
             "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-36"
           fi
           printf 'sdk.dir=%s\n' "$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+      - name: Run shared engine tests
+        script: ./gradlew :shared:jvmTest --no-daemon
       - name: Compile Kotlin framework and SwiftUI simulator app
         script: |
           set -eu

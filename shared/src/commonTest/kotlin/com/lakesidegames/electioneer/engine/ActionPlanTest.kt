@@ -7,6 +7,23 @@ import kotlin.test.assertTrue
 
 class ActionPlanTest {
     @Test
+    fun rejectsAdsBeyondAvailableCampaignCash() {
+        val game = createGame(NewGameOptions(seed = "budget", playerCandidate = CandidateId.DEM))
+        val state = game.states.first { it.abbr == "PA" }
+        for (day in 1..7) repeat(3) {
+            queuePlannedAction(game, ActionType.ADVERTISE, state.id, day, AdMode.POSITIVE, 30.0)
+        }
+        val committed = game.queuedActions.sumOf { it.spend ?: 0.0 }
+        assertTrue(committed <= game.resources.getValue("dem").cash)
+    }
+
+    @Test
+    fun rejectsConservativeSnpCoalition() {
+        assertFalse(ukCompatible("con", "snp"))
+        assertFalse(ukCompatible("snp", "con"))
+    }
+
+    @Test
     fun validatesAndPersistsSevenDayPlan() {
         val game = createGame(NewGameOptions(seed = "plan", playerCandidate = CandidateId.DEM))
         val state = game.states.first { it.abbr == "PA" }

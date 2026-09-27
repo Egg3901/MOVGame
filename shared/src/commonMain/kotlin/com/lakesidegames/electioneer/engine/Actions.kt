@@ -74,7 +74,7 @@ internal fun toFixed1(x: Double): String {
     return if (r == floor(r)) "${r.toLong()}.0" else r.toString()
 }
 
-private fun applyAdvertise(game: GameState, action: CampaignAction, rng: Rng, mult: Double = 1.0) {
+private fun applyAdvertise(game: GameState, action: CampaignAction, rng: Rng, mult: Double = 1.0, actionPower: Double = 1.0) {
     val state = findState(game, action.stateId) ?: return
     val c = action.candidate
     val spend = max(0.0, action.spend ?: 0.0)
@@ -93,7 +93,7 @@ private fun applyAdvertise(game: GameState, action: CampaignAction, rng: Rng, mu
     val fundraisingBoost = 0.85 + game.candidates.getValue(c.serial).traits.fundraisingProwess / 400
 
     if (mode == AdMode.ISSUE && action.issueId != null) {
-        val bump = min(0.12, effectiveMillions * 0.015)
+        val bump = min(0.12, effectiveMillions * 0.015) * actionPower
         val key = action.issueId.serial
         game.salience[key] = min(1.0, (game.salience[key] ?: 0.5) + bump)
         game.causes.add(
@@ -343,17 +343,18 @@ private fun applyIssuePivot(game: GameState, action: CampaignAction, mult: Doubl
     }
 }
 
-fun applyAction(game: GameState, action: CampaignAction, rng: Rng) {
+fun applyAction(game: GameState, action: CampaignAction, rng: Rng, actionPower: Double = 1.0) {
     // Every action costs exactly one slot from the weekly pool. Out of slots:
     // the action can't run. Cash costs are charged on top inside the handlers.
     val res = game.resources.getValue(action.candidate.serial)
     if (res.actions < 1) return
     res.actions -= 1
+    val firstNewCause = game.causes.size
     // The player's campaigning is amplified by the difficulty handicap (1.0 for
     // the AI and on hard); it scales persuasion only, not cash/infra/prep.
-    val mult = if (action.candidate == game.playerCandidate) (game.playerEdge ?: 1.0) else 1.0
+    val mult = (if (action.candidate == game.playerCandidate) (game.playerEdge ?: 1.0) else 1.0) * actionPower
     when (action.type) {
-        ActionType.ADVERTISE -> applyAdvertise(game, action, rng, mult)
+        ActionType.ADVERTISE -> applyAdvertise(game, action, rng, mult, actionPower)
         ActionType.RALLY -> applyRally(game, action, rng, mult)
         ActionType.SURROGATE -> applySurrogate(game, action, rng, mult)
         ActionType.FUNDRAISE -> applyFundraise(game, action, rng)
@@ -363,6 +364,9 @@ fun applyAction(game: GameState, action: CampaignAction, rng: Rng) {
         ActionType.DEBATE_PREP -> applyDebatePrep(game, action)
         ActionType.POLICY_PREP -> applyPolicyPrep(game, action)
         ActionType.ISSUE_PIVOT -> applyIssuePivot(game, action, mult)
+    }
+    for (index in firstNewCause until game.causes.size) {
+        game.causes[index] = game.causes[index].copy(actor = action.candidate)
     }
 }
 

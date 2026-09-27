@@ -182,6 +182,8 @@ struct ActionPlannerView: View {
             Text("WEEK PLAN").font(.caption.bold()).tracking(2).foregroundStyle(.orange)
             Text("Choose an action, set the target, then add it to a day.")
                 .font(.caption).foregroundStyle(.secondary)
+            Text(String(format: "Planned ads $%.1fM · Available $%.1fM", (session.currentGame()?.plannedSpend() ?? 0) / 1_000_000, (session.currentGame()?.availableCash() ?? 0) / 1_000_000))
+                .font(.caption).foregroundStyle(.secondary)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 ForEach(actions) { action in
                     Button {
@@ -251,13 +253,13 @@ struct ActionPlannerView: View {
                     spendMillions: type == "advertise" ? spend : nil,
                     issueSerial: (type == "issue_pivot" || (type == "advertise" && adMode == "issue")) ? issue : nil,
                     newPosition: type == "issue_pivot" ? position : nil)
-                notice = added ? nil : "That day is full or your action pool is spent."
+                notice = added ? nil : "Check your day, action slots, and available cash."
             } label: {
                 Text("Add to day \(day)").font(.headline).frame(maxWidth: .infinity).padding(12)
             }
             .buttonStyle(.plain).foregroundStyle(.black)
             .background(.orange, in: RoundedRectangle(cornerRadius: 12))
-            .disabled(dayCount >= 3 || (session.currentGame()?.slotsLeft() ?? 0) == 0)
+            .disabled(dayCount >= 3 || (session.currentGame()?.slotsLeft() ?? 0) == 0 || (type == "advertise" && spend * 1_000_000 > (session.currentGame()?.availableCash() ?? 0)))
             if dayCount >= 3 {
                 Text("Day \(day) is full. Choose another day.").font(.caption).foregroundStyle(.secondary)
             } else if (session.currentGame()?.slotsLeft() ?? 0) == 0 {

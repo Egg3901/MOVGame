@@ -117,6 +117,7 @@ fun computeResult(game: GameState): GameResult {
     // Post-mortem: the player's biggest self-caused swings, by magnitude.
     // sortedWith is stable, matching Array.prototype.sort stability.
     val postMortem = game.causes
+        .filter { it.actor == game.playerCandidate && it.marginDelta != 0.0 }
         .sortedWith(compareByDescending { abs(it.marginDelta) })
         .take(8)
 

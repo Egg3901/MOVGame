@@ -658,6 +658,7 @@ fun ukAdvanceTurn(g: UkGameState, opts: UkAdvanceOptions = UkAdvanceOptions()): 
 fun ukCompatible(lead: PartyId, partner: PartyId): Boolean {
     val rivals = setOf("con", "lab")
     if (rivals.contains(lead) && rivals.contains(partner)) return false
+    if ((lead == "con" && partner == "snp") || (lead == "snp" && partner == "con")) return false
     return true
 }
 

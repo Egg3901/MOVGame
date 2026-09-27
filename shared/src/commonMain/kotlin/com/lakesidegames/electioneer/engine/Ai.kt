@@ -55,12 +55,14 @@ data class AiConfig(
     val mistakeRate: Double,
     // How many target states the AI considers (foresight depth).
     val foresight: Int,
+    // Scales AI persuasion while keeping its cash and slot costs intact.
+    val actionPower: Double = 1.0,
 )
 
 val DIFFICULTY: Map<String, AiConfig> = mapOf(
-    "easy" to AiConfig(efficiency = 0.55, mistakeRate = 0.3, foresight = 3),
-    "normal" to AiConfig(efficiency = 0.8, mistakeRate = 0.15, foresight = 5),
-    "hard" to AiConfig(efficiency = 1.0, mistakeRate = 0.05, foresight = 8),
+    "easy" to AiConfig(efficiency = 0.55, mistakeRate = 0.3, foresight = 3, actionPower = 0.45),
+    "normal" to AiConfig(efficiency = 0.8, mistakeRate = 0.15, foresight = 5, actionPower = 0.53),
+    "hard" to AiConfig(efficiency = 1.0, mistakeRate = 0.05, foresight = 8, actionPower = 1.0),
 )
 
 private fun aiShareOf(demShare: Double, ai: CandidateId): Double =

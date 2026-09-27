@@ -383,6 +383,7 @@ data class CauseEntry(
     val cause: String,
     // Biden - Trump contribution.
     val marginDelta: Double,
+    val actor: CandidateId? = null,
 )
 
 @Serializable

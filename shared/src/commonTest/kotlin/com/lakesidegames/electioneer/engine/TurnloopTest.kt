@@ -22,26 +22,26 @@ class TurnloopTest {
             g = advanceTurn(g, emptyList(), "turnloop")
             trace.add(computeResult(g).electoralVotes.getValue("dem"))
         }
-        assertEquals(listOf(306, 270, 244, 233, 227, 217, 217, 217, 217, 217), trace)
+        assertEquals(listOf(306, 270, 260, 244, 244, 233, 233, 227, 227, 227), trace)
 
         val r = g.result!!
-        assertEquals(mapOf("dem" to 217, "rep" to 321), r.electoralVotes)
+        assertEquals(mapOf("dem" to 227, "rep" to 311), r.electoralVotes)
         assertEquals("rep", r.winner)
         assertEquals(9, g.turn)
         assertEquals(GamePhase.RESULT, g.phase)
-        assertEquals(544594036L, g.rngState)
-        close(0.5027195752219038, r.popularShare.getValue("dem"), "popDem")
-        close(0.44813126056056324, r.stateResults.first { it.stateId == "PA" }.demShare, "paShare")
+        assertEquals(996543667L, g.rngState)
+        close(0.5067322556147777, r.popularShare.getValue("dem"), "popDem")
+        close(0.4500454976509189, r.stateResults.first { it.stateId == "PA" }.demShare, "paShare")
 
         assertEquals("Projected electoral votes", g.lastRecap[0].label)
-        assertEquals("Biden 217 (was 217)", g.lastRecap[0].detail)
+        assertEquals("Biden 227 (was 227)", g.lastRecap[0].detail)
         assertEquals(0.0, g.lastRecap[0].marginDelta)
-        assertEquals(3226, g.causes.size)
+        assertEquals(3312, g.causes.size)
 
         val timeline = g.timeline!!
         assertEquals(10, timeline.size)
         assertEquals(listOf(0, 227, 217), listOf(timeline[0].turn, timeline[0].demEV, timeline[0].repEV))
-        assertEquals(listOf(9, 217, 321), listOf(timeline[9].turn, timeline[9].demEV, timeline[9].repEV))
+        assertEquals(listOf(9, 227, 311), listOf(timeline[9].turn, timeline[9].demEV, timeline[9].repEV))
     }
 
     @Test

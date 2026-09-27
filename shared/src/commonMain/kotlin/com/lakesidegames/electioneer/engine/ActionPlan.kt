@@ -18,6 +18,9 @@ fun queuePlannedAction(
     if (needsState && game.states.none { it.id == stateId && it.blocs.isNotEmpty() }) return false
     if (stateId != null && game.states.none { it.id == stateId && it.blocs.isNotEmpty() }) return false
     if (type == ActionType.ADVERTISE && (adMode == null || spendMillions == null || spendMillions !in 1.0..30.0)) return false
+    val committedCash = game.queuedActions.sumOf { if (it.type == ActionType.ADVERTISE) it.spend ?: 0.0 else 0.0 }
+    val newCost = if (type == ActionType.ADVERTISE) spendMillions!! * 1_000_000 else 0.0
+    if (committedCash + newCost > resources.cash) return false
     if (type == ActionType.ADVERTISE && adMode == AdMode.ISSUE && issueId == null) return false
     if (type == ActionType.ISSUE_PIVOT && (issueId == null || newPosition == null || newPosition !in -1.0..1.0)) return false
     game.queuedActions = game.queuedActions + CampaignAction(

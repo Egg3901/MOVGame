@@ -65,11 +65,14 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
     }
     val targetsState = type in setOf(ActionType.ADVERTISE, ActionType.RALLY, ActionType.SURROGATE, ActionType.GROUND_GAME, ActionType.GOTV, ActionType.FUNDRAISE)
     val dayCount = game.queuedActions.count { (it.day ?: 1) == day }
+    val plannedSpend = game.queuedActions.sumOf { if (it.type == ActionType.ADVERTISE) it.spend ?: 0.0 else 0.0 }
+    val availableCash = ((game.resources[game.playerCandidate.serial]?.cash ?: 0.0) - plannedSpend).coerceAtLeast(0.0)
 
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("WEEK PLAN", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             Text("Choose an action, set the target, then add it to a day.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Planned ads $${"%.1f".format(plannedSpend / 1_000_000)}M · Available $${"%.1f".format(availableCash / 1_000_000)}M", style = MaterialTheme.typography.bodySmall)
             ACTIONS.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     pair.forEach { (action, label) ->
@@ -130,8 +133,8 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
                     if (type == ActionType.ADVERTISE) spend.toInt().toDouble() else null,
                     if (type == ActionType.ISSUE_PIVOT || (type == ActionType.ADVERTISE && adMode == AdMode.ISSUE)) issue else null,
                     if (type == ActionType.ISSUE_PIVOT) position.toDouble() else null)
-                notice = if (added) null else "That day is full or your action pool is spent."
-            }, enabled = session.slotsLeft() > 0 && dayCount < 3, modifier = Modifier.fillMaxWidth()) { Text("Add to day $day") }
+                notice = if (added) null else "Check your day, action slots, and available cash."
+            }, enabled = session.slotsLeft() > 0 && dayCount < 3 && (type != ActionType.ADVERTISE || spend * 1_000_000 <= availableCash), modifier = Modifier.fillMaxWidth()) { Text("Add to day $day") }
             if (dayCount >= 3) Text("Day $day is full. Choose another day.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             else if (session.slotsLeft() == 0) Text("Weekly action pool is spent.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             notice?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
