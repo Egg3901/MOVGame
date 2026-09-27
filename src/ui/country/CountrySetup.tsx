@@ -65,7 +65,7 @@ export function CountrySetup({ country, onBack, initialElection, initialSeed, in
             <p className="muted small" style={{ margin: "6px 0 0" }}>
               {activeParty === "ens"
                 ? "Macron begins the runoff with a large lead. Defend it while building a stronger finish, or try the closer 2027 race for a tighter contest."
-                : "Le Pen begins far behind the historical second-round result. A win requires sustained, focused gains across the regions."}
+                : "Le Pen begins far behind. Build a national runoff argument to move support across France; regional pushes alone rarely close the gap."}
             </p>
           </div>
         )}
