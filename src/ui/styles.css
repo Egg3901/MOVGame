@@ -236,6 +236,9 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 /* ── Map ────────────────────────────────────────────────────────────── */
 .mapwrap { display: flex; flex-direction: column; gap: 10px; }
 .mapcontrols { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.map-mode-toggle { display: inline-flex; padding: 3px; gap: 3px; border: 1px solid var(--gold); border-radius: var(--radius-sm); background: var(--well); }
+.map-mode-toggle button { border: 0; border-radius: 4px; padding: 5px 9px; background: transparent; color: var(--text-body); font-size: 11px; font-weight: 700; }
+.map-mode-toggle button[aria-pressed="true"] { background: var(--gold); color: var(--navy-900); }
 .tilegrid { display: grid; gap: 5px; width: 100%; max-width: 100%; }
 .tile {
   position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); border: 1px solid rgba(0, 0, 0, 0.28);
