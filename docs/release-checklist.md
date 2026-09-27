@@ -32,7 +32,9 @@ this track cannot perform headless.
 - [x] macOS verify: Codemagic `ios-verify` compiled the Kotlin framework and
   SwiftUI simulator app at source commit
   `2700c3f1884b6cc53cd67ae4f3f417c3411ebdc8` (build
-  `6ab9539a9e9edb1d6d9a0803`). This workflow does not sign or publish.
+  `6ab9539a9e9edb1d6d9a0803`). The compile step succeeded; the overall
+  run was canceled after cleanup stalled for several minutes. This workflow
+  does not sign or publish.
 - [ ] App Store Connect: products matching the SKU table, sandbox +
   TestFlight exercise of purchase/restore/refund through `StoreKitAdapter`.
 - [ ] App Store Server Notifications endpoint on the campaign server (web
