@@ -664,13 +664,10 @@ fun ukCompatible(lead: PartyId, partner: PartyId): Boolean {
 
 fun computeUkResult(g: UkGameState): UkResult {
     val r = computeSeatsResult(g.regions, majorityForUk(g), g.abstaining, ::ukCompatible)
-    // The post-mortem shows the *player's* biggest self-caused swings (the
-    // player's leader name tags their action causes), falling back to the
-    // whole campaign if the player sat on their hands.
+    // The post-mortem shows only the player's own persuasive actions.
     val playerName = g.leaders[g.playerParty]?.name ?: ""
-    val mine = g.causes.filter { c -> c.marginDelta != 0.0 && c.cause.contains(playerName) }
-    val pool = if (mine.isNotEmpty()) mine else g.causes.filter { c -> c.marginDelta != 0.0 }
-    val postMortem = pool
+    val postMortem = g.causes
+        .filter { c -> playerName.isNotEmpty() && c.marginDelta != 0.0 && c.cause.contains(playerName) }
         .sortedWith(compareByDescending { abs(it.marginDelta) })
         .take(8)
     return UkResult(

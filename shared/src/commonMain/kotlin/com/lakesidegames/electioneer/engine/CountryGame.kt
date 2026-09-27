@@ -86,6 +86,7 @@ data class CountryGameState(
     val parties: List<PartyId>,
     val leaders: Map<PartyId, com.lakesidegames.electioneer.content.CountryLeader>,
     val salience: MutableMap<String, Double>,
+    val campaignPower: Map<PartyId, Double>? = null,
     val regions: List<StateContest>,
     val resources: Map<PartyId, CountryResources>,
     val causes: MutableList<CauseEntry>,
@@ -243,6 +244,7 @@ fun createCountryGame(
         parties = parties,
         leaders = leaders,
         salience = election.salience.toMutableMap(),
+        campaignPower = election.campaignPower,
         regions = regions,
         resources = resources,
         causes = mutableListOf(),
@@ -272,7 +274,7 @@ private fun addAppeal(g: CountryGameState, region: StateContest, party: PartyId,
     // Difficulty scales campaigning: the player's own effort by `persuasion`,
     // every rival's by `aiPersuasion`. Both are 1.0 on normal (identity).
     val hc = COUNTRY_HANDICAP[g.difficulty ?: "normal"] ?: COUNTRY_HANDICAP.getValue("normal")
-    val scaled = delta * (if (party == g.playerParty) hc.persuasion else hc.aiPersuasion)
+    val scaled = delta * (if (party == g.playerParty) hc.persuasion else hc.aiPersuasion) * (g.campaignPower?.get(party) ?: 1.0)
     for (bloc in region.blocs) {
         val camp = bloc.campaignAppeal ?: mutableMapOf<String, Double>().also { bloc.campaignAppeal = it }
         camp[party] = (camp[party] ?: 0.0) + saturate(bloc, party, scaled)
@@ -690,10 +692,9 @@ fun computeCountryResult(
 ): CountryResult {
     val r = computeSeatsResult(g.regions, majorityFor(g, country), g.abstaining, country.compatible)
     val playerName = g.leaders[g.playerParty]?.name ?: ""
-    val mine = g.causes.filter { c -> c.marginDelta != 0.0 && c.cause.contains(playerName) }
-    val pool = if (mine.isNotEmpty()) mine else g.causes.filter { c -> c.marginDelta != 0.0 }
-    val postMortem = pool
-        .sortedWith(compareByDescending { it.marginDelta })
+    val postMortem = g.causes
+        .filter { c -> playerName.isNotEmpty() && c.marginDelta != 0.0 && c.cause.contains(playerName) }
+        .sortedWith(compareByDescending { abs(it.marginDelta) })
         .take(8)
     return CountryResult(
         seats = r.seats,

@@ -170,4 +170,35 @@ class AdaptersTest {
         val score = computeScoreFromFacts(facts)
         assertTrue(score in 0..1000)
     }
+
+    @Test
+    fun france2022RunoffKeepsHistoryAndRespondsToRnCampaign() {
+        val country = getCountry("FR")!!
+        val opening = createCountryGame(country, NewCountryGameOptions(election = "2022", playerParty = "rn", seed = 42))
+        assertTrue(computeCountryResult(opening, country).voteShare.getValue("rn") < 0.45)
+        assertEquals(1.35, opening.campaignPower?.get("rn"))
+
+        val calibrated = createCountryGame(country, NewCountryGameOptions(election = "2022", playerParty = "rn", seed = 42))
+        val oldStrength = createCountryGame(country, NewCountryGameOptions(election = "2022", playerParty = "rn", seed = 42))
+            .copy(campaignPower = null)
+        val plan = List(5) { CountryAction(type = CountryActionType.POLICY_PREP, party = "rn") }
+        calibrated.queuedActions = plan
+        oldStrength.queuedActions = plan
+        val boosted = countryAdvanceTurn(calibrated, country, CountryAdvanceOptions(disableAi = true))
+        val unboosted = countryAdvanceTurn(oldStrength, country, CountryAdvanceOptions(disableAi = true))
+        assertTrue(computeCountryResult(boosted, country).voteShare.getValue("rn") >
+            computeCountryResult(unboosted, country).voteShare.getValue("rn"))
+    }
+
+    @Test
+    fun countryAndUkReportsNeverCreditRivalActionsToThePlayer() {
+        val canada = getCountry("CA")!!
+        val countryGame = createCountryGame(canada, NewCountryGameOptions(election = "2021", playerParty = "lpc", seed = 9))
+        countryGame.causes.add(CauseEntry(turn = 0, cause = "Erin O'Toole rally in ON", marginDelta = 0.1))
+        assertTrue(computeCountryResult(countryGame, canada).postMortem.isEmpty())
+
+        val ukGame = createUkGame(NewUkGameOptions(election = "2024", playerParty = "lab", seed = 9))
+        ukGame.causes.add(CauseEntry(turn = 0, cause = "Rishi Sunak rally in London", marginDelta = 0.1))
+        assertTrue(computeUkResult(ukGame).postMortem.isEmpty())
+    }
 }

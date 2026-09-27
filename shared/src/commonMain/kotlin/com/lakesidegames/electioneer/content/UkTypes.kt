@@ -142,6 +142,7 @@ data class CountryElectionData(
     val label: String,
     val tagline: String,
     val salience: Map<String, Double>,
+    val campaignPower: Map<PartyId, Double>? = null,
     val regions: Map<String, RegionResult>,
     val majority: UkMajority? = null,
     val events: List<CountryEventDef> = emptyList(),
