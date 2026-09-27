@@ -17,6 +17,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,37 +65,38 @@ fun GameScreen(session: GameSession) {
         modifier = Modifier.fillMaxSize().padding(12.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        // EV tally bar: 270 to win.
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("DEM $demEv", color = Color(0xFF1D4ED8))
-            Spacer(Modifier.weight(1f))
-            Text("270 to win", style = MaterialTheme.typography.labelSmall)
-            Spacer(Modifier.weight(1f))
-            Text("$repEv REP", color = Color(0xFFB91C1C))
+        Text("CAMPAIGN DESK", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        Text(session.campaigns().firstOrNull { it.id == g.scenarioId }?.label ?: "The election", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(10.dp))
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("DEMOCRATS", color = Color(0xFF7EA9FF), style = MaterialTheme.typography.labelSmall)
+                        Text("$demEv", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("270 TO WIN", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                        Text("$tossEv tossup", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("REPUBLICANS", color = Color(0xFFFF8A83), style = MaterialTheme.typography.labelSmall)
+                        Text("$repEv", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+                    }
+                }
+                LinearProgressIndicator(progress = { (demEv + tossEv / 2f) / 538f }, modifier = Modifier.fillMaxWidth())
+                Row {
+                    Text("WEEK ${g.turn + 1}/${g.totalTurns}", style = MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.weight(1f))
+                    Text("\$${"%.1f".format((res?.cash ?: 0.0) / 1_000_000)}M", style = MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.weight(1f))
+                    Text("${session.slotsLeft()} ACTIONS", style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
-        Spacer(Modifier.height(4.dp))
-        LinearProgressIndicator(
-            progress = { (demEv + tossEv / 2f) / 538f },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(4.dp))
-        Row {
-            Text(
-                "Week ${g.turn + 1}/${g.totalTurns}",
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                "Cash \$${"%.1f".format((res?.cash ?: 0.0) / 1_000_000)}M",
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                "Actions ${session.slotsLeft()}",
-                style = MaterialTheme.typography.labelMedium,
-            )
-        }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
         TileMap(
             projection = projection,
@@ -104,23 +111,18 @@ fun GameScreen(session: GameSession) {
         val selContest = selectedId?.let { contestById[it] }
         if (sel != null && selContest != null) {
             val pct = (selContest.demShare * 100).toInt()
-            Text(
-                "${sel.name}: ${sel.electoralVotes} EV, Dem $pct%",
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ActionButton("Ads") {
-                    session.queueAction(ActionType.ADVERTISE, sel.id)
-                }
-                ActionButton("Rally") {
-                    session.queueAction(ActionType.RALLY, sel.id)
-                }
-                ActionButton("Ground") {
-                    session.queueAction(ActionType.GROUND_GAME, sel.id)
-                }
-                ActionButton("GOTV") {
-                    session.queueAction(ActionType.GOTV, sel.id)
+            OutlinedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${sel.name}  ·  ${sel.electoralVotes} EV", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Democratic projection $pct%", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ActionButton("Ads") { session.queueAction(ActionType.ADVERTISE, sel.id) }
+                        ActionButton("Rally") { session.queueAction(ActionType.RALLY, sel.id) }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ActionButton("Ground") { session.queueAction(ActionType.GROUND_GAME, sel.id) }
+                        ActionButton("GOTV") { session.queueAction(ActionType.GOTV, sel.id) }
+                    }
                 }
             }
         } else {
@@ -147,7 +149,7 @@ fun GameScreen(session: GameSession) {
         Button(
             onClick = { session.endTurn() },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("End Week") }
+        ) { Text("End week  →") }
         Spacer(Modifier.height(8.dp))
     }
 

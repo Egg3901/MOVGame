@@ -14,6 +14,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.Card
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,20 +68,19 @@ fun ResultsScreen(session: GameSession) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Final Result", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(4.dp))
-        Text(winnerName, style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "DEM $demEv - $repEv REP",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        val demPop = (result.popularShare[CandidateId.DEM.serial] ?: 0.5) * 100
-        Text(
-            "Popular vote: Dem ${"%.1f".format(demPop)}%",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Spacer(Modifier.height(12.dp))
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("ELECTION NIGHT", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(if (result.winner == g.playerCandidate.serial) "Victory" else "The race is over", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black)
+                Text("$winnerName wins the presidency", style = MaterialTheme.typography.titleMedium)
+                Text("DEM $demEv   ·   $repEv REP", style = MaterialTheme.typography.headlineSmall)
+                val demPop = (result.popularShare[CandidateId.DEM.serial] ?: 0.5) * 100
+                Text("Democratic popular vote ${"%.1f".format(demPop)}%", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Text("STATE RESULTS", modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
 
         for (sr in sorted) {
             val color = if (sr.winner == CandidateId.DEM) {
@@ -106,7 +108,7 @@ fun ResultsScreen(session: GameSession) {
 
         if (result.postMortem.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text("What decided it", style = MaterialTheme.typography.titleSmall)
+            Text("WHAT DECIDED IT", modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             for (cause in result.postMortem.take(5)) {
                 Text(
                     cause.cause,

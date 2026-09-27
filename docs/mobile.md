@@ -1,51 +1,56 @@
-# Mobile builds
+# Native mobile builds
 
-Android and iOS are Tauri 2 targets of the same shell as desktop; the
-simulation and interface stay shared with the web edition fetched at `web.pin`.
+The mobile apps use Jetpack Compose on Android and SwiftUI on iOS. Both call
+the Kotlin Multiplatform simulation in `shared/`. The Tauri project is for
+desktop only; `src-tauri/gen/android` is a retired wrapper and is not the
+mobile release source.
 
-## Android
+## What players can do
 
-The generated Android Studio project is at `src-tauri/gen/android`, package
-`com.lakesidegames.electioneer`, launcher label "Margin of Victory". It builds
-on Linux. Bootstrap the SDK/NDK without root:
+The Play tab opens a native campaign menu. Players can resume a local save or
+start a new campaign from 17 U.S. presidential elections (1960–2024). Setup
+includes ticket, running mate, three staff slots, difficulty, historical or
+plausible events, 5/9/14 week length, a replayable seed, and the three free
+modifiers. The campaign desk, state map, event decisions, election results,
+Store, and Account are native views. All campaign options feed the shared
+engine; local saves persist after setup and each game mutation.
 
-```text
-./scripts/bootstrap-android-sdk.sh      # command-line tools, platform 35, build-tools 35, NDK
-export ANDROID_HOME=/root/Android/Sdk
-export NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018
+The shared engine also contains UK and country systems. The current native
+menu exposes the U.S. scenarios because those other game loops do not yet
+have native session and screen adapters. Do not list them as playable in the
+mobile app until those adapters exist.
 
-npm install
-npm run android:build                   # mode android
-```
+## Android verification
 
-The Android build uses Vite mode `android`, which disables every external
-Lakeside store link and checkout action. Google Play Billing and purchase
-restoration are **not implemented**; the free base app may be tested, but pack
-sales must not launch until that adapter is complete and tested against Play
-Console products.
+Use a JDK 21 and Android SDK with platform 36. Set `ANDROID_HOME` or
+`local.properties` to the SDK path, then run `npm run native:verify`. This
+runs shared JVM tests and assembles the Compose debug APK at
+`androidApp/build/outputs/apk/debug/androidApp-debug.apk`.
 
-## iOS
+On this VPS, queue the full check through `lakeside-check-queue` per the host
+instructions. A real device pass is still required for save restore, event
+decisions, screen sizes, and Play purchase behavior.
 
-The shared Rust and web code supports Tauri's iOS target, but generating,
-building, signing and testing the Xcode project requires macOS with Xcode.
-`tauri.ios.conf.json` already sets the `ios` mode:
+## iOS verification and TestFlight
 
-```text
-npm run ios:init                        # on the macOS host, generates the Xcode project
-npm run ios:build                       # mode ios
-```
+`codemagic.yaml` has two workflows:
 
-StoreKit purchase and restoration are **not implemented**. They must be tested
-through StoreKit Testing and TestFlight before release. Route this through CI
-(Codemagic runs the AHDNative iOS pipeline today) rather than expecting it to
-work on the Linux host.
+- `ios-verify` compiles the shared Kotlin framework and SwiftUI app for the
+  iOS simulator, without signing or publishing.
+- `ios-testflight` archives, signs, and uploads a reviewed commit after the
+  App ID, distribution profile, and App Store Connect app record exist. It
+  checks `MOV_REVIEW_COMMIT` against the exact source SHA.
+
+Apple Developer Program benefits are temporarily disabled during the team's
+membership migration (Apple case `102973233199`). The missing MOV App ID,
+provisioning profile, and App Store Connect app record block TestFlight.
+Codemagic has the other encrypted signing inputs. The owner will resume
+portal setup when Apple completes the migration; see `release-checklist.md`
+for the exact sequence. No signed MOV IPA or TestFlight build exists yet.
 
 ## Release gates
 
-No store submission is complete until every gate passes with evidence:
-
-- No external web checkout appears in Android or iOS builds.
-- Every non-consumable purchase has a working Restore Purchases path.
-- A purchase, refund, reinstall and offline entitlement refresh are tested.
-- Phone layouts pass at 390 × 844 CSS pixels without horizontal overflow.
-- App Store and Play Store privacy declarations match actual telemetry.
+Device runs must cover campaign creation, an action and event, close and
+reopen restore, a full result, accessibility and phone layouts, plus purchase,
+restore, refund, reinstall, and offline entitlement behavior. Store privacy
+declarations must match the actual telemetry and billing setup.

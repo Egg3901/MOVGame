@@ -1,8 +1,8 @@
 # Release checklist (Phase 6, #24)
 
-Owner-side runbook for the first store submissions. Code hooks are in the
-tree; every unchecked box below needs a console action or a macOS run that
-this track cannot perform headless.
+Owner-side runbook for the first store submissions. The native UI and shared
+engine compile on Android locally and iOS through Codemagic. Unchecked items
+require portal access, device testing, or store configuration.
 
 ## Android (Play)
 
@@ -27,6 +27,11 @@ this track cannot perform headless.
 
 ## iOS (App Store)
 
+Apple Developer Program benefits are temporarily disabled while the team's
+membership migration processes (case `102973233199`). App IDs, profiles,
+and App Store Connect apps cannot be created until Apple restores access.
+The owner will resume portal setup when the migration completes.
+
 - [ ] Apple Developer: register the explicit iOS App ID
   `com.lakesidegames.electioneer` in the existing team. In-App Purchase is
   enabled by default for an explicit App ID.
@@ -44,12 +49,10 @@ this track cannot perform headless.
   to App Review; assign the build to internal testers after processing.
 - [ ] On a device: repeat the campaign close/reopen test and verify the shared
   save restores through the SwiftUI session.
-- [x] macOS verify: Codemagic `ios-verify` compiled the Kotlin framework and
-  SwiftUI simulator app at source commit
-  `2700c3f1884b6cc53cd67ae4f3f417c3411ebdc8` (build
-  `6ab9539a9e9edb1d6d9a0803`). The compile step succeeded; the overall
-  run was canceled after cleanup stalled for several minutes. This workflow
-  does not sign or publish.
+- [x] macOS verify: Codemagic `ios-verify` fully passed for the native
+  campaign menu, setup, dashboard, and results at
+  `600e4f77fb591620bed1bb384d33ac0542e41f99` (build
+  `6ab9644bccabf1ff83f8db61`). This workflow does not sign or publish.
 - [ ] App Store Connect: products matching the SKU table, sandbox +
   TestFlight exercise of purchase/restore/refund through `StoreKitAdapter`.
 - [ ] App Store Server Notifications endpoint on the campaign server (web

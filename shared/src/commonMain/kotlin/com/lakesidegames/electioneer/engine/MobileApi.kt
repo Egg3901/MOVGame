@@ -2,6 +2,13 @@ package com.lakesidegames.electioneer.engine
 
 import com.lakesidegames.electioneer.content.CANDIDATES
 import com.lakesidegames.electioneer.content.EVENTS_BY_ID
+import com.lakesidegames.electioneer.content.SCENARIOS
+import com.lakesidegames.electioneer.content.SCENARIO_IDS
+import com.lakesidegames.electioneer.content.STAFF_POOL
+
+data class CampaignChoice(val id: String, val year: Int, val label: String, val tagline: String, val demName: String, val repName: String)
+data class MateChoice(val id: String, val name: String, val blurb: String, val historical: Boolean)
+data class StaffChoice(val id: String, val name: String, val role: String, val blurb: String)
 
 // Swift-friendly facade over the US game loop (Phase 4, #22).
 //
@@ -35,9 +42,48 @@ class MobileGame private constructor(
         fun candidates(): List<Candidate> = CANDIDATES.values.toList()
 
         fun difficulties(): List<String> = listOf("easy", "normal", "hard")
+
+        fun campaigns(): List<CampaignChoice> = SCENARIO_IDS.map { id ->
+            val s = SCENARIOS.getValue(id)
+            CampaignChoice(s.id, s.year, s.label, s.tagline, s.dem.shortName, s.rep.shortName)
+        }
+
+        fun mates(scenarioId: String, playerSerial: String): List<MateChoice> {
+            val s = SCENARIOS.getValue(scenarioId)
+            val roster = if (playerSerial == CandidateId.DEM.serial) s.dem.runningMates else s.rep.runningMates
+            return roster.map { MateChoice(it.id, it.name, it.blurb, it.historical) }
+        }
+
+        fun staffChoices(): List<StaffChoice> = STAFF_POOL.map { StaffChoice(it.id, it.name, it.role, it.blurb) }
+
+        fun startConfiguredGame(
+            scenarioId: String, playerSerial: String, mateId: String,
+            staffIds: List<String>, difficulty: String, eventModeSerial: String,
+            totalTurns: Int, seed: String, whatIfState: String,
+            mirrorMatch: Boolean, pandemic: Boolean,
+        ): MobileGame {
+            require(scenarioId in SCENARIOS)
+            require(difficulty in difficulties())
+            require(totalTurns in listOf(5, 9, 14))
+            require(staffIds.size <= 3 && staffIds.distinct().size == staffIds.size)
+            require(staffIds.all { id -> STAFF_POOL.any { it.id == id } })
+            require(mates(scenarioId, playerSerial).any { it.id == mateId })
+            require(whatIfState in listOf("", "TX", "FL", "OH", "PA", "MI", "WI", "GA", "AZ", "NC", "NY"))
+            val player = CandidateId.entries.first { it.serial == playerSerial }
+            val eventMode = EventMode.entries.first { it.serial == eventModeSerial }
+            val state = createGame(NewGameOptions(
+                seed = seed, playerCandidate = player, scenario = scenarioId,
+                runningMate = mateId, staff = staffIds, difficulty = difficulty,
+                eventMode = eventMode, totalTurns = totalTurns,
+                modifiers = GameModifiers(whatIfState = whatIfState.ifEmpty { null }, mirrorMatch = mirrorMatch, pandemic = pandemic),
+            ))
+            return MobileGame(state, seed)
+        }
     }
 
     fun playerSerial(): String = game.playerCandidate.serial
+
+    fun campaignLabel(): String = SCENARIOS[game.scenarioId ?: "2020"]?.label ?: "Your campaign"
 
     fun saveSnapshot(): String = saveGame(game, seedStr)
 

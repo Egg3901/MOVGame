@@ -13,6 +13,13 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.PlayArrow
@@ -25,6 +32,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.lakesidegames.electioneer.ui.AccountScreen
 import com.lakesidegames.electioneer.ui.GameScreen
 import com.lakesidegames.electioneer.ui.GameSession
+import com.lakesidegames.electioneer.ui.HomeScreen
 import com.lakesidegames.electioneer.ui.ResultsScreen
 import com.lakesidegames.electioneer.ui.Screen
 import com.lakesidegames.electioneer.ui.SetupScreen
@@ -44,13 +52,18 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
     val screen by session.screen.collectAsState()
-    MaterialTheme {
+    MaterialTheme(colorScheme = darkColorScheme(
+        primary = Color(0xFFF5B942), onPrimary = Color(0xFF17202B),
+        background = Color(0xFF0A0F14), surface = Color(0xFF111B26),
+        surfaceVariant = Color(0xFF16222E), onSurface = Color(0xFFEAF0F6),
+        onSurfaceVariant = Color(0xFFA8B5C2), primaryContainer = Color(0xFF35402D),
+    )) {
         Surface {
             Scaffold(
                 bottomBar = {
                     NavigationBar {
                         NavigationBarItem(
-                            selected = screen == Screen.SETUP ||
+                            selected = screen == Screen.HOME || screen == Screen.SETUP || screen == Screen.LOADING ||
                                 screen == Screen.GAME ||
                                 screen == Screen.RESULTS,
                             onClick = { session.playTab() },
@@ -81,7 +94,12 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                 val mod = Modifier.padding(inner)
                 Box(mod) {
                     when (screen) {
+                        Screen.HOME -> HomeScreen(session)
                         Screen.SETUP -> SetupScreen(session)
+                        Screen.LOADING -> Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            CircularProgressIndicator()
+                            Text("Preparing the campaign trail…")
+                        }
                         Screen.GAME -> GameScreen(session)
                         Screen.RESULTS -> ResultsScreen(session)
                         Screen.STORE -> StoreScreen(session, activity)

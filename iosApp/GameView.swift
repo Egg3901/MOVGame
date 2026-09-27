@@ -25,22 +25,37 @@ struct GameView: View {
 
         return AnyView(
             ScrollView {
-                VStack(spacing: 8) {
-                    HStack {
-                        Text("DEM \(proj.dem)").foregroundColor(.blue)
-                        Spacer()
-                        Text("270 to win").font(.caption)
-                        Spacer()
-                        Text("\(proj.rep) REP").foregroundColor(.red)
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("CAMPAIGN DESK").font(.caption.bold()).tracking(2).foregroundStyle(.orange)
+                    Text(g.campaignLabel()).font(.title2.bold())
+                    VStack(spacing: 14) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading) {
+                                Text("DEMOCRATS").font(.caption2.bold()).foregroundStyle(Color(red: 0.5, green: 0.66, blue: 1))
+                                Text("\(proj.dem)").font(.largeTitle.bold())
+                            }
+                            Spacer()
+                            VStack {
+                                Text("270 TO WIN").font(.caption2.bold()).foregroundStyle(.orange)
+                                Text("\(proj.tossup) tossup").font(.caption)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing) {
+                                Text("REPUBLICANS").font(.caption2.bold()).foregroundStyle(Color(red: 1, green: 0.54, blue: 0.51))
+                                Text("\(proj.rep)").font(.largeTitle.bold())
+                            }
+                        }
+                        ProgressView(value: Double(proj.dem) + Double(proj.tossup) / 2, total: 538)
+                            .tint(Color(red: 0.5, green: 0.66, blue: 1))
+                        HStack {
+                            Text("WEEK \(Int(g.turn()) + 1)/\(Int(g.totalTurns()))")
+                            Spacer()
+                            Text(String(format: "$%.1fM", g.playerCash() / 1_000_000))
+                            Spacer()
+                            Text("\(Int(g.slotsLeft())) ACTIONS")
+                        }.font(.caption.bold())
                     }
-                    ProgressView(value: Double(proj.dem) + Double(proj.tossup) / 2, total: 538)
-                    HStack {
-                        Text("Week \(Int(g.turn()) + 1)/\(Int(g.totalTurns()))").font(.caption)
-                        Spacer()
-                        Text(String(format: "Cash $%.1fM", g.playerCash() / 1_000_000)).font(.caption)
-                        Spacer()
-                        Text("Actions \(Int(g.slotsLeft()))").font(.caption)
-                    }
+                    .padding(16).background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
 
                     TileMapView(
                         contestsById: contests,
@@ -50,14 +65,21 @@ struct GameView: View {
                     )
 
                     if let st = selState, let ct = selContest {
-                        Text("\(st.name): \(Int(st.electoralVotes)) EV, Dem \(Int(ct.demShare * 100))%")
-                            .font(.headline)
-                        HStack {
-                            actionButton("Ads") { session.queueAction(typeSerial: "advertise", stateId: st.id) }
-                            actionButton("Rally") { session.queueAction(typeSerial: "rally", stateId: st.id) }
-                            actionButton("Ground") { session.queueAction(typeSerial: "ground_game", stateId: st.id) }
-                            actionButton("GOTV") { session.queueAction(typeSerial: "gotv", stateId: st.id) }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(st.name)  ·  \(Int(st.electoralVotes)) EV").font(.headline)
+                            Text("Democratic projection \(Int(ct.demShare * 100))%")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            HStack {
+                                actionButton("Ads") { session.queueAction(typeSerial: "advertise", stateId: st.id) }
+                                actionButton("Rally") { session.queueAction(typeSerial: "rally", stateId: st.id) }
+                            }
+                            HStack {
+                                actionButton("Ground") { session.queueAction(typeSerial: "ground_game", stateId: st.id) }
+                                actionButton("GOTV") { session.queueAction(typeSerial: "gotv", stateId: st.id) }
+                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+                        .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 16))
                     } else {
                         Text("Tap a state, then queue actions.").font(.caption)
                     }
@@ -69,12 +91,16 @@ struct GameView: View {
                         Button("Clear") { session.clearQueue() }
                     }
 
-                    Button("End Week") { session.endTurn() }
-                        .buttonStyle(.borderedProminent)
-                        .frame(maxWidth: .infinity)
+                    Button { session.endTurn() } label: {
+                        Text("End week  →").font(.headline).frame(maxWidth: .infinity).padding(16)
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.black)
+                    .background(.orange, in: RoundedRectangle(cornerRadius: 14))
                 }
                 .padding()
             }
+            .background(Color(red: 10/255, green: 15/255, blue: 20/255))
+            .preferredColorScheme(.dark)
             .alert("Week \(Int(g.turn()) + 1) recap", isPresented: $session.showRecap) {
                 Button("OK") { session.dismissRecap() }
             } message: {

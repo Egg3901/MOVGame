@@ -25,17 +25,31 @@ import com.lakesidegames.electioneer.engine.projectElection
 import com.lakesidegames.electioneer.engine.resolveEvent
 import com.lakesidegames.electioneer.engine.loadGame
 import com.lakesidegames.electioneer.engine.saveGame
+import com.lakesidegames.electioneer.engine.MobileGame
+import com.lakesidegames.electioneer.engine.EventMode
+import com.lakesidegames.electioneer.engine.GameModifiers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Phase 3: hand-rolled nav (5 screens; no navigation-compose dependency).
 // The session survives rotation via the platform ViewModel;Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { SETUP, GAME, RESULTS, STORE, ACCOUNT }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 
 class GameSession : ViewModel() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    override fun onCleared() {
+        scope.cancel()
+        super.onCleared()
+    }
     private var savePrefs: SharedPreferences? = null
     private val saveKey = "campaign_v1"
 
@@ -46,7 +60,7 @@ class GameSession : ViewModel() {
         val saved = prefs.getString(saveKey, null)?.let(::loadGame) ?: return
         turnSeed = saved.seed
         _game.value = saved.state
-        _screen.value = if (saved.state.phase == GamePhase.RESULT) Screen.RESULTS else Screen.GAME
+        _screen.value = Screen.HOME
         refresh()
         promptNextEvent(saved.state)
     }
@@ -56,7 +70,7 @@ class GameSession : ViewModel() {
         savePrefs?.edit()?.putString(saveKey, saveGame(game, turnSeed))?.apply()
     }
 
-    private val _screen = MutableStateFlow(Screen.SETUP)
+    private val _screen = MutableStateFlow(Screen.HOME)
     val screen: StateFlow<Screen> = _screen
 
     private val _game = MutableStateFlow<GameState?>(null)
@@ -113,6 +127,21 @@ class GameSession : ViewModel() {
 
     fun candidates() = CANDIDATES
 
+    fun campaigns() = MobileGame.campaigns()
+    fun mates(scenario: String, player: CandidateId) = MobileGame.mates(scenario, player.serial)
+    fun staffChoices() = MobileGame.staffChoices()
+
+    fun hasSave() = _game.value != null
+    fun savedCampaignLabel(): String? = _game.value?.let { game ->
+        val id = game.scenarioId ?: "2020"
+        MobileGame.campaigns().firstOrNull { it.id == id }?.label
+    }
+
+    fun resumeGame() {
+        val g = _game.value ?: return
+        _screen.value = if (g.phase == GamePhase.RESULT) Screen.RESULTS else Screen.GAME
+    }
+
     fun go(s: Screen) {
         _screen.value = s
     }
@@ -121,22 +150,33 @@ class GameSession : ViewModel() {
     fun playTab() {
         val g = _game.value
         _screen.value = when {
-            g == null -> Screen.SETUP
-            g.phase == GamePhase.RESULT -> Screen.RESULTS
-            else -> Screen.GAME
+            else -> Screen.HOME
         }
     }
 
-    fun newGame(player: CandidateId, difficulty: String) {
-        // androidApp may use the wall clock; common code stays clock-free.
-        turnSeed = System.currentTimeMillis().toString()
-        val g = createGame(
+    fun newGame(scenarioId: String, player: CandidateId, mateId: String, staffIds: List<String>, difficulty: String, eventMode: EventMode, totalTurns: Int, seed: String, whatIfState: String, mirrorMatch: Boolean, pandemic: Boolean) {
+        require(MobileGame.campaigns().any { it.id == scenarioId })
+        require(MobileGame.mates(scenarioId, player.serial).any { it.id == mateId })
+        require(staffIds.size <= 3 && staffIds.distinct().size == staffIds.size)
+        require(staffIds.all { id -> MobileGame.staffChoices().any { it.id == id } })
+        require(difficulty in DIFFICULTIES && totalTurns in listOf(5, 9, 14))
+        require(whatIfState in listOf("", "TX", "FL", "OH", "PA", "MI", "WI", "GA", "AZ", "NC", "NY"))
+        _screen.value = Screen.LOADING
+        turnSeed = seed
+        scope.launch {
+        val g = withContext(Dispatchers.Default) { createGame(
             NewGameOptions(
-                seed = turnSeed,
+                seed = seed,
                 playerCandidate = player,
                 difficulty = difficulty,
+                scenario = scenarioId,
+                runningMate = mateId,
+                staff = staffIds,
+                eventMode = eventMode,
+                totalTurns = totalTurns,
+                modifiers = GameModifiers(whatIfState.ifEmpty { null }, mirrorMatch, pandemic),
             ),
-        )
+        ) }
         _game.value = g
         _selected.value = null
         _pendingDialog.value = null
@@ -145,6 +185,7 @@ class GameSession : ViewModel() {
         refresh()
         _screen.value = Screen.GAME
         persist()
+        }
     }
 
     fun playAgain() {

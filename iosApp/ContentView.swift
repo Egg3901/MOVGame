@@ -17,13 +17,21 @@ struct ContentView: View {
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
                 .tag(2)
         }
+        .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
     private var playTab: some View {
         switch session.playScreen {
+        case .home:
+            HomeView(session: session)
         case .setup:
             SetupView(session: session)
+        case .loading:
+            VStack(spacing: 16) {
+                ProgressView().tint(.orange)
+                Text("Preparing the campaign trail…")
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
         case .game:
             GameView(session: session)
         case .results:

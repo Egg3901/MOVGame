@@ -1,5 +1,10 @@
 # MOV Native Port — Handoff Prompt
 
+> Historical Phase 0 prompt. The scaffold and engine port are complete. For
+> current mobile architecture and release status, use `docs/mobile.md` and
+> `docs/release-checklist.md`. The task restrictions below applied only to the
+> original Phase 0 assignment.
+
 Use with `/goal` or as a standing agent instruction.
 
 ---

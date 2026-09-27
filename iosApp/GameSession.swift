@@ -5,13 +5,13 @@ import shared
 // talks only to the MobileGame facade (string serials in, plain reads out)
 // and bumps `version` after every mutation so views re-render.
 enum PlayScreen {
-    case setup, game, results
+    case home, setup, loading, game, results
 }
 
 final class GameSession: ObservableObject {
     private static let saveKey = "mov_campaign_v1"
     @Published var tab = 0 // 0 play, 1 store, 2 account
-    @Published var playScreen: PlayScreen = .setup
+    @Published var playScreen: PlayScreen = .home
     @Published var version = 0
 
     @Published var recapLines: [String] = []
@@ -25,21 +25,21 @@ final class GameSession: ObservableObject {
         if let snapshot = UserDefaults.standard.string(forKey: Self.saveKey),
            let restored = MobileGame.companion.restore(snapshot: snapshot) {
             game = restored
-            playScreen = restored.isOver() ? .results : .game
+            playScreen = .home
             eventId = restored.pendingEventIds().first
         }
     }
 
     var hasGame: Bool { game != nil }
+    var savedCampaignLabel: String { game?.campaignLabel() ?? "Your campaign" }
+
+    func resumeGame() {
+        guard let game = game else { return }
+        playScreen = game.isOver() ? .results : .game
+    }
 
     func playTab() {
-        if let g = game, g.isOver() {
-            playScreen = .results
-        } else if game != nil {
-            playScreen = .game
-        } else {
-            playScreen = .setup
-        }
+        playScreen = .home
         tab = 0
     }
 
@@ -53,16 +53,28 @@ final class GameSession: ObservableObject {
     func candidates() -> [Candidate] { MobileGame.companion.candidates() }
 
     func difficulties() -> [String] { MobileGame.companion.difficulties() }
+    func campaigns() -> [CampaignChoice] { MobileGame.companion.campaigns() }
+    func mates(scenarioId: String, playerSerial: String) -> [MateChoice] { MobileGame.companion.mates(scenarioId: scenarioId, playerSerial: playerSerial) }
+    func staffChoices() -> [StaffChoice] { MobileGame.companion.staffChoices() }
 
-    func newGame(playerSerial: String, difficulty: String) {
-        let seed = Int64(Date().timeIntervalSince1970 * 1000)
-        game = MobileGame.companion.startGame(playerSerial: playerSerial, difficulty: difficulty, seed: seed)
-        recapLines = []
-        showRecap = false
-        eventId = nil
-        eventResult = nil
-        playScreen = .game
-        touch()
+    func newGame(scenarioId: String, playerSerial: String, mateId: String, staffIds: [String], difficulty: String, eventMode: String, totalTurns: Int, seed: String, whatIfState: String, mirrorMatch: Bool, pandemic: Bool) {
+        playScreen = .loading
+        DispatchQueue.global(qos: .userInitiated).async {
+            let started = MobileGame.companion.startConfiguredGame(
+                scenarioId: scenarioId, playerSerial: playerSerial, mateId: mateId,
+                staffIds: staffIds, difficulty: difficulty, eventModeSerial: eventMode,
+                totalTurns: Int32(totalTurns), seed: seed, whatIfState: whatIfState,
+                mirrorMatch: mirrorMatch, pandemic: pandemic)
+            DispatchQueue.main.async {
+                self.game = started
+                self.recapLines = []
+                self.showRecap = false
+                self.eventId = nil
+                self.eventResult = nil
+                self.playScreen = .game
+                self.touch()
+            }
+        }
     }
 
     func currentGame() -> MobileGame? { game }

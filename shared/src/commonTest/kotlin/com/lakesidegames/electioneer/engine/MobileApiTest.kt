@@ -59,4 +59,19 @@ class MobileApiTest {
         assertTrue(game.eventChoices("no-such-event").isEmpty())
         assertTrue(game.answerEvent("no-such-event", "x").isNotEmpty())
     }
+
+    @Test
+    fun configuredCampaignPreservesSetupAndSave() {
+        val campaigns = MobileGame.campaigns()
+        assertEquals(17, campaigns.size)
+        val mate = MobileGame.mates("1960", "rep").first()
+        val staff = MobileGame.staffChoices().take(2).map { it.id }
+        val game = MobileGame.startConfiguredGame("1960", "rep", mate.id, staff, "hard", "plausible", 5, "ui-parity-test", "PA", true, true)
+        assertEquals("1960", game.campaignLabel().take(4))
+        assertEquals(5, game.totalTurns())
+        assertEquals("rep", game.playerSerial())
+        val restored = MobileGame.restore(game.saveSnapshot())!!
+        assertEquals(game.campaignLabel(), restored.campaignLabel())
+        assertEquals(5, restored.totalTurns())
+    }
 }
