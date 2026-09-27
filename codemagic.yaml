@@ -1,0 +1,164 @@
+# MOVGame-native iOS TestFlight via Codemagic. Manual trigger only: the app
+# record, provisioning profile, and Codemagic app + env group are owner-side
+# setup (see docs/release-checklist.md). Never attach signed artifacts to
+# public runs; submit_to_testflight stays false and builds are assigned to
+# the internal group via the ASC API after upload, mirroring AHDNative.
+workflows:
+  ios-verify:
+    name: MOV native iOS compile check
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      xcode: "26.6"
+    cache:
+      cache_paths:
+        - $HOME/.gradle
+        - $HOME/.konan
+        - $HOME/android-sdk
+    scripts:
+      - name: Select JDK 21 and Android platform
+        script: |
+          set -eu
+          jdk=$(ls -d /Library/Java/JavaVirtualMachines/*21* 2>/dev/null | head -n 1)
+          if [ -z "$jdk" ]; then echo "No JDK 21 on builder"; exit 1; fi
+          export JAVA_HOME="$jdk/Contents/Home"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME" >> "$CM_ENV"
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          printf 'ANDROID_SDK_ROOT=%s\n' "$ANDROID_SDK_ROOT" >> "$CM_ENV"
+          if [ ! -f "$ANDROID_SDK_ROOT/platforms/android-36/android.jar" ]; then
+            cd /tmp
+            curl --http1.1 --retry 5 --retry-all-errors --retry-delay 2 -fsSL -o cmdtools.zip https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip
+            mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+            unzip -q -o cmdtools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+            mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+            yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null
+            "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-36"
+          fi
+          printf 'sdk.dir=%s\n' "$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+      - name: Compile Kotlin framework and SwiftUI simulator app
+        script: |
+          set -eu
+          xcodebuild \
+            -project iosApp/MOVGameiOS.xcodeproj \
+            -scheme MOVGameiOS \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$CM_BUILD_DIR/build/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+  ios-testflight:
+    name: MOV iOS TestFlight build
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      xcode: "26.6"
+      groups:
+        - mov-signing
+    cache:
+      cache_paths:
+        - $HOME/.gradle
+        - $HOME/.konan
+        - $HOME/android-sdk
+    scripts:
+      - name: Confirm reviewed source
+        script: |
+          set -eu
+          python3 - <<'PYTHON'
+          import os, re, subprocess
+          expected = os.environ.get("MOV_REVIEW_COMMIT", "")
+          actual = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          if not re.fullmatch(r"[0-9a-f]{40}", expected) or actual != expected:
+              raise SystemExit("Build must target the exact locally reviewed commit")
+          print("Reviewed source:", actual)
+          PYTHON
+      - name: Check signing inputs
+        script: |
+          set -eu
+          python3 - <<'PYTHON'
+          import os
+          required = ["IOS_CERTIFICATE", "IOS_CERTIFICATE_PASSWORD", "IOS_MOBILE_PROVISION",
+                      "MOV_APPLE_TEAM", "APP_STORE_CONNECT_PRIVATE_KEY",
+                      "APP_STORE_CONNECT_KEY_IDENTIFIER", "APP_STORE_CONNECT_ISSUER_ID",
+                      "MOV_REVIEW_COMMIT"]
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit("Missing encrypted signing variables: " + ", ".join(missing))
+          print("Signing inputs present")
+          PYTHON
+      - name: Select JDK 21 and Android platform
+        script: |
+          set -eu
+          # The shared Gradle configure needs a JDK and the compileSdk
+          # platform even though this workflow never assembles Android.
+          jdk=$(ls -d /Library/Java/JavaVirtualMachines/*21* 2>/dev/null | head -n 1)
+          if [ -z "$jdk" ]; then echo "No JDK 21 on builder"; exit 1; fi
+          export JAVA_HOME="$jdk/Contents/Home"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME" >> "$CM_ENV"
+          "$JAVA_HOME/bin/java" -version 2>&1 | head -n 1
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          printf 'ANDROID_SDK_ROOT=%s\n' "$ANDROID_SDK_ROOT" >> "$CM_ENV"
+          if [ ! -f "$ANDROID_SDK_ROOT/platforms/android-36/android.jar" ]; then
+            cd /tmp
+            curl --http1.1 --retry 5 --retry-all-errors --retry-delay 2 -fsSL -o cmdtools.zip https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip
+            mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+            unzip -q -o cmdtools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+            mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+            yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null
+            "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-36"
+          fi
+          printf 'sdk.dir=%s\n' "$ANDROID_SDK_ROOT" > local.properties
+      - name: Install signing and pin Xcode project
+        script: |
+          set -eu
+          python3 scripts/codemagic-ios-signing.py
+      - name: Archive signed iPhone application
+        script: |
+          set -eu
+          jdk=$(ls -d /Library/Java/JavaVirtualMachines/*21* 2>/dev/null | head -n 1)
+          export JAVA_HOME="$jdk/Contents/Home"
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          # The pbx script phase builds the shared Kotlin framework; it
+          # inherits this environment from the xcodebuild process.
+          xcodebuild \
+            -project iosApp/MOVGameiOS.xcodeproj \
+            -scheme MOVGameiOS \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$CM_BUILD_DIR/build/MOVGameiOS.xcarchive" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            archive
+      - name: Export IPA for App Store Connect
+        script: |
+          set -eu
+          python3 - <<'PYTHON'
+          import os, plistlib, subprocess
+          from pathlib import Path
+          profile = Path.home() / "Library/MobileDevice/Provisioning Profiles"
+          uuids = [p.stem for p in profile.glob("*.mobileprovision")]
+          assert len(uuids) == 1, f"expected one profile, found {uuids}"
+          options = {
+              "method": "app-store-connect",
+              "teamID": os.environ["MOV_APPLE_TEAM"],
+              "signingStyle": "manual",
+              "provisioningProfiles": {"com.lakesidegames.electioneer": uuids[0]},
+              "testFlightInternalTestingOnly": True,
+          }
+          out = Path("build/ExportOptions.plist")
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_bytes(plistlib.dumps(options))
+          print("export profile:", uuids[0])
+          PYTHON
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$CM_BUILD_DIR/build/MOVGameiOS.xcarchive" \
+            -exportPath "$CM_BUILD_DIR/build/ipa" \
+            -exportOptionsPlist "$CM_BUILD_DIR/build/ExportOptions.plist"
+    artifacts:
+      - build/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: false
+        submit_to_app_store: false

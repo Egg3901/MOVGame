@@ -1,5 +1,5 @@
 {
   "build": {
-    "beforeBuildCommand": "./scripts/fetch-web.sh steam"
+    "beforeBuildCommand": "node scripts/fetch-web.mjs steam"
   }
 }

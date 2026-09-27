@@ -13,8 +13,17 @@
 /src-tauri/gen/apple/build/
 # node
 /node_modules/
+/worktrees/
 # artifacts
 *.apk
 *.aab
 *.ipa
 .DS_Store
+# KMP / Gradle (Phase 0 scaffold)
+local.properties
+.gradle/
+.kotlin/
+build/
+shared/build/
+androidApp/build/
+*.hprof

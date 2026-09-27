@@ -1,0 +1,94 @@
+package com.lakesidegames.electioneer
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import android.app.Activity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelProvider
+import com.lakesidegames.electioneer.ui.AccountScreen
+import com.lakesidegames.electioneer.ui.GameScreen
+import com.lakesidegames.electioneer.ui.GameSession
+import com.lakesidegames.electioneer.ui.ResultsScreen
+import com.lakesidegames.electioneer.ui.Screen
+import com.lakesidegames.electioneer.ui.SetupScreen
+import com.lakesidegames.electioneer.ui.StoreScreen
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Stock ViewModelProvider: no viewmodel-compose artifact needed.
+        val session = ViewModelProvider(this)[GameSession::class.java]
+        session.attachStorage(applicationContext)
+        session.attachBilling(applicationContext)
+        setContent { MarginOfVictoryApp(session, this) }
+    }
+}
+
+@Composable
+fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
+    val screen by session.screen.collectAsState()
+    MaterialTheme {
+        Surface {
+            Scaffold(
+                bottomBar = {
+                    NavigationBar {
+                        NavigationBarItem(
+                            selected = screen == Screen.SETUP ||
+                                screen == Screen.GAME ||
+                                screen == Screen.RESULTS,
+                            onClick = { session.playTab() },
+                            icon = {
+                                Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
+                            },
+                            label = { Text("Play") },
+                        )
+                        NavigationBarItem(
+                            selected = screen == Screen.STORE,
+                            onClick = { session.go(Screen.STORE) },
+                            icon = {
+                                Icon(Icons.Filled.ShoppingCart, contentDescription = "Store")
+                            },
+                            label = { Text("Store") },
+                        )
+                        NavigationBarItem(
+                            selected = screen == Screen.ACCOUNT,
+                            onClick = { session.go(Screen.ACCOUNT) },
+                            icon = {
+                                Icon(Icons.Filled.AccountCircle, contentDescription = "Account")
+                            },
+                            label = { Text("Account") },
+                        )
+                    }
+                },
+            ) { inner ->
+                val mod = Modifier.padding(inner)
+                Box(mod) {
+                    when (screen) {
+                        Screen.SETUP -> SetupScreen(session)
+                        Screen.GAME -> GameScreen(session)
+                        Screen.RESULTS -> ResultsScreen(session)
+                        Screen.STORE -> StoreScreen(session, activity)
+                        Screen.ACCOUNT -> AccountScreen()
+                    }
+                }
+            }
+        }
+    }
+}

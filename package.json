@@ -2,23 +2,16 @@
   "name": "movgame-native",
   "private": true,
   "version": "0.1.0",
-  "description": "Margin of Victory native clients — Tauri v2 shells for desktop, iOS and Android",
+  "description": "Margin of Victory native mobile clients and Tauri desktop shell",
   "scripts": {
-    "fetch:web": "./scripts/fetch-web.sh desktop-direct --no-build",
-    "build:web": "./scripts/fetch-web.sh desktop-direct",
-    "build:web:android": "./scripts/fetch-web.sh android",
-    "build:web:ios": "./scripts/fetch-web.sh ios",
-    "build:web:steam": "./scripts/fetch-web.sh steam",
+    "native:verify": "./gradlew :shared:jvmTest :androidApp:assembleDebug",
+    "fetch:web": "node scripts/fetch-web.mjs desktop-direct --no-build",
+    "build:web": "node scripts/fetch-web.mjs desktop-direct",
+    "build:web:steam": "node scripts/fetch-web.mjs steam",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "desktop:build": "tauri build",
-    "steam:build": "tauri build --config src-tauri/tauri.steam.conf.json",
-    "android:init": "tauri android init",
-    "android:dev": "tauri android dev",
-    "android:build": "tauri android build",
-    "ios:init": "tauri ios init",
-    "ios:dev": "tauri ios dev",
-    "ios:build": "tauri ios build"
+    "steam:build": "tauri build --config src-tauri/tauri.steam.conf.json"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.0"
