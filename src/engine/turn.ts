@@ -162,7 +162,7 @@ export function advanceTurn(
     if (game.causes.length > causeCount) completedActions.push(action);
   }
   const aiActions = planAiActions(game, rng, cfg);
-  for (const action of aiActions) applyAction(game, action, rng);
+  for (const action of aiActions) applyAction(game, action, rng, cfg.actionPower ?? 1);
 
   // 4. Decay transient quantities and refill resources.
   decay(game);

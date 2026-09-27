@@ -161,12 +161,15 @@ const GOV_LABEL: Record<string, string> = {
 export function CountryStandings() {
   const country = useCountryStore((s) => s.country)!;
   const game = useCountryStore((s) => s.game)!;
+  const replay = useCountryStore((s) => s.replay);
   const live = useCountryStore((s) => s.liveProjection)();
   if (!live) return null;
   const order = sortBySeats(country, live.seats);
   const total = majorityFor(game, country).total;
   const issues = Object.keys(game.salience).filter((id) => game.salience[id] >= 0.1).sort((a, b) => game.salience[b] - game.salience[a]);
   const issueName = (id: string) => country.issues.find((i) => i.id === id)?.name ?? id;
+  const openingShare = replay?.snapshots[0]?.standings.find((standing) => standing.id === game.playerParty)?.poll;
+  const voteShift = openingShare === undefined ? null : ((live.voteShare[game.playerParty] ?? 0) - openingShare) * 100;
 
   return (
     <div className="card scroll">
@@ -174,6 +177,11 @@ export function CountryStandings() {
       <div className="kv"><span className="k">Projected outcome</span><span style={{ color: partyColor(country, live.largestParty) }}>{country.id === "FR" && live.government.kind === "majority" ? "Wins presidency" : GOV_LABEL[live.government.kind]}</span></div>
       <div className="kv"><span className="k">Leading</span><span style={{ color: partyColor(country, live.largestParty) }}>{partyName(country, live.largestParty)}</span></div>
       <div className="kv"><span className="k">Your momentum</span><span>{game.resources[game.playerParty].momentum.toFixed(0)}</span></div>
+      {country.id === "FR" && voteShift !== null && (
+        <div className="kv" title="Change in your national runoff vote share since the opening map.">
+          <span className="k">Runoff vote movement</span><span>{voteShift >= 0 ? "+" : ""}{voteShift.toFixed(2)} pts</span>
+        </div>
+      )}
 
       <MpPollBlock
         seed={game.seed}
@@ -192,7 +200,7 @@ export function CountryStandings() {
             <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: partyColor(country, p), marginRight: 6 }} />
             {partyShort(country, p)}
           </span>
-          <span className="meta" title="Seats won and national vote share. Votes for parties below a district threshold may yield few or no seats.">{live.seats[p]} {country.unitNamePlural} · {((live.voteShare[p] ?? 0) * 100).toFixed(1)}% votes</span>
+          <span className="meta" title="Units won and national vote share. Votes for parties below a district threshold may yield few or no seats.">{live.seats[p]} {country.unitNamePlural} · {((live.voteShare[p] ?? 0) * 100).toFixed(country.id === "FR" ? 2 : 1)}% votes</span>
           <div className="suppbar"><div style={{ width: `${Math.min(100, (live.seats[p] / total) * 100 * 2)}%`, background: partyColor(country, p) }} /></div>
         </div>
       ))}

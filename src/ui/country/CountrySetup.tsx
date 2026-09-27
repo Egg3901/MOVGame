@@ -12,6 +12,7 @@ import { BRAND } from "../../brand";
 import { DifficultyPicker, type Difficulty } from "@ui/DifficultyPicker";
 import { TideBanner, ChallengePartyBanner } from "@ui/TideBanner";
 import { DAILY_ROLE_PAIRS } from "@lib/daily";
+import { FR_FIRST_ROUND } from "@content/countries/france";
 
 function randomSeed(): string {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
@@ -46,6 +47,17 @@ export function CountrySetup({ country, onBack, initialElection, initialSeed, in
         </div>
         <div className="title">{BRAND.name}</div>
         <p className="sub">{data.tagline}</p>
+        {country.id === "FR" && FR_FIRST_ROUND[election] && (
+          <div className="su-summary" style={{ textAlign: "left", marginBottom: 12 }}>
+            <strong>Runoff starting point</strong>
+            <p className="muted small" style={{ margin: "6px 0" }}>
+              The first round is complete. The campaign starts with finalist support and voter transfers already reflected in the regional map.
+            </p>
+            <div className="small">
+              First round: Centre {(FR_FIRST_ROUND[election].ens * 100).toFixed(1)}%, RN {(FR_FIRST_ROUND[election].rn * 100).toFixed(1)}%, left {(FR_FIRST_ROUND[election].lfi * 100).toFixed(1)}%, right {(FR_FIRST_ROUND[election].lr * 100).toFixed(1)}%.
+            </div>
+          </div>
+        )}
         <TideBanner scenarioId={`${country.id.toLowerCase()}-${election}`} />
         {(() => {
           const majors = DAILY_ROLE_PAIRS[country.id as keyof typeof DAILY_ROLE_PAIRS] ?? country.playable.slice(0, 2);

@@ -45,12 +45,14 @@ export interface AiConfig {
   mistakeRate: number;
   // How many target states the AI considers (foresight depth).
   foresight: number;
+  // Persuasion yield of AI actions. Cash and action-slot costs are unchanged.
+  actionPower?: number;
 }
 
 export const DIFFICULTY: Record<"easy" | "normal" | "hard", AiConfig> = {
-  easy: { efficiency: 0.55, mistakeRate: 0.3, foresight: 3 },
-  normal: { efficiency: 0.8, mistakeRate: 0.15, foresight: 5 },
-  hard: { efficiency: 1.0, mistakeRate: 0.05, foresight: 8 },
+  easy: { efficiency: 0.55, mistakeRate: 0.3, foresight: 3, actionPower: 0.45 },
+  normal: { efficiency: 0.8, mistakeRate: 0.15, foresight: 5, actionPower: 0.53 },
+  hard: { efficiency: 1.0, mistakeRate: 0.05, foresight: 8, actionPower: 1 },
 };
 
 function aiShareOf(demShare: number, ai: CandidateId): number {
