@@ -26,7 +26,8 @@ import { remoteProvider } from "@persistence/remote";
 import type { SaveMeta, SaveRecord } from "@persistence/types";
 import type { ReplayLog, ReplayMode } from "@lib/replay";
 import { truncateToTurn } from "@lib/replay";
-import { initUsReplayLog, recordUsWeek } from "./usReplay";
+import { initUsReplayLog, recordUsWeek, syncUsReplayLog } from "./usReplay";
+import { canQueueAction } from "@engine/actionBudget";
 
 const AUTOSAVE_ID = "autosave";
 const UNDO_DEPTH = 12;
@@ -49,6 +50,7 @@ interface GameStore {
   saves: SaveMeta[];
 
   newGame: (opts: NewGameOptions & { difficulty?: Difficulty }) => void;
+  unload: () => void;
   selectState: (id: string | null) => void;
   setDifficulty: (d: Difficulty) => void;
 
@@ -85,6 +87,8 @@ function mergeSaveMetas(local: SaveMeta[], remote: SaveMeta[]): SaveMeta[] {
   return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+let localAutosaveQueue: Promise<void> = Promise.resolve();
+
 function autosave(game: GameState) {
   const record: SaveRecord = {
     id: AUTOSAVE_ID,
@@ -92,10 +96,10 @@ function autosave(game: GameState) {
     updatedAt: Date.now(),
     turn: game.turn,
     playerCandidate: game.playerCandidate,
-    state: game,
+    state: structuredClone(game),
   };
-  // Fire-and-forget; persistence failures never block gameplay.
-  void localProvider.save(record).catch(() => {});
+  // Serialize writes so rapid plan edits cannot let an older save land last.
+  localAutosaveQueue = localAutosaveQueue.then(() => localProvider.save(record)).catch(() => {});
   // Mirror to the cloud when signed in. RemoteSyncProvider swallows failures,
   // so this never affects offline play.
   void remoteProvider.save(record);
@@ -127,7 +131,7 @@ function autosaveReplay(log: ReplayLog | null) {
 function resumeReplayLog(game: GameState, log: ReplayLog | null): ReplayLog {
   if (!log) return initUsReplayLog(game, "casual");
   const aheadOfGame = log.snapshots.some((s) => s.turn > game.turn);
-  return aheadOfGame ? truncateToTurn(log, game.turn) : log;
+  return aheadOfGame ? truncateToTurn(log, game.turn) : syncUsReplayLog(log, game);
 }
 
 // Applies the queued player actions to a throwaway clone so the UI can preview
@@ -183,14 +187,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
+  unload: () => set({ game: null, history: [], replay: null, selectedStateId: null, lastEventResult: null, lastDebate: null }),
+
   selectState: (id) => set({ selectedStateId: id }),
   setDifficulty: (d) => set({ difficulty: d }),
 
   queueAction: (action) => {
     const game = get().game;
-    if (!game) return;
+    if (!game || !canQueueAction(game, action)) return;
     const next = structuredClone(game);
     next.queuedActions.push(action);
+    autosave(next);
     set({ game: next });
   },
 
@@ -199,6 +206,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!game) return;
     const next = structuredClone(game);
     next.queuedActions.splice(index, 1);
+    autosave(next);
     set({ game: next });
   },
 
@@ -207,6 +215,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!game) return;
     const next = structuredClone(game);
     next.queuedActions = [];
+    autosave(next);
     set({ game: next });
   },
 
@@ -218,6 +227,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (event?.isDebate) {
       // Debate night: resolve both tickets at once, score it, surface the card.
       const debate = resolveDebate(next, event, { [next.playerCandidate]: choiceId });
+      autosave(next);
       set({
         game: next,
         lastDebate: debate,
@@ -226,10 +236,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     const result = resolveEvent(next, eventId, choiceId, next.playerCandidate);
+    autosave(next);
     set({
       game: next,
       lastEventResult: result
-        ? { title: eventId, text: result.resultText }
+        ? { title: event?.title ?? eventId, text: result.resultText }
         : get().lastEventResult,
     });
   },
@@ -298,6 +309,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // week that has been undone.
     const priorLog = get().replay;
     const replay = priorLog ? truncateToTurn(priorLog, prev.turn) : priorLog;
+    autosave(prev);
     autosaveReplay(replay);
     set({ game: prev, history, replay });
   },
@@ -315,6 +327,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   refreshSaves: async () => {
+    await localAutosaveQueue;
     // Local-first: Dexie is the source of truth and always works offline. When
     // signed in, fold in any cloud saves and let the newest updatedAt win per
     // id, so a save made on another device shows up here.
@@ -356,6 +369,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let replayRec = await localProvider.loadReplay(id).catch(() => null);
     if (!replayRec) replayRec = await remoteProvider.loadReplay(id);
     const replay = resumeReplayLog(record.state, replayRec?.log ?? null);
+    autosave(record.state);
     autosaveReplay(replay);
     set({ game: record.state, history: [], replay, lastEventResult: null });
   },
@@ -392,6 +406,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // and WhyReport still render, just starting from the import point
       // rather than crashing or showing stale history.
       const replay = resumeReplayLog(state, null);
+      autosave(state);
       set({ game: state, history: [], replay, lastEventResult: null });
     } catch (e) {
       console.error("Import failed", e);

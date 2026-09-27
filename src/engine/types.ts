@@ -298,6 +298,7 @@ export interface PendingEvent {
 // ── Causality log — every poll move traces to a cause (Pillar C) ──────────
 export interface CauseEntry {
   turn: number;
+  actor?: CandidateId;
   stateId?: string;
   blocId?: BlocId;
   cause: string; // human-readable, e.g. "Positive ads in PA"

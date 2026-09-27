@@ -286,6 +286,7 @@ export function CountryResults({ onExit }: { onExit: () => void }) {
           government={r.government}
           nameOf={name}
           unitPlural={country.unitNamePlural}
+          mathLabel={country.id === "FR" ? "RUNOFF RESULT" : undefined}
         />
 
         <div className="card">

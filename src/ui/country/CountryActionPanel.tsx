@@ -136,7 +136,7 @@ export function CountryActionPanel() {
             <button key={a.type} className={`actionbtn${type === a.type ? " sel" : ""}`} onClick={() => setType(a.type)}>
               <Ico size={18} />
               <span className="t">{a.label}</span>
-              <span className="c">{a.cost}</span>
+              <span className="c">{a.type === "fundraise" ? `≈+${cur}${(1.5 + game.leaders[player].machine / 50).toFixed(1)}M` : a.cost}</span>
             </button>
           );
         })}

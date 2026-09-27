@@ -228,22 +228,22 @@ export function deriveReport(log: ReplayLog | null): ReportData {
 
   // Decisive contests: election-eve shares closest to a coin flip.
   const last = snaps[snaps.length - 1];
-  const decisiveContests: DecisiveContest[] = Object.entries(last.contestShare)
+  const decisiveContests: DecisiveContest[] = (log.engine === "us" ? Object.entries(last.contestShare) : [])
     .map(([id, share]) => ({
       id,
       name: log.contestNames[id] ?? id,
       finalPlayerShare: share,
-      marginPts: (share - 0.5) * 100,
+      marginPts: (share - 0.5) * 200,
       won: share >= 0.5,
     }))
     .sort((a, b) => Math.abs(a.marginPts) - Math.abs(b.marginPts))
     .slice(0, 8);
 
-  // Cash spent across the campaign.
+  // Net cash change includes fundraising, so it cannot be presented as gross spending.
   const firstCash = snaps.find((s) => s.playerCash !== undefined)?.playerCash;
   const lastCash = [...snaps].reverse().find((s) => s.playerCash !== undefined)?.playerCash;
   const cashSpent =
-    firstCash !== undefined && lastCash !== undefined ? Math.max(0, firstCash - lastCash) : null;
+    firstCash !== undefined && lastCash !== undefined ? firstCash - lastCash : null;
 
   // Action tally across every played week.
   const counts = new Map<string, number>();

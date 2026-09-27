@@ -13,7 +13,10 @@ import { BRAND } from "../../brand";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const reset = () => useGameStore.setState({ game: null, history: [], lastEventResult: null });
+const reset = () => {
+  window.history.replaceState({ movView: { kind: "landing" } }, "");
+  useGameStore.setState({ game: null, history: [], lastEventResult: null });
+};
 
 function mount(): { html: () => string; container: HTMLElement; cleanup: () => void; flush: () => Promise<void> } {
   const container = document.createElement("div");
@@ -134,6 +137,7 @@ describe("App renders without crashing", () => {
 
   it("renders the in-game dashboard (map, panels) with no blocking event on the opening week", () => {
     act(() => { useGameStore.getState().newGame({ seed: "render", playerCandidate: "dem" }); });
+    window.history.replaceState({ movView: { kind: "us" } }, "");
     const m = mount();
     const html = m.html();
     expect(html).toContain("Electoral Map");
@@ -148,6 +152,7 @@ describe("App renders without crashing", () => {
 
   it("renders the results screen at the end of the campaign", async () => {
     act(() => { useGameStore.getState().newGame({ seed: "render-end", playerCandidate: "dem" }); });
+    window.history.replaceState({ movView: { kind: "us" } }, "");
     let guard = 0;
     while (useGameStore.getState().game!.phase !== "result" && guard++ < 40) {
       act(() => { useGameStore.getState().endTurn(); }); // auto-resolves events with defaults

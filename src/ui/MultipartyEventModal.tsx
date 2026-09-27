@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useRequiredModalFocus } from "./useRequiredModalFocus";
 
 export interface MpEventChoiceView {
   id: string;
@@ -24,11 +25,12 @@ export function MultipartyEventModal({
   onResolve: (choiceId: string) => void;
 }) {
   const [chosenId, setChosenId] = useState<string | null>(null);
+  const dialogRef = useRequiredModalFocus<HTMLDivElement>();
   const chosen = chosenId ? event.choices.find((c) => c.id === chosenId) : null;
 
   return (
     <div className="overlay">
-      <div className="modal">
+      <div className="modal" ref={dialogRef} role="dialog" aria-modal="true" aria-label={event.title} tabIndex={-1}>
         <div className="head">
           <div className="tag">Breaking: Decision Required</div>
           <h2>{event.title}</h2>

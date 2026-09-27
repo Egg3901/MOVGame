@@ -2,7 +2,7 @@ import { useGameStore } from "@store/gameStore";
 import { tallyContest, pollState, pollAverage, liveBlocDemShare } from "@engine/index";
 import { BLOCS } from "@content/blocs";
 import { shareToColor, leanLabel } from "./colors";
-import { pct } from "./format";
+import { pct, votes } from "./format";
 import { Sparkline } from "./Sparkline";
 import { MapPin } from "lucide-react";
 
@@ -111,7 +111,7 @@ export function StatePanel() {
         return (
           <div className="bloc" key={b.blocId}>
             <span className="name">{arche.name}</span>
-            <span className="meta">{(b.size / 1000).toFixed(0)}k · turnout {pct(b.turnoutPropensity, 0)}</span>
+            <span className="meta">{votes(b.size * b.turnoutPropensity * b.enthusiasm)} modeled votes · turnout {pct(b.turnoutPropensity, 0)}</span>
             <div className="suppbar">
               <div className="d" style={{ width: `${d * 100}%` }} />
               <div className="r" style={{ width: `${(1 - d) * 100}%` }} />

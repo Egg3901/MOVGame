@@ -42,34 +42,37 @@ function snapshotOf(
   game: GameState,
   actions: string[],
   events: string[],
+  at?: NonNullable<GameState["timeline"]>[number],
 ): ReplaySnapshot {
-  const point = game.timeline?.[game.timeline.length - 1];
-  const proj = point ? null : projectElection(game);
-  const demEV = point ? point.demEV : proj!.ev.dem;
-  const repEV = point ? point.repEV : proj!.ev.rep;
-  const tossup = point ? point.tossupEV : proj!.tossupEv;
-  const demPoll = point ? point.demPoll : nationalPoll(game);
+  const point = at ?? game.timeline?.[game.timeline.length - 1];
+  const final = game.phase === "result" && (!point || point.turn === game.turn) ? game.result : null;
+  const proj = point || final ? null : projectElection(game);
+  const demEV = final ? final.electoralVotes.dem : point ? point.demEV : proj!.ev.dem;
+  const repEV = final ? final.electoralVotes.rep : point ? point.repEV : proj!.ev.rep;
+  const tossup = final ? 0 : point ? point.tossupEV : proj!.tossupEv;
+  const demPoll = final ? final.popularShare.dem : point ? point.demPoll : nationalPoll(game);
   const player = game.playerCandidate;
 
   // Per-state PLAYER two-party share.
   const contestShare: Record<string, number> = {};
-  const shareByState =
-    point?.demShareByState ??
-    Object.fromEntries(projectElection(game).contests.map((c) => [c.stateId, c.demShare]));
+  const shareByState = final
+    ? Object.fromEntries(final.stateResults.map((state) => [state.stateId, state.demShare]))
+    : point?.demShareByState ??
+      Object.fromEntries(projectElection(game).contests.map((c) => [c.stateId, c.demShare]));
   for (const [id, demShare] of Object.entries(shareByState)) {
     contestShare[id] = player === "dem" ? demShare : 1 - demShare;
   }
 
   return {
-    turn: game.turn,
+    turn: point?.turn ?? game.turn,
     leaderId: demEV === repEV ? null : demEV > repEV ? "dem" : "rep",
     standings: [
       { id: "dem", poll: demPoll, units: demEV },
       { id: "rep", poll: 1 - demPoll, units: repEV },
     ],
     tossupUnits: tossup,
-    playerCash: game.resources[player].cash,
-    playerMomentum: game.resources[player].nationalMomentum,
+    playerCash: point ? (player === "dem" ? point.demCash : point.repCash) : game.resources[player].cash,
+    playerMomentum: point ? (player === "dem" ? point.demMomentum : point.repMomentum) : game.resources[player].nationalMomentum,
     contestShare,
     actions,
     events,
@@ -93,6 +96,14 @@ export function initUsReplayLog(game: GameState, mode: ReplayMode): ReplayLog {
     })),
     contestNames: Object.fromEntries(game.states.map((s) => [s.id, s.name])),
   });
+  const points = game.timeline ?? [];
+  if (points.length === 0) return appendSnapshot(log, snapshotOf(game, [], []));
+  return points.reduce((current, point) => appendSnapshot(current, snapshotOf(game, [], [], point)), log);
+}
+
+export function syncUsReplayLog(log: ReplayLog, game: GameState): ReplayLog {
+  const lastTurn = log.snapshots.at(-1)?.turn ?? -1;
+  if (lastTurn >= game.turn) return log;
   return appendSnapshot(log, snapshotOf(game, [], []));
 }
 

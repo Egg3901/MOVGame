@@ -16,7 +16,7 @@ export function RecapModal({ onClose }: { onClose: () => void }) {
           <h2>{turnLabel(game.turn - 1, game.totalTurns)} → {turnLabel(game.turn, game.totalTurns)}</h2>
         </div>
         <div className="body">
-          <p className="muted small">What moved the needle, and why. Every shift traces to a cause.</p>
+          <p className="muted small">Positive values favor your ticket. Only the first line is an EV change; action values show model impact.</p>
           {recap.map((item, i) => (
             <div className="recapitem" key={i}>
               <div>

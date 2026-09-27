@@ -20,10 +20,10 @@ export function PlanBonusStrip({ plan }: { plan: readonly PlanActionLike[] }) {
             <span
               key={bonus.id}
               className={`plan-bonus${unlocked ? " active" : ""}`}
-              title={bonus.description}
+              title={`${bonus.recipe}. ${bonus.description} Bonus applies to the follow-through action only.`}
             >
               <span aria-hidden="true">{unlocked ? "✓" : "○"}</span>
-              {bonus.recipe}
+              {bonus.name}
               <strong>+{Math.round((bonus.multiplier - 1) * 100)}%</strong>
             </span>
           );

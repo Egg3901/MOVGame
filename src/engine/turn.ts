@@ -56,37 +56,50 @@ function decay(game: GameState) {
   }
 }
 
-function buildRecap(game: GameState, turn: number, evBefore: number): TurnRecapItem[] {
+function buildRecap(game: GameState, turn: number, evBefore: number, cashBefore: number): TurnRecapItem[] {
   const recap: TurnRecapItem[] = [];
   // Group this turn's causes by their human-readable label.
-  const byCause = new Map<string, { delta: number; states: Set<string> }>();
+  const byCause = new Map<string, { label: string; delta: number; states: Set<string>; actor?: CandidateId }>();
   for (const c of game.causes) {
     if (c.turn !== turn) continue;
-    const entry = byCause.get(c.cause) ?? { delta: 0, states: new Set() };
+    const key = `${c.actor ?? "event"}:${c.cause}`;
+    const entry = byCause.get(key) ?? { label: c.cause, delta: 0, states: new Set(), actor: c.actor };
     entry.delta += c.marginDelta;
     if (c.stateId) entry.states.add(c.stateId);
-    byCause.set(c.cause, entry);
+    byCause.set(key, entry);
   }
-  for (const [cause, info] of byCause) {
+  const playerSign = game.playerCandidate === "dem" ? 1 : -1;
+  for (const info of byCause.values()) {
+    const bonus = info.label.startsWith("Plan bonus:");
     recap.push({
-      label: cause,
-      detail: info.states.size > 0 ? `${info.states.size} contest(s)` : "nationwide",
-      marginDelta: info.delta,
+      label: info.label,
+      detail: `${info.actor === game.playerCandidate ? "Your action" : info.actor ? "Opponent action" : "Campaign event"} · ${info.states.size > 0 ? `${info.states.size} contest(s)` : "nationwide"}`,
+      marginDelta: bonus || info.delta === 0 ? undefined : info.delta * playerSign,
     });
   }
   recap.sort((a, b) => {
+    const aOwn = a.detail.startsWith("Your action") ? 1 : 0;
+    const bOwn = b.detail.startsWith("Your action") ? 1 : 0;
     const aBonus = a.label.startsWith("Plan bonus:") ? 1 : 0;
     const bBonus = b.label.startsWith("Plan bonus:") ? 1 : 0;
-    return bBonus - aBonus || Math.abs(b.marginDelta ?? 0) - Math.abs(a.marginDelta ?? 0);
+    return bOwn - aOwn || aBonus - bBonus || Math.abs(b.marginDelta ?? 0) - Math.abs(a.marginDelta ?? 0);
   });
 
-  const evAfter = projectElection(game).ev.dem;
+  const evAfter = projectElection(game).ev[game.playerCandidate];
   recap.unshift({
     label: "Projected electoral votes",
-    detail: `${game.candidates.dem.shortName} ${evAfter} (was ${evBefore})`,
+    detail: `${game.candidates[game.playerCandidate].shortName} ${evAfter} (was ${evBefore})`,
     marginDelta: evAfter - evBefore,
   });
-  return recap.slice(0, 12);
+  const cashAfter = game.resources[game.playerCandidate].cash;
+  const cashDelta = cashAfter - cashBefore;
+  recap.splice(1, 0, {
+    label: "Campaign cash",
+    detail: `$${(cashAfter / 1_000_000).toFixed(1)}M after ${cashDelta >= 0 ? "+" : "-"}$${(Math.abs(cashDelta) / 1_000_000).toFixed(1)}M this week`,
+  });
+  const own = recap.slice(2).filter((item) => item.detail.startsWith("Your action"));
+  const other = recap.slice(2).filter((item) => !item.detail.startsWith("Your action"));
+  return [...recap.slice(0, 2), ...own, ...other.slice(0, 8)];
 }
 
 export interface AdvanceOptions {
@@ -112,7 +125,8 @@ export function advanceTurn(
   const ai = OPPONENT_OF[player];
   const cfg = opts.difficulty ?? DIFFICULTY.normal;
 
-  const evBefore = projectElection(game).ev.dem;
+  const evBefore = projectElection(game).ev[player];
+  const cashBefore = game.resources[player].cash;
 
   // 1. Resolve any leftover player events with a sensible default. Debates are
   //    resolved head-to-head (both sides at once) so the scorecard momentum
@@ -154,7 +168,7 @@ export function advanceTurn(
   decay(game);
 
   // 5. Recap + bookkeeping.
-  game.lastRecap = buildRecap(game, turn, evBefore);
+  game.lastRecap = buildRecap(game, turn, evBefore, cashBefore);
   game.queuedActions = [];
   game.pendingEvents = [];
   game.rngState = rng.state();

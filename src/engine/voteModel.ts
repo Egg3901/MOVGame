@@ -115,6 +115,7 @@ export function computeResult(game: GameState): GameResult {
 
   // Post-mortem: the player's biggest self-caused swings, by magnitude.
   const postMortem = [...game.causes]
+    .filter((cause) => cause.actor === game.playerCandidate && cause.marginDelta !== 0)
     .sort((a, b) => Math.abs(b.marginDelta) - Math.abs(a.marginDelta))
     .slice(0, 8);
 

@@ -27,6 +27,7 @@ export function WhyReport({ log, won }: { log: ReplayLog | null; won: boolean | 
 
   const debates = r.events.filter((e) => e.text.startsWith("Debate:"));
   const otherEvents = r.events.filter((e) => !e.text.startsWith("Debate:"));
+  const currency = log?.engine === "uk" ? "£" : log?.engine === "country" && /^(fr|de|france|germany)/i.test(log.scenarioId) ? "€" : "$";
 
   return (
     <div className="card">
@@ -49,8 +50,8 @@ export function WhyReport({ log, won }: { log: ReplayLog | null; won: boolean | 
         </div>
         {r.cashSpent !== null && (
           <div className="report-cell">
-            <div className="rv">{money(r.cashSpent)}</div>
-            <div className="rl">Spent this campaign</div>
+            <div className="rv">{money(r.cashSpent).replace("$", currency)}</div>
+            <div className="rl">Net cash used, including fundraising</div>
           </div>
         )}
         <div className="report-cell">

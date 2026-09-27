@@ -46,6 +46,7 @@ export function UkMap() {
 
   const legend = (
     <div className="legend" style={{ flexWrap: "wrap", gap: 8 }}>
+      <span className="muted small">Labels show leader seats / region total.</span>
       {["lab", "con", "ld", "ref", "snp", "grn", "pc"].map((p) => (
         <span key={p} className="row" style={{ gap: 4, alignItems: "center" }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: partyColor(p) }} />
@@ -80,7 +81,7 @@ export function UkMap() {
                 </text>
                 <text x={shape.label[0]} y={shape.label[1] + 18} textAnchor="middle"
                   style={{ fontSize: 13, fontWeight: 700, fill: "#fff", pointerEvents: "none", paintOrder: "stroke", stroke: "rgba(0,0,0,0.45)", strokeWidth: 3 }}>
-                  {winner ? `${partyShort(winner)} ${seats[winner]}` : ""}
+                  {winner ? `${partyShort(winner)} ${seats[winner]}/${region.seats}` : ""}
                 </text>
               </g>
             );
@@ -108,7 +109,7 @@ export function UkMap() {
                 title={`${region.name}: ${region.seats} seats`}
               >
                 <span>{region.abbr}</span>
-                <span className="ev">{winner ? `${partyShort(winner)} ${seats[winner]}` : region.seats}</span>
+                <span className="ev">{winner ? `${partyShort(winner)} ${seats[winner]}/${region.seats}` : region.seats}</span>
               </div>
             </div>
           );
