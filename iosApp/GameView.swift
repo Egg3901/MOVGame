@@ -1,8 +1,7 @@
 import SwiftUI
 import shared
 
-// Phase 4 Game screen (#22): EV bar, tile map, state panel, end turn,
-// recap sheet, event dialogs. Mirrors androidApp GameScreen.
+// Native campaign desk with map, state projection, action plan, and turn recap.
 struct GameView: View {
     @ObservedObject var session: GameSession
     @State private var selectedAbbr: String? = nil
@@ -22,7 +21,8 @@ struct GameView: View {
         let selId = selectedAbbr.flatMap { abbrToId[$0] }
 
         return AnyView(
-            ScrollView {
+            VStack(spacing: 0) {
+              ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("CAMPAIGN DESK").font(.caption.bold()).tracking(2).foregroundStyle(.orange)
                     Text(g.campaignLabel()).font(.title2.bold())
@@ -61,20 +61,36 @@ struct GameView: View {
                         selectedAbbr: selectedAbbr,
                         onSelect: { selectedAbbr = $0 }
                     )
+                    if let id = selId, let state = states.first(where: { $0.id == id }),
+                       let contest = contests[id] {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(state.name) · \(Int(state.electoralVotes)) EV").font(.headline)
+                            Text(String(format: "Democratic projection %.1f%%", contest.demShare * 100))
+                                .font(.subheadline)
+                            Text("Select another state to retarget your plan.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 14))
+                    }
 
                     ActionPlannerView(session: session, selectedStateId: selId)
-
-                    Button { session.endTurn() } label: {
-                        Text("End week  →").font(.headline).frame(maxWidth: .infinity).padding(16)
-                    }
-                    .buttonStyle(.plain).foregroundStyle(.black)
-                    .background(.orange, in: RoundedRectangle(cornerRadius: 14))
                 }
                 .padding()
+              }
+              Button { session.endTurn() } label: {
+                  Text("End week · \(Int(g.queuedCount())) planned →")
+                      .font(.headline).frame(maxWidth: .infinity).padding(14)
+              }
+              .buttonStyle(.plain).foregroundStyle(.black)
+              .background(.orange, in: RoundedRectangle(cornerRadius: 14))
+              .padding(.horizontal, 16).padding(.vertical, 8)
+              .background(Color(red: 17/255, green: 27/255, blue: 38/255))
             }
             .background(Color(red: 10/255, green: 15/255, blue: 20/255))
             .preferredColorScheme(.dark)
-            .alert("Week \(Int(g.turn()) + 1) recap", isPresented: $session.showRecap) {
+            .alert("Week \(Int(g.turn())) recap", isPresented: $session.showRecap) {
                 Button("OK") { session.dismissRecap() }
             } message: {
                 Text(session.recapLines.joined(separator: "\n"))
@@ -227,6 +243,8 @@ struct ActionPlannerView: View {
                                     in: RoundedRectangle(cornerRadius: 10))
                 }
             }
+            Text("Day \(day) · \(dayCount)/3 actions")
+                .font(.caption).foregroundStyle(.secondary)
             Button {
                 let added = session.queueConfiguredAction(typeSerial: type, stateId: needsState ? target : nil,
                     day: day, adModeSerial: type == "advertise" ? adMode : nil,
@@ -240,6 +258,11 @@ struct ActionPlannerView: View {
             .buttonStyle(.plain).foregroundStyle(.black)
             .background(.orange, in: RoundedRectangle(cornerRadius: 12))
             .disabled(dayCount >= 3 || (session.currentGame()?.slotsLeft() ?? 0) == 0)
+            if dayCount >= 3 {
+                Text("Day \(day) is full. Choose another day.").font(.caption).foregroundStyle(.secondary)
+            } else if (session.currentGame()?.slotsLeft() ?? 0) == 0 {
+                Text("Weekly action pool is spent.").font(.caption).foregroundStyle(.secondary)
+            }
             if let notice = notice { Text(notice).font(.caption).foregroundStyle(.red) }
             HStack {
                 Text("\(plan.count) planned").font(.headline)

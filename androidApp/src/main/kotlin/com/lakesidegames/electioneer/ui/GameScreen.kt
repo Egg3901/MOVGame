@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
@@ -51,11 +52,11 @@ fun GameScreen(session: GameSession) {
     val demEv = projection?.ev?.get(CandidateId.DEM.serial) ?: 0
     val repEv = projection?.ev?.get(CandidateId.REP.serial) ?: 0
     val tossEv = projection?.tossupEv ?: 0
+    val selectedState = g.states.firstOrNull { it.id == selectedId }
+    val selectedContest = projection?.contests?.firstOrNull { it.stateId == selectedId }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(12.dp)
-            .verticalScroll(rememberScrollState()),
-    ) {
+    Column(Modifier.fillMaxSize()) {
+      Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
         Text("CAMPAIGN DESK", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
         Text(session.campaigns().firstOrNull { it.id == g.scenarioId }?.label ?: "The election", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(10.dp))
@@ -96,21 +97,33 @@ fun GameScreen(session: GameSession) {
             onSelect = { id, _ -> session.select(id) },
         )
         Spacer(Modifier.height(8.dp))
+        if (selectedState != null && selectedContest != null) {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("${selectedState.name} · ${selectedState.electoralVotes} EV", fontWeight = FontWeight.Bold)
+                    Text("Democratic projection ${"%.1f".format(selectedContest.demShare * 100)}%", style = MaterialTheme.typography.bodySmall)
+                    Text("Select another state to retarget your plan.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
 
         ActionPlanner(session, g, selectedId)
         Spacer(Modifier.height(12.dp))
+      }
+      Surface(shadowElevation = 8.dp) {
         Button(
             onClick = { session.endTurn() },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("End week  →") }
-        Spacer(Modifier.height(8.dp))
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        ) { Text("End week · ${g.queuedActions.size} planned →") }
+      }
     }
 
     // Turn recap dialog.
     recap?.let { lines ->
         AlertDialog(
             onDismissRequest = { session.dismissRecap() },
-            title = { Text("Week ${g.turn + 1} recap") },
+            title = { Text("Week ${g.turn} recap") },
             text = {
                 Column {
                     for (line in lines) {

@@ -64,6 +64,7 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
         if (selectedId != null && states.any { it.id == selectedId }) target = selectedId
     }
     val targetsState = type in setOf(ActionType.ADVERTISE, ActionType.RALLY, ActionType.SURROGATE, ActionType.GROUND_GAME, ActionType.GOTV, ActionType.FUNDRAISE)
+    val dayCount = game.queuedActions.count { (it.day ?: 1) == day }
 
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -122,6 +123,7 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
                     row.forEach { n -> FilterChip(selected = day == n, onClick = { day = n }, label = { Text("$n") }) }
                 }
             }
+            Text("Day $day · $dayCount/3 actions", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = {
                 val added = session.queueConfiguredAction(type, if (targetsState) target else null, day,
                     if (type == ActionType.ADVERTISE) adMode else null,
@@ -129,7 +131,9 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
                     if (type == ActionType.ISSUE_PIVOT || (type == ActionType.ADVERTISE && adMode == AdMode.ISSUE)) issue else null,
                     if (type == ActionType.ISSUE_PIVOT) position.toDouble() else null)
                 notice = if (added) null else "That day is full or your action pool is spent."
-            }, enabled = session.slotsLeft() > 0, modifier = Modifier.fillMaxWidth()) { Text("Add to day $day") }
+            }, enabled = session.slotsLeft() > 0 && dayCount < 3, modifier = Modifier.fillMaxWidth()) { Text("Add to day $day") }
+            if (dayCount >= 3) Text("Day $day is full. Choose another day.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else if (session.slotsLeft() == 0) Text("Weekly action pool is spent.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             notice?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             Row {
                 Text("${game.queuedActions.size} planned", style = MaterialTheme.typography.titleSmall)

@@ -52,9 +52,9 @@ The owner will resume portal setup when the migration completes.
 - [ ] On a device: repeat the campaign and action plan close/reopen test and
   verify the shared save restores through the SwiftUI session.
 - [x] macOS verify: Codemagic `ios-verify` fully passed for the native
-  campaign menu, setup, seven day action planner, dashboard, and results at
-  `b167b2a6308bc6f6ba7d952809678023385985a5` (build
-  `6ab96a805703a7f193752a54`). This workflow does not sign or publish.
+  campaign menu, setup, seven day action planner, dashboard, selected-state
+  projection, and results at `981731cdbcfc630d79914fb15a5effd2873e9e65`
+  (build `6ab974b032005f02f19b1808`). This workflow does not sign or publish.
 - [ ] App Store Connect: products matching the SKU table, sandbox +
   TestFlight exercise of purchase/restore/refund through `StoreKitAdapter`.
 - [ ] App Store Server Notifications endpoint on the campaign server (web
