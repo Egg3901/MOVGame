@@ -22,7 +22,7 @@ export function useRequiredModalFocus<T extends HTMLElement>() {
       }
       if (event.key !== "Tab") return;
       const first = items[0] ?? modal;
-      const last = items.at(-1) ?? modal;
+      const last = items[items.length - 1] ?? modal;
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();

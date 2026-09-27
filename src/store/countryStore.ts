@@ -17,6 +17,7 @@ import type { PartyId } from "@engine/system";
 import type { ReplayLog, ReplayMode } from "@lib/replay";
 import { truncateToTurn } from "@lib/replay";
 import { initCountryReplayLog, recordCountryWeek } from "./countryReplay";
+import { mpActionCost, mpPlannedCost } from "@engine/mpBudget";
 
 interface CountryStore {
   country: CountryBundle | null;
@@ -126,6 +127,7 @@ export const useCountryStore = create<CountryStore>((set, get) => ({
     if (!game) return;
     const res = game.resources[game.playerParty];
     if (game.queuedActions.length >= res.maxActions) return;
+    if (mpPlannedCost(game.queuedActions) + mpActionCost(a) > res.funds + 1e-9) return;
     const next = { ...game, queuedActions: [...game.queuedActions, a] };
     autosave(next.countryId, next);
     set({ game: next });

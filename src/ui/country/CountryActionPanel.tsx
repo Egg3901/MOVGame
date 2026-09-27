@@ -4,6 +4,7 @@ import type { CountryAction, CountryActionType, CountryAdMode } from "@engine/co
 import type { PartyId } from "@engine/system";
 import { partyShort } from "./helpers";
 import { PlanBonusStrip } from "../PlanBonusStrip";
+import { mpActionCost, mpPlannedCost } from "@engine/mpBudget";
 import {
   Radio, Megaphone, Users, Banknote, Building2, Vote,
   DoorOpen, Search, GraduationCap, BookOpen, ArrowLeftRight, Plus, X,
@@ -71,6 +72,8 @@ export function CountryActionPanel() {
   const plan = game.queuedActions;
   const used = plan.length;
   const pool = res.maxActions;
+  const committedFunds = mpPlannedCost(plan);
+  const availableFunds = Math.max(0, res.funds - committedFunds);
   const dayItems = (d: number) => plan.map((a, i) => ({ a, i })).filter((x) => (x.a.day ?? 1) === d);
   const regionAbbr = (id?: string) => game.regions.find((r) => r.id === id)?.abbr ?? "";
 
@@ -110,6 +113,7 @@ export function CountryActionPanel() {
   const addToDay = (d: number) => {
     if (used >= pool || dayItems(d).length >= MAX_PER_DAY) return;
     if (regionRequired && !regionId) return;
+    if (mpActionCost(buildAction()) > availableFunds) return;
     queueAction({ ...buildAction(), day: d });
   };
 
@@ -125,6 +129,7 @@ export function CountryActionPanel() {
       </div>
       <div className="row" style={{ gap: 16, margin: "6px 0 10px" }}>
         <div className="stat" style={{ alignItems: "flex-start" }}><span className="l">Funds</span><span className="v">{cur}{res.funds.toFixed(1)}M</span></div>
+        <div className="stat" style={{ alignItems: "flex-start" }}><span className="l">Planned / available</span><span className="v">{cur}{committedFunds.toFixed(1)}M / {cur}{availableFunds.toFixed(1)}M</span></div>
         <div className="stat" style={{ alignItems: "flex-start" }}><span className="l">Actions</span><span className="v">{res.actions}/{res.maxActions}</span></div>
         <div className="stat" style={{ alignItems: "flex-start" }}><span className="l">Momentum</span><span className="v">{res.momentum >= 0 ? "+" : ""}{res.momentum.toFixed(0)}</span></div>
       </div>
@@ -197,7 +202,7 @@ export function CountryActionPanel() {
         {DAYS.map((d) => {
           const items = dayItems(d);
           const full = items.length >= MAX_PER_DAY;
-          const canAdd = used < pool && !full && !(regionRequired && !regionId);
+          const canAdd = used < pool && !full && !(regionRequired && !regionId) && mpActionCost(buildAction()) <= availableFunds;
           return (
             <div className={`day${full ? " full" : ""}`} key={d}>
               <div className="day-head">
@@ -231,7 +236,7 @@ export function CountryActionPanel() {
 
       <div className="row" style={{ gap: 8, marginTop: 6 }}>
         <button className="primary" style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-          disabled={used >= pool || (regionRequired && !regionId)}
+          disabled={used >= pool || (regionRequired && !regionId) || mpActionCost(buildAction()) > availableFunds}
           onClick={() => { for (const d of DAYS) { if (dayItems(d).length < MAX_PER_DAY) { addToDay(d); break; } } }}>
           <TypeIcon size={14} /> Add to next open day
         </button>

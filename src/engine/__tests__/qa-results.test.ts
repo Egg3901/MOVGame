@@ -54,7 +54,8 @@ describe("QA result reconciliation", () => {
       .toBe(majorityForUk(uk).total);
     for (const countryId of ["FR", "DE", "CA"]) {
       const country = COUNTRIES[countryId];
-      const election = Object.keys(country.elections).sort().at(-1)!;
+      const elections = Object.keys(country.elections).sort();
+      const election = elections[elections.length - 1]!;
       const game = createCountryGame(country, { election, seed: "qa-regions" });
       const result = projectCountry(game, country);
       expect(result.seatResults.reduce((sum, region) => sum + region.totalSeats, 0), countryId)
@@ -100,6 +101,7 @@ describe("QA result reconciliation", () => {
     const recovered = initUsReplayLog(next, "casual");
     expect(recovered.snapshots.map((snapshot) => snapshot.turn)).toEqual([0, 1]);
     const lagging = initUsReplayLog(opening, "casual");
-    expect(syncUsReplayLog(lagging, next).snapshots.at(-1)?.turn).toBe(1);
+    const snapshots = syncUsReplayLog(lagging, next).snapshots;
+    expect(snapshots[snapshots.length - 1]?.turn).toBe(1);
   });
 });

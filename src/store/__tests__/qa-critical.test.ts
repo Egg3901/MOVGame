@@ -2,6 +2,9 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { localProvider } from "@persistence/local";
 import { useGameStore } from "../gameStore";
+import { useUkStore } from "../ukStore";
+import { useCountryStore } from "../countryStore";
+import { mpPlannedCost } from "@engine/mpBudget";
 
 const flushSave = () => new Promise((resolve) => setTimeout(resolve, 30));
 
@@ -34,5 +37,22 @@ describe("QA campaign safety", () => {
     const game = useGameStore.getState().game!;
     expect(game.queuedActions.reduce((sum, action) => sum + (action.spend ?? 0), 0))
       .toBeLessThanOrEqual(before);
+  });
+
+  it("reserves fixed and broadcast costs in UK and country plans", () => {
+    useUkStore.getState().newGame("2019", "lab", "qa-uk-budget");
+    const ukBefore = useUkStore.getState().game!.resources.lab.funds;
+    for (let day = 1; day <= 7; day++) {
+      useUkStore.getState().queueAction({ type: "broadcast", party: "lab", spend: 8, day });
+    }
+    expect(mpPlannedCost(useUkStore.getState().game!.queuedActions)).toBeLessThanOrEqual(ukBefore);
+
+    useCountryStore.getState().newGame("FR", "2022", "ens", "qa-fr-budget");
+    const frBefore = useCountryStore.getState().game!.resources.ens.funds;
+    for (let day = 1; day <= 7; day++) {
+      useCountryStore.getState().queueAction({ type: "broadcast", party: "ens", spend: 8, day });
+      useCountryStore.getState().queueAction({ type: "ground_game", party: "ens", regionId: "IDF", day });
+    }
+    expect(mpPlannedCost(useCountryStore.getState().game!.queuedActions)).toBeLessThanOrEqual(frBefore);
   });
 });

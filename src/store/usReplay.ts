@@ -102,7 +102,7 @@ export function initUsReplayLog(game: GameState, mode: ReplayMode): ReplayLog {
 }
 
 export function syncUsReplayLog(log: ReplayLog, game: GameState): ReplayLog {
-  const lastTurn = log.snapshots.at(-1)?.turn ?? -1;
+  const lastTurn = log.snapshots[log.snapshots.length - 1]?.turn ?? -1;
   if (lastTurn >= game.turn) return log;
   return appendSnapshot(log, snapshotOf(game, [], []));
 }

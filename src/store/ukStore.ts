@@ -15,6 +15,7 @@ import type { PartyId } from "@engine/system";
 import type { ReplayLog, ReplayMode } from "@lib/replay";
 import { truncateToTurn } from "@lib/replay";
 import { initUkReplayLog, recordUkWeek } from "./ukReplay";
+import { mpActionCost, mpPlannedCost } from "@engine/mpBudget";
 
 interface UkStore {
   game: UkGameState | null;
@@ -115,6 +116,7 @@ export const useUkStore = create<UkStore>((set, get) => ({
     if (!game) return;
     const res = game.resources[game.playerParty];
     if (game.queuedActions.length >= res.maxActions) return;
+    if (mpPlannedCost(game.queuedActions) + mpActionCost(a) > res.funds + 1e-9) return;
     const next = { ...game, queuedActions: [...game.queuedActions, a] };
     autosave(next);
     set({ game: next });
