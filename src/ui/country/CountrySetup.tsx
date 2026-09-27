@@ -4,7 +4,7 @@ import { useAuthStore } from "@store/authStore";
 import { playablePartiesIn, type CountryBundle } from "@engine/countryGame";
 import { ScenarioArt } from "@ui/ScenarioArt";
 import type { CountryCode } from "@content/scenarioRegistry";
-import { partyColor, partyName, partyShort } from "./helpers";
+import { partyColor, partyName, partyShort, partyTextColor } from "./helpers";
 import { Avatar } from "@ui/Avatar";
 import { Vote, Dices, ChevronLeft, Flag } from "lucide-react";
 import type { PartyId } from "@engine/system";
@@ -113,7 +113,7 @@ export function CountrySetup({ country, onBack, initialElection, initialSeed, in
                     <div className="row" style={{ gap: 10 }}>
                       <Avatar name={ld?.name ?? partyName(country, p)} color={partyColor(country, p)} size={40} />
                       <div>
-                        <div className="nm" style={{ color: partyColor(country, p) }}>{partyName(country, p)}</div>
+                        <div className="nm" style={{ color: partyTextColor(country, p) }}>{partyName(country, p)}</div>
                         <div className="rm">{ld?.name ?? `${partyShort(country, p)} leader`}</div>
                       </div>
                     </div>
@@ -146,7 +146,7 @@ export function CountrySetup({ country, onBack, initialElection, initialSeed, in
           <div className="su-summary">
             <div className="su-summary-row">
               <span className="su-summary-k">Leading</span>
-              <span className="su-summary-v" style={{ color: partyColor(country, activeParty) }}>
+              <span className="su-summary-v" style={{ color: partyTextColor(country, activeParty) }}>
                 {partyName(country, activeParty)}{leader ? ` · ${leader.name}` : ""}
               </span>
             </div>
