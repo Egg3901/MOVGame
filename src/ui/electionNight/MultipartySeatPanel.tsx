@@ -19,6 +19,7 @@ export interface MultipartySeatPanelProps {
   /** Resolve a party id to a display name for the coalition equation. */
   nameOf: (id: PartyId) => string;
   unitPlural?: string; // "seats" | "MPs" | …
+  mathLabel?: string;
 }
 
 function coalitionParts(g: Government): PartyId[] | null {
@@ -42,6 +43,7 @@ export function MultipartySeatPanel({
   government,
   nameOf,
   unitPlural = "seats",
+  mathLabel = "COALITION MATH",
 }: MultipartySeatPanelProps) {
   const hung = government.kind === "hung" || government.kind === "minority" ||
     government.kind === "coalition" || government.kind === "confidence_supply";
@@ -103,7 +105,7 @@ export function MultipartySeatPanel({
 
       {mathLine && (
         <div className="ens-coalition" data-testid="ens-coalition-math">
-          <span className="ens-coalition-tag">COALITION MATH</span>
+          <span className="ens-coalition-tag">{mathLabel}</span>
           <span className="ens-coalition-eq">{mathLine}</span>
         </div>
       )}

@@ -103,16 +103,19 @@ export function USMap() {
   const [mode, setMode] = useState<"geo" | "square">("square");
   const select = useGameStore((s) => s.selectState);
   const selectedId = useGameStore((s) => s.selectedStateId);
+  const mapToggle = (
+    <div className="map-mode-toggle" role="group" aria-label="Map view">
+      <button aria-pressed={mode === "square"} onClick={() => setMode("square")}>EV tiles</button>
+      <button aria-pressed={mode === "geo"} onClick={() => setMode("geo")}>Geographic</button>
+    </div>
+  );
 
   if (mode === "geo") {
     return (
       <div className="card mapwrap sheen">
         <div className="mapcontrols" style={{ justifyContent: "space-between" }}>
           <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 0.8, color: "var(--muted)" }}>Electoral Map</h3>
-          <div className="row" style={{ gap: 4 }}>
-            <button className={`ghost small active`} onClick={() => setMode("geo")}>Geo</button>
-            <button className={`ghost small`} onClick={() => setMode("square")}>Square</button>
-          </div>
+          {mapToggle}
         </div>
         <svg viewBox="0 0 1000 650" className="geo-map" preserveAspectRatio="xMidYMid meet">
           {GRID.map((t) => (
@@ -152,10 +155,7 @@ export function USMap() {
     <div className="card mapwrap sheen">
       <div className="mapcontrols" style={{ justifyContent: "space-between" }}>
         <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: 0.8, color: "var(--muted)" }}>Electoral Map</h3>
-        <div className="row" style={{ gap: 4 }}>
-          <button className={`ghost small`} onClick={() => setMode("geo")}>Geo</button>
-          <button className={`ghost small active`} onClick={() => setMode("square")}>Square</button>
-        </div>
+        {mapToggle}
       </div>
       <div
         className="tilegrid"

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@store/gameStore";
+import { useUkStore } from "@store/ukStore";
+import { useCountryStore } from "@store/countryStore";
 import { useAuthStore } from "@store/authStore";
 import { SetupScreen } from "@ui/SetupScreen";
 import { USMap } from "@ui/USMap";
@@ -17,7 +19,10 @@ import { LegalPage } from "@ui/LegalPage";
 import { dailyAssignment, utcDateString } from "@lib/daily";
 import { SCENARIOS_BY_ID } from "@content/scenarioRegistry";
 import { registerSavedCustomScenarios } from "@persistence/local";
+import type { ResumeTarget } from "@persistence/resume";
 import { Spinner } from "@ui/Skeleton";
+import { hashSeed } from "@engine/rng";
+import { GENERIC_DEBATES, HISTORICAL_EVENTS } from "@content/events";
 
 // The UK and country shells carry their engines, content, and map geometry —
 // they load on demand so the main bundle stays lean (the US game is the
@@ -120,11 +125,12 @@ function SaveControls() {
   );
 }
 
-function GameScreen() {
+function GameScreen({ onHome }: { onHome: () => void }) {
   const game = useGameStore((s) => s.game)!;
   const endTurn = useGameStore((s) => s.endTurn);
   const undo = useGameStore((s) => s.undo);
-  const canUndo = useGameStore((s) => s.history.length > 0);
+  const canUndoWeek = useGameStore((s) => s.history.length > 0);
+  const removeQueuedAction = useGameStore((s) => s.removeQueuedAction);
   const live = useGameStore((s) => s.liveProjection)();
   const [recapOpen, setRecapOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -153,8 +159,16 @@ function GameScreen() {
   const res = game.resources[player];
   const cand = game.candidates[player];
   const plannedActions = game.queuedActions.length;
+  const handleUndo = () => {
+    if (plannedActions > 0) removeQueuedAction(plannedActions - 1);
+    else undo();
+  };
   const year = getScenario(game.scenarioId).year;
   const hasPendingEvent = game.pendingEvents.some((p) => p.forCandidate === player);
+  const debateDeck = game.eventMode === "plausible"
+    ? GENERIC_DEBATES
+    : HISTORICAL_EVENTS[game.scenarioId ?? "2020"] ?? HISTORICAL_EVENTS["2020"];
+  const nextDebate = debateDeck.find((event) => event.isDebate && event.trigger.kind === "scheduled" && event.trigger.turn === game.turn + 1 && !game.firedEventIds.includes(event.id));
 
   // Plays a poll-tick cue when a fresh event modal opens for the player.
   const prevHasPendingEvent = useRef(hasPendingEvent);
@@ -222,8 +236,9 @@ function GameScreen() {
         {live && <EvBar projection={live} />}
         <div className="stat"><span className="v">{money(res.cash)}</span><span className="l">Cash</span></div>
         <div className="stat"><span className="v" style={{ color: plannedActions >= res.maxActions ? "var(--gold)" : undefined }}>{res.maxActions - plannedActions}/{res.maxActions}</span><span className="l">Actions left</span></div>
-        <div className="stat"><span className="v">{res.nationalMomentum.toFixed(0)}</span><span className="l">Momentum</span></div>
+        <div className="stat" aria-label={`Momentum ${res.nationalMomentum.toFixed(0)}`}><span className="v">{res.nationalMomentum.toFixed(0)}</span><span className="l">Momentum</span></div>
         <SaveControls />
+        <button className="ghost small" onClick={onHome}>Home</button>
         <button className="ghost small" onClick={() => setStatsOpen(true)}>Stats</button>
         {/* Read-only replay. Hidden mid-game on the daily so it can't be used to
             scout the shared board; always available once a game is over. */}
@@ -233,12 +248,17 @@ function GameScreen() {
         <button className="ghost small" onClick={() => setCandOpen(true)}>Candidates</button>
         <button className="ghost small" onClick={() => setGuideOpen(true)}>Guide</button>
         <button className="ghost small" data-coach="settings" onClick={() => setSettingsOpen(true)} aria-label="Settings"><Settings size={16} /></button>
-        <button onClick={undo} disabled={!canUndo}>↶ Undo</button>
-        <button className="primary" data-coach="endweek" onClick={handleEndTurn} disabled={hasPendingEvent}>
-          {hasPendingEvent ? "Resolve event first" : "End Week →"}
+        <button onClick={handleUndo} disabled={!canUndoWeek && plannedActions === 0}>
+          ↶ {plannedActions > 0 ? "Undo action" : "Undo week"}
         </button>
       </div>
 
+      {nextDebate && (
+        <div className="deadline-banner" role="status">
+          <strong>Next week: {nextDebate.title}</strong>
+          <span>Debate prep and policy prep are available in this week's plan.</span>
+        </div>
+      )}
       <NewsTicker />
 
       <div className="main">
@@ -250,7 +270,7 @@ function GameScreen() {
           {/* On mobile, State Detail is a tap-to-open bottom sheet (below), not a
               persistent card that pushes the map and actions around. */}
           {!isMobile && <StatePanel />}
-          <ActionPanel />
+          <ActionPanel onEndWeek={handleEndTurn} endWeekDisabled={hasPendingEvent} />
         </div>
       </div>
 
@@ -287,19 +307,77 @@ function GameScreen() {
 // initialSeed/initialParty prefill the setup screens (Daily Challenge).
 type View =
   | { kind: "landing" }
-  | { kind: "us"; scenarioId?: string; initialSeed?: string; initialParty?: string }
-  | { kind: "uk"; electionId?: string; initialSeed?: string; initialParty?: string }
-  | { kind: "country"; countryId: string; electionId?: string; initialSeed?: string; initialParty?: string }
+  | { kind: "us"; scenarioId?: string; initialSeed?: string; initialParty?: string; setup?: boolean }
+  | { kind: "uk"; electionId?: string; initialSeed?: string; initialParty?: string; setup?: boolean }
+  | { kind: "country"; countryId: string; electionId?: string; initialSeed?: string; initialParty?: string; setup?: boolean }
   | { kind: "leaderboard" }
   | { kind: "legal"; tab?: "privacy" | "terms" };
 
+function historyView(): View {
+  const view = (window.history.state as { movView?: View } | null)?.movView;
+  if (view && ["landing", "us", "uk", "country", "leaderboard", "legal"].includes(view.kind)) return view;
+  return { kind: "landing" };
+}
+
 export function App() {
   const game = useGameStore((s) => s.game);
+  const ukGame = useUkStore((s) => s.game);
+  const countryGame = useCountryStore((s) => s.game);
   const refreshSaves = useGameStore((s) => s.refreshSaves);
-  const [view, setView] = useState<View>({ kind: "landing" });
+  const [view, setView] = useState<View>(historyView);
+  const [restoring, setRestoring] = useState(() => {
+    const initial = historyView();
+    if ("setup" in initial && initial.setup) return false;
+    return (initial.kind === "us" && !useGameStore.getState().game)
+      || (initial.kind === "uk" && !useUkStore.getState().game)
+      || (initial.kind === "country" && !useCountryStore.getState().game);
+  });
   useEffect(() => { void refreshSaves(); }, [refreshSaves]);
-  // Re-register saved custom scenarios so a resumed custom race resolves.
-  useEffect(() => { void registerSavedCustomScenarios(); }, []);
+  useEffect(() => {
+    const initial = historyView();
+    if ("setup" in initial && initial.setup) {
+      void registerSavedCustomScenarios();
+      return;
+    }
+    const restore = async () => {
+      await registerSavedCustomScenarios();
+      if (initial.kind === "us" && !useGameStore.getState().game) await useGameStore.getState().loadGame("autosave");
+      else if (initial.kind === "uk" && !useUkStore.getState().game) useUkStore.getState().tryResumeAutosave();
+      else if (initial.kind === "country" && !useCountryStore.getState().game) useCountryStore.getState().tryResumeAutosave(initial.countryId);
+      setRestoring(false);
+    };
+    void restore().catch(() => setRestoring(false));
+  }, []);
+  useEffect(() => {
+    const onPop = () => {
+      const next = historyView();
+      setView(next);
+      if ("setup" in next && next.setup) return;
+      if (next.kind === "us" && !useGameStore.getState().game) {
+        setRestoring(true);
+        void useGameStore.getState().loadGame("autosave").finally(() => setRestoring(false));
+      } else if (next.kind === "uk" && !useUkStore.getState().game) {
+        useUkStore.getState().tryResumeAutosave();
+      } else if (next.kind === "country" && !useCountryStore.getState().game) {
+        useCountryStore.getState().tryResumeAutosave(next.countryId);
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useEffect(() => {
+    if (!("setup" in view && view.setup)) return;
+    const started = view.kind === "us" ? !!game : view.kind === "uk" ? !!ukGame : view.kind === "country" ? !!countryGame : false;
+    if (!started) return;
+    const active = { ...view, setup: false };
+    window.history.replaceState({ ...window.history.state, movView: active }, "");
+    setView(active);
+  }, [view, game, ukGame, countryGame]);
+
+  const navigate = (next: View) => {
+    window.history.pushState({ ...window.history.state, movView: next }, "");
+    setView(next);
+  };
 
   // Browsers block audio until a real user gesture; arm the synth on the
   // first pointer press or key press anywhere in the app, then stop listening.
@@ -318,16 +396,76 @@ export function App() {
       const assignment = dailyAssignment(utcDateString());
       const meta = SCENARIOS_BY_ID[assignment.scenarioId];
       if (!meta) return;
+      const dailySeed = hashSeed(assignment.seed);
+      const us = useGameStore.getState().game;
+      const uk = useUkStore.getState().game;
+      const country = useCountryStore.getState().game;
+      if (meta.engine === "us" && us?.seed === dailySeed && us.scenarioId === meta.nativeId && us.playerCandidate === assignment.role) {
+        navigate({ kind: "us" });
+        return;
+      }
+      if (meta.engine === "uk" && uk?.seed === dailySeed && uk.electionId === meta.nativeId && uk.playerParty === assignment.role) {
+        navigate({ kind: "uk" });
+        return;
+      }
+      if (meta.engine === "country" && country?.seed === dailySeed && country.countryId === meta.country && country.electionId === meta.nativeId && country.playerParty === assignment.role) {
+        navigate({ kind: "country", countryId: meta.country });
+        return;
+      }
+      if (meta.engine === "us" && !us) {
+        void useGameStore.getState().loadGame("autosave").then(() => {
+          const saved = useGameStore.getState().game;
+          if (saved?.seed === dailySeed && saved.scenarioId === meta.nativeId && saved.playerCandidate === assignment.role) {
+            navigate({ kind: "us" });
+          } else {
+            useGameStore.getState().unload();
+            navigate({ kind: "us", scenarioId: meta.nativeId, initialSeed: assignment.seed, initialParty: assignment.role, setup: true });
+          }
+        }).catch(() => {
+          useGameStore.getState().unload();
+          navigate({ kind: "us", scenarioId: meta.nativeId, initialSeed: assignment.seed, initialParty: assignment.role, setup: true });
+        });
+        return;
+      }
+      if (meta.engine === "uk" && !uk && useUkStore.getState().tryResumeAutosave()) {
+        const saved = useUkStore.getState().game;
+        if (saved?.seed === dailySeed && saved.electionId === meta.nativeId && saved.playerParty === assignment.role) {
+          navigate({ kind: "uk" });
+          return;
+        }
+      }
+      if (meta.engine === "country" && !country && useCountryStore.getState().tryResumeAutosave(meta.country)) {
+        const saved = useCountryStore.getState().game;
+        if (saved?.seed === dailySeed && saved.electionId === meta.nativeId && saved.playerParty === assignment.role) {
+          navigate({ kind: "country", countryId: meta.country });
+          return;
+        }
+      }
       // Played marker is set on results finish (DailyResultPanel), not on click.
       const prefill = { initialSeed: assignment.seed, initialParty: assignment.role };
-      if (meta.engine === "us") setView({ kind: "us", scenarioId: meta.nativeId, ...prefill });
-      else if (meta.engine === "uk") setView({ kind: "uk", electionId: meta.nativeId, ...prefill });
-      else setView({ kind: "country", countryId: meta.country, electionId: meta.nativeId, ...prefill });
+      if (meta.engine === "us") { useGameStore.getState().unload(); navigate({ kind: "us", scenarioId: meta.nativeId, ...prefill, setup: true }); }
+      else if (meta.engine === "uk") { useUkStore.getState().unload(); navigate({ kind: "uk", electionId: meta.nativeId, ...prefill, setup: true }); }
+      else { useCountryStore.getState().unload(); navigate({ kind: "country", countryId: meta.country, electionId: meta.nativeId, ...prefill, setup: true }); }
       return;
     }
-    setView(dest as View);
+    if (dest.kind === "us") useGameStore.getState().unload();
+    else if (dest.kind === "uk") useUkStore.getState().unload();
+    else if (dest.kind === "country") useCountryStore.getState().unload();
+    navigate({ ...dest, setup: dest.kind === "us" || dest.kind === "uk" || dest.kind === "country" } as View);
   };
-  const home = () => setView({ kind: "landing" });
+  const home = () => { navigate({ kind: "landing" }); void refreshSaves(); };
+  const resume = async (target: ResumeTarget) => {
+    if (target.kind === "us") {
+      if (target.saveId !== "autosave" || !useGameStore.getState().game) {
+        await useGameStore.getState().loadGame(target.saveId);
+      }
+      if (useGameStore.getState().game) navigate({ kind: "us" });
+    } else if (target.kind === "uk") {
+      if (useUkStore.getState().tryResumeAutosave()) navigate({ kind: "uk" });
+    } else if (useCountryStore.getState().tryResumeAutosave(target.countryId)) {
+      navigate({ kind: "country", countryId: target.countryId });
+    }
+  };
 
   // Everything renders above the shared auth/paywall modals.
   const withModals = (node: React.ReactNode) => (
@@ -340,7 +478,8 @@ export function App() {
   );
 
   // A live U.S. game (or a resumed autosave) takes over the screen.
-  if (view.kind === "us" || game) {
+  if (restoring) return withModals(<LazyFallback />);
+  if (view.kind === "us") {
     if (!game) {
       return withModals(
         <div className="app screen" key="setup">
@@ -351,15 +490,15 @@ export function App() {
             onExit={home}
             onLaunch={(target) =>
               target.kind === "uk"
-                ? setView({ kind: "uk" })
-                : setView({ kind: "country", countryId: target.countryId })
+                ? navigate({ kind: "uk", setup: true })
+                : navigate({ kind: "country", countryId: target.countryId, setup: true })
             }
           />
         </div>,
       );
     }
     if (game.phase === "result") return withModals(<div className="app screen" key="result"><Suspense fallback={<LazyFallback />}><ResultsScreen /></Suspense></div>);
-    return withModals(<GameScreen />);
+    return withModals(<GameScreen onHome={home} />);
   }
 
   if (view.kind === "uk") {
@@ -378,5 +517,5 @@ export function App() {
     return withModals(<LegalPage initialTab={view.tab} onBack={home} />);
   }
 
-  return withModals(<LandingPage onGo={go} />);
+  return withModals(<LandingPage onGo={go} onResume={(target) => { void resume(target); }} />);
 }

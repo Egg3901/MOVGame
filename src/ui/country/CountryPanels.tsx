@@ -74,6 +74,7 @@ export function CountryMap() {
 
   const legend = (
     <div className="legend" style={{ flexWrap: "wrap", gap: 8 }}>
+      <span className="muted small">Labels show leader {country.unitNamePlural} / region total.</span>
       {game.parties.filter((p) => country.playable.includes(p)).map((p) => (
         <span key={p} className="row" style={{ gap: 4, alignItems: "center" }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: partyColor(country, p) }} />
@@ -109,7 +110,7 @@ export function CountryMap() {
                 </text>
                 <text x={shape.label[0]} y={shape.label[1] + 18} textAnchor="middle"
                   style={{ fontSize: 13, fontWeight: 700, fill: "#fff", pointerEvents: "none", paintOrder: "stroke", stroke: "rgba(0,0,0,0.45)", strokeWidth: 3 }}>
-                  {winner ? `${partyShort(country, winner)} ${seats[winner]}` : ""}
+                  {winner ? `${partyShort(country, winner)} ${seats[winner]}/${region.seats}` : ""}
                 </text>
               </g>
             );
@@ -137,7 +138,7 @@ export function CountryMap() {
                 title={`${region.name}: ${region.seats} ${country.unitNamePlural}`}
               >
                 <span>{region.abbr}</span>
-                <span className="ev">{winner ? `${partyShort(country, winner)} ${seats[winner]}` : region.seats}</span>
+                <span className="ev">{winner ? `${partyShort(country, winner)} ${seats[winner]}/${region.seats}` : region.seats}</span>
               </div>
             </div>
           );
@@ -160,19 +161,27 @@ const GOV_LABEL: Record<string, string> = {
 export function CountryStandings() {
   const country = useCountryStore((s) => s.country)!;
   const game = useCountryStore((s) => s.game)!;
+  const replay = useCountryStore((s) => s.replay);
   const live = useCountryStore((s) => s.liveProjection)();
   if (!live) return null;
   const order = sortBySeats(country, live.seats);
   const total = majorityFor(game, country).total;
   const issues = Object.keys(game.salience).filter((id) => game.salience[id] >= 0.1).sort((a, b) => game.salience[b] - game.salience[a]);
   const issueName = (id: string) => country.issues.find((i) => i.id === id)?.name ?? id;
+  const openingShare = replay?.snapshots[0]?.standings.find((standing) => standing.id === game.playerParty)?.poll;
+  const voteShift = openingShare === undefined ? null : ((live.voteShare[game.playerParty] ?? 0) - openingShare) * 100;
 
   return (
     <div className="card scroll">
       <h3>National Standings</h3>
-      <div className="kv"><span className="k">Projected outcome</span><span style={{ color: partyColor(country, live.largestParty) }}>{GOV_LABEL[live.government.kind]}</span></div>
+      <div className="kv"><span className="k">Projected outcome</span><span style={{ color: partyColor(country, live.largestParty) }}>{country.id === "FR" && live.government.kind === "majority" ? "Wins presidency" : GOV_LABEL[live.government.kind]}</span></div>
       <div className="kv"><span className="k">Leading</span><span style={{ color: partyColor(country, live.largestParty) }}>{partyName(country, live.largestParty)}</span></div>
       <div className="kv"><span className="k">Your momentum</span><span>{game.resources[game.playerParty].momentum.toFixed(0)}</span></div>
+      {country.id === "FR" && voteShift !== null && (
+        <div className="kv" title="Change in your national runoff vote share since the opening map.">
+          <span className="k">Runoff vote movement</span><span>{voteShift >= 0 ? "+" : ""}{voteShift.toFixed(2)} pts</span>
+        </div>
+      )}
 
       <MpPollBlock
         seed={game.seed}
@@ -191,14 +200,14 @@ export function CountryStandings() {
             <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: partyColor(country, p), marginRight: 6 }} />
             {partyShort(country, p)}
           </span>
-          <span className="meta">{live.seats[p]} · {((live.voteShare[p] ?? 0) * 100).toFixed(1)}%</span>
+          <span className="meta" title="Units won and national vote share. Votes for parties below a district threshold may yield few or no seats.">{live.seats[p]} {country.unitNamePlural} · {((live.voteShare[p] ?? 0) * 100).toFixed(country.id === "FR" ? 2 : 1)}% votes</span>
           <div className="suppbar"><div style={{ width: `${Math.min(100, (live.seats[p] / total) * 100 * 2)}%`, background: partyColor(country, p) }} /></div>
         </div>
       ))}
 
       <h3 style={{ marginTop: 14 }}>Issue Salience</h3>
       {issues.map((id) => (
-        <div className="bloc" key={id}>
+        <div className="bloc issue-row" key={id} aria-label={`${issueName(id)} salience ${(game.salience[id] * 100).toFixed(0)}%`}>
           <span className="name">{issueName(id)}</span>
           <span className="meta">{(game.salience[id] * 100).toFixed(0)}%</span>
           <div className="suppbar"><div style={{ width: `${game.salience[id] * 100}%`, background: "var(--gold)" }} /></div>

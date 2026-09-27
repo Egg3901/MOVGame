@@ -15,6 +15,7 @@ import type { PartyId } from "@engine/system";
 import type { ReplayLog, ReplayMode } from "@lib/replay";
 import { truncateToTurn } from "@lib/replay";
 import { initUkReplayLog, recordUkWeek } from "./ukReplay";
+import { mpActionCost, mpPlannedCost } from "@engine/mpBudget";
 
 interface UkStore {
   game: UkGameState | null;
@@ -26,6 +27,7 @@ interface UkStore {
   newGame: (election: string, party: PartyId, seed?: string, difficulty?: Difficulty) => void;
   // Start a prebuilt (Campaign Editor) game. Always casual: never posts a score.
   startCustom: (game: UkGameState) => void;
+  unload: () => void;
   reset: () => void;
   selectRegion: (id: string | null) => void;
 
@@ -100,6 +102,8 @@ export const useUkStore = create<UkStore>((set, get) => ({
     });
   },
 
+  unload: () => set({ game: null, history: [], replay: null, selectedRegionId: null, lastEventResult: null }),
+
   reset: () => {
     try { localStorage.removeItem(AUTOSAVE_KEY); } catch { /* */ }
     set({ game: null, history: [], replay: null, selectedRegionId: null, lastEventResult: null });
@@ -112,19 +116,26 @@ export const useUkStore = create<UkStore>((set, get) => ({
     if (!game) return;
     const res = game.resources[game.playerParty];
     if (game.queuedActions.length >= res.maxActions) return;
-    set({ game: { ...game, queuedActions: [...game.queuedActions, a] } });
+    if (mpPlannedCost(game.queuedActions) + mpActionCost(a) > res.funds + 1e-9) return;
+    const next = { ...game, queuedActions: [...game.queuedActions, a] };
+    autosave(next);
+    set({ game: next });
   },
 
   removeAction: (index) => {
     const game = get().game;
     if (!game) return;
-    set({ game: { ...game, queuedActions: game.queuedActions.filter((_, i) => i !== index) } });
+    const next = { ...game, queuedActions: game.queuedActions.filter((_, i) => i !== index) };
+    autosave(next);
+    set({ game: next });
   },
 
   clearActions: () => {
     const game = get().game;
     if (!game) return;
-    set({ game: { ...game, queuedActions: [] } });
+    const next = { ...game, queuedActions: [] };
+    autosave(next);
+    set({ game: next });
   },
 
   resolvePlayerEvent: (choiceId) => {
@@ -178,7 +189,7 @@ export const useUkStore = create<UkStore>((set, get) => ({
 
   tryResumeAutosave: () => {
     const saved = loadAutosave();
-    if (!saved || saved.phase === "result") return false;
+    if (!saved) return false;
     set({ game: saved, history: [], selectedRegionId: null, lastEventResult: null });
     return true;
   },

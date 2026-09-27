@@ -28,7 +28,7 @@ function buildHeadlines(game: GameState, live: Projection | null): string[] {
     const readyish = debateReadiness(game, game.playerCandidate) >= 56;
     const when = toDebate === 1 ? "NEXT WEEK" : "IN 2 WEEKS";
     out.push(
-      `⚑ DEBATE ${when}: ${readyish ? "you look ready; bank more prep to dominate." : "prep now (Debate Prep + Policy Prep) to lift your score."}`,
+      `⚑ DEBATE ${when}: ${readyish ? "your prep is solid; your choice and opponent still matter." : "prep now (Debate Prep + Policy Prep) to lift your score."}`,
     );
   }
 
@@ -42,7 +42,7 @@ function buildHeadlines(game: GameState, live: Projection | null): string[] {
       .sort((a, b) => Math.abs(a.demShare - 0.5) - Math.abs(b.demShare - 0.5))[0];
     if (close) {
       const st = game.states.find((s) => s.id === close.stateId);
-      if (st) out.push(`${st.name.toUpperCase()}: a dead heat at ${leanLabel(close.demShare)}`);
+      if (st) out.push(`${st.name.toUpperCase()}: ${close.lean === "tossup" ? "a dead heat" : leanLabel(close.demShare)}`);
     }
   }
 

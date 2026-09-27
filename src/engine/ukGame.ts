@@ -638,11 +638,12 @@ export function ukAdvanceTurn(g: UkGameState, opts: UkAdvanceOptions = {}): UkGa
   return finalizeMpCampaignTurn(next, (game) => computeUkResult(game));
 }
 
-// Coalition compatibility: the two main UK rivals (Conservative & Labour) never
-// govern together; everyone else is fair game (the Lib Dems have partnered both).
+// Coalition compatibility for the strongest political red lines. The two main
+// rivals do not govern together, and the SNP does not prop up Conservatives.
 export function ukCompatible(lead: PartyId, partner: PartyId): boolean {
   const rivals = new Set(["con", "lab"]);
   if (rivals.has(lead) && rivals.has(partner)) return false;
+  if ((lead === "con" && partner === "snp") || (lead === "snp" && partner === "con")) return false;
   return true;
 }
 

@@ -6,7 +6,7 @@ import { STATE_PATHS } from "@content/statePaths";
 import { SCENARIOS } from "@content/scenarios";
 import { US_NEXT_SCENARIO } from "@content/nextScenario";
 import type { Projection } from "@engine/index";
-import { computeScoreFromFacts, usScoreFacts } from "@engine/scoring";
+import { computeScoreFromFacts, usOpponentEvMargin, usScoreFacts } from "@engine/scoring";
 import { checkAchievements, recordLocalAchievements } from "@engine/achievements";
 import { api } from "@lib/api";
 import { sfx } from "@lib/sfx";
@@ -346,6 +346,7 @@ function ScoreAndAchievements() {
   const scenarioId = `us-${SCENARIOS[game.scenarioId ?? "2020"]?.year ?? game.scenarioId}`;
 
   const facts = useMemo(() => usScoreFacts(result, player, difficulty), [result, player, difficulty]);
+  const evMargin = usOpponentEvMargin(result, player);
   const score = computeScoreFromFacts(facts);
   const earned = useMemo(
     () => checkAchievements({ result, game, player, difficulty }),
@@ -378,7 +379,7 @@ function ScoreAndAchievements() {
         electoralVotes: result.electoralVotes,
         popularShare: result.popularShare,
         playerSide: player,
-        evMargin: Math.round(facts.unitMargin),
+        evMargin,
         popularVoteMargin: facts.popularMargin,
         turnsPlayed: game.turn,
       });
@@ -413,7 +414,7 @@ function ScoreAndAchievements() {
         unitLine={`${result.electoralVotes[player]} EV`}
         score={score}
         facts={facts}
-        evMargin={Math.round(facts.unitMargin)}
+        evMargin={evMargin}
         popularVoteMargin={facts.popularMargin}
         onReplay={replayDaily}
       />
@@ -427,7 +428,7 @@ function ScoreAndAchievements() {
               {score}<span className="muted" style={{ fontSize: 16, fontWeight: 600 }}> / 1000</span>
             </div>
             <div className="muted small">
-              EV margin {facts.unitMargin >= 0 ? "+" : ""}{Math.round(facts.unitMargin)} · popular{" "}
+              EV margin {evMargin >= 0 ? "+" : ""}{evMargin} · popular{" "}
               {facts.popularMargin >= 0 ? "+" : ""}{facts.popularMargin.toFixed(1)} pts · {difficulty} ×
               {difficulty === "easy" ? "0.7" : difficulty === "hard" ? "1.5" : "1.0"}
             </div>

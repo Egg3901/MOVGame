@@ -47,6 +47,13 @@ export interface UsResultFacts {
   popularShare: Record<string, number>;
 }
 
+// Display and leaderboard metadata use the actual ticket-to-ticket EV gap.
+// ScoreFacts.unitMargin remains distance from 270 for score calculation.
+export function usOpponentEvMargin(result: UsResultFacts, player: "dem" | "rep"): number {
+  const rival = player === "dem" ? "rep" : "dem";
+  return (result.electoralVotes[player] ?? 0) - (result.electoralVotes[rival] ?? 0);
+}
+
 export function usScoreFacts(
   result: UsResultFacts,
   player: "dem" | "rep",

@@ -3,11 +3,12 @@ import { useGameStore } from "@store/gameStore";
 import { choiceAvailable, debateReadiness } from "@engine/index";
 import { EVENTS_BY_ID } from "@content/events";
 import { BLOCS } from "@content/blocs";
+import { useRequiredModalFocus } from "./useRequiredModalFocus";
 
 // Maps a debate-readiness score (0..100) to a label + how the night will play.
 function readinessTier(r: number): { label: string; tone: "up" | "down" | "flat"; note: string } {
-  if (r >= 72) return { label: "Well prepared", tone: "up", note: "Your prep amplifies a strong night and blunts the risk." };
-  if (r >= 56) return { label: "Ready", tone: "flat", note: "A solid, on-script performance." };
+  if (r >= 72) return { label: "Well prepared", tone: "up", note: "Prep improves your odds; the opponent and your choice still matter." };
+  if (r >= 56) return { label: "Ready", tone: "flat", note: "Your preparation is adequate, but a win is not assured." };
   if (r >= 44) return { label: "Average", tone: "flat", note: "No edge from the podium. It plays as written." };
   return { label: "Underprepared", tone: "down", note: "Shaky command. The upside shrinks and mistakes cost more." };
 }
@@ -19,6 +20,7 @@ export function EventModal() {
   const game = useGameStore((s) => s.game)!;
   const resolve = useGameStore((s) => s.resolvePlayerEvent);
   const [chosenId, setChosenId] = useState<string | null>(null);
+  const dialogRef = useRequiredModalFocus<HTMLDivElement>();
 
   const pending = game.pendingEvents.find((p) => p.forCandidate === game.playerCandidate);
   if (!pending) return null;
@@ -37,7 +39,7 @@ export function EventModal() {
 
   return (
     <div className="overlay">
-      <div className="modal">
+      <div className="modal" ref={dialogRef} role="dialog" aria-modal="true" aria-label={event.title} tabIndex={-1}>
         <div className="head">
           <div className="tag">{event.isDebate ? "Debate Night" : "Breaking: Decision Required"}</div>
           <h2>{event.title}</h2>

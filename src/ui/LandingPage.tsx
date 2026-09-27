@@ -15,6 +15,8 @@ import {
   LineChart, Mic2, Globe2, MessageCircleQuestion, Search,
 } from "lucide-react";
 import { BRAND } from "../brand";
+import { useGameStore } from "@store/gameStore";
+import { listResumableCampaigns, type ResumeTarget } from "@persistence/resume";
 
 const COUNTRY_NAMES: Record<CountryCode, string> = {
   US: "United States",
@@ -255,7 +257,15 @@ function NoticeBanner() {
   );
 }
 
-export function LandingPage({ onGo }: { onGo: (dest: LandingDestination) => void }) {
+export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestination) => void; onResume: (target: ResumeTarget) => void }) {
+  const usSaves = useGameStore((s) => s.saves);
+  const currentUsGame = useGameStore((s) => s.game);
+  const resumable = listResumableCampaigns(usSaves);
+  if (currentUsGame) {
+    const autosaveIndex = resumable.findIndex((option) => option.target.kind === "us" && option.target.saveId === "autosave");
+    if (autosaveIndex >= 0) resumable.splice(autosaveIndex, 1);
+    resumable.unshift({ target: { kind: "us", saveId: "autosave" }, label: "US campaign", turn: currentUsGame.turn, updatedAt: Date.now() });
+  }
   const canPlay = useAuthStore((s) => s.canPlay);
   const unlocked = useAuthStore((s) => s.unlocked);
   const openModal = useAuthStore((s) => s.openModal);
@@ -381,10 +391,24 @@ export function LandingPage({ onGo }: { onGo: (dest: LandingDestination) => void
             </p>
             <div className="landing-hero-actions">
               <button className="primary" onClick={() => play(free[0])}><Play size={15} /> Play free</button>
+              {resumable[0] && (
+                <button className="ghost" onClick={() => onResume(resumable[0].target)}>
+                  Resume {resumable[0].label} · Week {resumable[0].turn + 1}
+                </button>
+              )}
               <button className="ghost" onClick={() => document.getElementById("campaign-catalog")?.scrollIntoView({ behavior: "smooth" })}>
                 Browse 49 campaigns
               </button>
             </div>
+            {resumable.length > 1 && (
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }} aria-label="Saved campaigns">
+                {resumable.slice(1, 5).map((save) => (
+                  <button key={JSON.stringify(save.target)} className="ghost small" onClick={() => onResume(save.target)}>
+                    Load {save.label} · Week {save.turn + 1}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="landing-proof" aria-label="Product highlights">
               <span>No account needed</span><span>20 to 40 minute campaigns</span><span>No subscription</span>
             </div>

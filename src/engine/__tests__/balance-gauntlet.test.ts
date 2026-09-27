@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 // BALANCE GAUNTLET — threshold assertions over automated playtests.
 //
-// Default (CI) mode runs a smoke subset: 3 scenarios per engine, all three
+// Default (CI) mode runs a smoke subset: 3 scenarios per engine plus US 2016, all three
 // bots, 8 seeds per cell (~25s). Set RUN_GAUNTLET=1 to run every registry
 // scenario (focused + passive, 8 seeds, ~2min) — the full 20-seed matrix
 // lives in `npx tsx scripts/balance-report.ts` (docs/balance/report-*.md).
@@ -27,10 +27,11 @@ import { SCENARIO_REGISTRY, SCENARIOS_BY_ID } from "@content/scenarioRegistry";
 
 const FULL = process.env.RUN_GAUNTLET === "1";
 
-// Smoke subset: a landslide, a knife-edge, and a mid year per engine — the
+// Smoke subset: a landslide, a close race, and a mid year per engine, plus 2016;
+// these are the
 // shapes that stress each threshold. RUN_GAUNTLET=1 widens to the registry.
 const SMOKE_SCENARIOS = [
-  "us-2020", "us-2000", "us-1984",
+  "us-2020", "us-2016", "us-2000", "us-1984",
   "uk-2024", "uk-1997", "uk-2017",
   "ca-2025", "de-2025", "fr-2022",
 ];

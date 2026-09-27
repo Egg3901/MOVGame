@@ -184,6 +184,9 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
   position: sticky; top: 0; z-index: 30;
 }
 .topbar .turnchip { min-width: 0; }
+.deadline-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 22px; background: var(--navy-600); border-bottom: 1px solid var(--gold); font-size: 12px; }
+.deadline-banner strong { color: var(--gold); }
+.deadline-banner span { color: var(--muted); }
 
 /* Brand lockup: gold Vote glyph · wordmark · gold year line */
 .brand-lockup { display: flex; align-items: center; gap: 11px; flex-shrink: 0; line-height: 1.05; }
@@ -198,8 +201,10 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 .turnchip { color: var(--muted); font-size: 13px; }
 
 .evbar { flex: 1 1 320px; display: flex; align-items: center; gap: 10px; max-width: 640px; min-width: 0; }
+.evbar-track-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.evbar-tossup-label { font-size: 10px; line-height: 14px; color: var(--muted); text-align: center; font-family: var(--font-mono); }
 .evbar .track {
-  flex: 1; height: 26px; border-radius: var(--radius-sm); overflow: hidden; display: flex;
+  width: 100%; height: 26px; border-radius: var(--radius-sm); overflow: hidden; display: flex;
   border: 1px solid var(--border); background: var(--well);
 }
 .evbar .seg { display: flex; align-items: center; justify-content: center;
@@ -234,6 +239,9 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 /* ── Map ────────────────────────────────────────────────────────────── */
 .mapwrap { display: flex; flex-direction: column; gap: 10px; }
 .mapcontrols { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.map-mode-toggle { display: inline-flex; padding: 3px; gap: 3px; border: 1px solid var(--gold); border-radius: var(--radius-sm); background: var(--well); }
+.map-mode-toggle button { border: 0; border-radius: 4px; padding: 5px 9px; background: transparent; color: var(--text-body); font-size: 11px; font-weight: 700; }
+.map-mode-toggle button[aria-pressed="true"] { background: var(--gold); color: var(--navy-900); }
 .tilegrid { display: grid; gap: 5px; width: 100%; max-width: 100%; }
 .tile {
   position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); border: 1px solid rgba(0, 0, 0, 0.28);
@@ -267,6 +275,7 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 .bloc:last-child { border-bottom: none; }
 .bloc .name { font-size: 12px; }
 .bloc .meta { font-size: 10px; color: var(--muted); }
+.issue-row .meta { font-size: 12px; font-weight: 700; color: var(--text-body); }
 .suppbar { grid-column: 1 / -1; height: 7px; border-radius: var(--radius-sm); overflow: hidden;
   display: flex; background: var(--well); border: 1px solid var(--border); }
 .suppbar .d { background: var(--dem); transition: width var(--dur-bar) var(--ease); }
@@ -764,6 +773,7 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
   .bloc { padding: 4px 0; gap: 2px 6px; }
   .bloc .name { font-size: 10px; }
   .bloc .meta { font-size: 9px; }
+  .issue-row .meta { font-size: 12px; font-weight: 700; color: var(--text-body); }
   .kv { font-size: 10px; padding: 2px 0; }
   .pollrow { font-size: 10px; padding: 2px 0; }
   .queue { gap: 6px; }
