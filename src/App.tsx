@@ -22,6 +22,7 @@ import { registerSavedCustomScenarios } from "@persistence/local";
 import type { ResumeTarget } from "@persistence/resume";
 import { Spinner } from "@ui/Skeleton";
 import { hashSeed } from "@engine/rng";
+import { GENERIC_DEBATES, HISTORICAL_EVENTS } from "@content/events";
 
 // The UK and country shells carry their engines, content, and map geometry —
 // they load on demand so the main bundle stays lean (the US game is the
@@ -164,6 +165,10 @@ function GameScreen({ onHome }: { onHome: () => void }) {
   };
   const year = getScenario(game.scenarioId).year;
   const hasPendingEvent = game.pendingEvents.some((p) => p.forCandidate === player);
+  const debateDeck = game.eventMode === "plausible"
+    ? GENERIC_DEBATES
+    : HISTORICAL_EVENTS[game.scenarioId ?? "2020"] ?? HISTORICAL_EVENTS["2020"];
+  const nextDebate = debateDeck.find((event) => event.isDebate && event.trigger.kind === "scheduled" && event.trigger.turn === game.turn + 1 && !game.firedEventIds.includes(event.id));
 
   // Plays a poll-tick cue when a fresh event modal opens for the player.
   const prevHasPendingEvent = useRef(hasPendingEvent);
@@ -248,6 +253,12 @@ function GameScreen({ onHome }: { onHome: () => void }) {
         </button>
       </div>
 
+      {nextDebate && (
+        <div className="deadline-banner" role="status">
+          <strong>Next week: {nextDebate.title}</strong>
+          <span>Debate prep and policy prep are available in this week's plan.</span>
+        </div>
+      )}
       <NewsTicker />
 
       <div className="main">

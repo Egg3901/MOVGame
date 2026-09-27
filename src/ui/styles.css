@@ -184,6 +184,9 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
   position: sticky; top: 0; z-index: 30;
 }
 .topbar .turnchip { min-width: 0; }
+.deadline-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 22px; background: var(--navy-600); border-bottom: 1px solid var(--gold); font-size: 12px; }
+.deadline-banner strong { color: var(--gold); }
+.deadline-banner span { color: var(--muted); }
 
 /* Brand lockup: gold Vote glyph · wordmark · gold year line */
 .brand-lockup { display: flex; align-items: center; gap: 11px; flex-shrink: 0; line-height: 1.05; }
