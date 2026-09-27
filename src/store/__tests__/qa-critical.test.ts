@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { localProvider } from "@persistence/local";
 import { useGameStore } from "../gameStore";
 import { useUkStore } from "../ukStore";
@@ -9,6 +9,7 @@ import { mpPlannedCost } from "@engine/mpBudget";
 const flushSave = () => new Promise((resolve) => setTimeout(resolve, 30));
 
 describe("QA campaign safety", () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(async () => {
     useGameStore.setState({ game: null, history: [], replay: null });
     await localProvider.remove("autosave");
@@ -23,6 +24,23 @@ describe("QA campaign safety", () => {
     const saved = await localProvider.load("autosave");
     expect(saved?.state.queuedActions).toHaveLength(1);
     expect(saved?.state.queuedActions[0].day).toBe(2);
+  });
+
+  it("recovers the synchronous session snapshot if refresh interrupts IndexedDB", async () => {
+    const entries = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      setItem: (key: string, value: string) => entries.set(key, value),
+      getItem: (key: string) => entries.get(key) ?? null,
+      removeItem: (key: string) => entries.delete(key),
+    });
+    useGameStore.getState().newGame({ seed: "qa-session", playerCandidate: "rep" });
+    useGameStore.getState().queueAction({ type: "rally", candidate: "rep", stateId: "PA", day: 1 });
+    await flushSave();
+    await localProvider.remove("autosave");
+    useGameStore.getState().unload();
+    await useGameStore.getState().loadGame("autosave");
+    expect(useGameStore.getState().game?.queuedActions[0]?.stateId).toBe("PA");
+    await flushSave();
   });
 
   it("rejects an ad that would exceed the queued cash budget", () => {

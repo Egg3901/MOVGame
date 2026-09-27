@@ -1,4 +1,24 @@
-import type { SaveMeta } from "./types";
+import type { SaveMeta, SaveRecord } from "./types";
+
+const US_SESSION_SAVE_KEY = "campaign-us-session-autosave";
+
+export function saveUsSessionAutosave(record: SaveRecord): void {
+  try { localStorage.setItem(US_SESSION_SAVE_KEY, JSON.stringify(record)); } catch { /* unavailable or full */ }
+}
+
+export function loadUsSessionAutosave(): SaveRecord | null {
+  try {
+    const raw = localStorage.getItem(US_SESSION_SAVE_KEY);
+    if (!raw) return null;
+    const record = JSON.parse(raw) as SaveRecord;
+    return record.id === "autosave" && typeof record.updatedAt === "number" &&
+      typeof record.state?.turn === "number" && !!record.state?.playerCandidate ? record : null;
+  } catch { return null; }
+}
+
+export function removeUsSessionAutosave(): void {
+  try { localStorage.removeItem(US_SESSION_SAVE_KEY); } catch { /* unavailable */ }
+}
 
 export type ResumeTarget =
   | { kind: "us"; saveId: string }
@@ -23,6 +43,14 @@ export function listResumableCampaigns(usSaves: SaveMeta[]): ResumeOption[] {
     turn: save.turn,
     updatedAt: save.updatedAt,
   }));
+  const mirror = loadUsSessionAutosave();
+  if (mirror) {
+    const existing = options.find((option) => option.target.kind === "us" && option.target.saveId === "autosave");
+    if (!existing || mirror.updatedAt > existing.updatedAt) {
+      if (existing) options.splice(options.indexOf(existing), 1);
+      options.push({ target: { kind: "us", saveId: "autosave" }, label: "US campaign", turn: mirror.turn, updatedAt: mirror.updatedAt });
+    }
+  }
   if (typeof localStorage === "undefined") return options;
   for (const [key, target, countryName] of [
     ["campaign-uk-autosave", { kind: "uk" }, "UK"],

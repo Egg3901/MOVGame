@@ -21,6 +21,7 @@ import { SCENARIOS_BY_ID } from "@content/scenarioRegistry";
 import { registerSavedCustomScenarios } from "@persistence/local";
 import type { ResumeTarget } from "@persistence/resume";
 import { Spinner } from "@ui/Skeleton";
+import { hashSeed } from "@engine/rng";
 
 // The UK and country shells carry their engines, content, and map geometry —
 // they load on demand so the main bundle stays lean (the US game is the
@@ -384,6 +385,51 @@ export function App() {
       const assignment = dailyAssignment(utcDateString());
       const meta = SCENARIOS_BY_ID[assignment.scenarioId];
       if (!meta) return;
+      const dailySeed = hashSeed(assignment.seed);
+      const us = useGameStore.getState().game;
+      const uk = useUkStore.getState().game;
+      const country = useCountryStore.getState().game;
+      if (meta.engine === "us" && us?.seed === dailySeed && us.scenarioId === meta.nativeId && us.playerCandidate === assignment.role) {
+        navigate({ kind: "us" });
+        return;
+      }
+      if (meta.engine === "uk" && uk?.seed === dailySeed && uk.electionId === meta.nativeId && uk.playerParty === assignment.role) {
+        navigate({ kind: "uk" });
+        return;
+      }
+      if (meta.engine === "country" && country?.seed === dailySeed && country.countryId === meta.country && country.electionId === meta.nativeId && country.playerParty === assignment.role) {
+        navigate({ kind: "country", countryId: meta.country });
+        return;
+      }
+      if (meta.engine === "us" && !us) {
+        void useGameStore.getState().loadGame("autosave").then(() => {
+          const saved = useGameStore.getState().game;
+          if (saved?.seed === dailySeed && saved.scenarioId === meta.nativeId && saved.playerCandidate === assignment.role) {
+            navigate({ kind: "us" });
+          } else {
+            useGameStore.getState().unload();
+            navigate({ kind: "us", scenarioId: meta.nativeId, initialSeed: assignment.seed, initialParty: assignment.role, setup: true });
+          }
+        }).catch(() => {
+          useGameStore.getState().unload();
+          navigate({ kind: "us", scenarioId: meta.nativeId, initialSeed: assignment.seed, initialParty: assignment.role, setup: true });
+        });
+        return;
+      }
+      if (meta.engine === "uk" && !uk && useUkStore.getState().tryResumeAutosave()) {
+        const saved = useUkStore.getState().game;
+        if (saved?.seed === dailySeed && saved.electionId === meta.nativeId && saved.playerParty === assignment.role) {
+          navigate({ kind: "uk" });
+          return;
+        }
+      }
+      if (meta.engine === "country" && !country && useCountryStore.getState().tryResumeAutosave(meta.country)) {
+        const saved = useCountryStore.getState().game;
+        if (saved?.seed === dailySeed && saved.electionId === meta.nativeId && saved.playerParty === assignment.role) {
+          navigate({ kind: "country", countryId: meta.country });
+          return;
+        }
+      }
       // Played marker is set on results finish (DailyResultPanel), not on click.
       const prefill = { initialSeed: assignment.seed, initialParty: assignment.role };
       if (meta.engine === "us") { useGameStore.getState().unload(); navigate({ kind: "us", scenarioId: meta.nativeId, ...prefill, setup: true }); }

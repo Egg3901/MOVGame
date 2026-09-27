@@ -28,6 +28,7 @@ import type { ReplayLog, ReplayMode } from "@lib/replay";
 import { truncateToTurn } from "@lib/replay";
 import { initUsReplayLog, recordUsWeek, syncUsReplayLog } from "./usReplay";
 import { canQueueAction } from "@engine/actionBudget";
+import { loadUsSessionAutosave, removeUsSessionAutosave, saveUsSessionAutosave } from "@persistence/resume";
 
 const AUTOSAVE_ID = "autosave";
 const UNDO_DEPTH = 12;
@@ -98,6 +99,8 @@ function autosave(game: GameState) {
     playerCandidate: game.playerCandidate,
     state: structuredClone(game),
   };
+  // Synchronous last-known plan closes the refresh window before IndexedDB commits.
+  saveUsSessionAutosave(record);
   // Serialize writes so rapid plan edits cannot let an older save land last.
   localAutosaveQueue = localAutosaveQueue.then(() => localProvider.save(record)).catch(() => {});
   // Mirror to the cloud when signed in. RemoteSyncProvider swallows failures,
@@ -364,6 +367,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Prefer the local copy; fall back to the cloud (e.g. a save made on
     // another device that has not been pulled into this browser yet).
     let record = await localProvider.load(id);
+    if (id === AUTOSAVE_ID) {
+      const session = loadUsSessionAutosave();
+      if (session && (!record || session.updatedAt >= record.updatedAt)) record = session;
+    }
     if (!record) record = await remoteProvider.load(id);
     if (!record) return;
     let replayRec = await localProvider.loadReplay(id).catch(() => null);
@@ -376,6 +383,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   deleteSave: async (id) => {
     await localProvider.remove(id);
+    if (id === AUTOSAVE_ID) removeUsSessionAutosave();
     void remoteProvider.remove(id);
     await get().refreshSaves();
   },

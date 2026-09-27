@@ -59,6 +59,16 @@ export function CountrySetup({ country, onBack, initialElection, initialSeed, in
           </div>
         )}
         <TideBanner scenarioId={`${country.id.toLowerCase()}-${election}`} />
+        {country.id === "FR" && election === "2022" && (
+          <div className="su-summary" style={{ marginTop: 12, borderColor: "var(--gold)", textAlign: "left" }}>
+            <strong>{activeParty === "ens" ? "Historical favorite" : "Long-shot challenge"}</strong>
+            <p className="muted small" style={{ margin: "6px 0 0" }}>
+              {activeParty === "ens"
+                ? "Macron begins the runoff with a large lead. Defend it while building a stronger finish, or try the closer 2027 race for a tighter contest."
+                : "Le Pen begins far behind the historical second-round result. A win requires sustained, focused gains across the regions."}
+            </p>
+          </div>
+        )}
         {(() => {
           const majors = DAILY_ROLE_PAIRS[country.id as keyof typeof DAILY_ROLE_PAIRS] ?? country.playable.slice(0, 2);
           return !majors.includes(activeParty) ? (
