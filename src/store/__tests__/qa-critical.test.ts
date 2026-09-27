@@ -72,5 +72,8 @@ describe("QA campaign safety", () => {
       useCountryStore.getState().queueAction({ type: "ground_game", party: "ens", regionId: "IDF", day });
     }
     expect(mpPlannedCost(useCountryStore.getState().game!.queuedActions)).toBeLessThanOrEqual(frBefore);
+    const count = useCountryStore.getState().game!.queuedActions.length;
+    useCountryStore.getState().queueAction({ type: "broadcast", party: "ens", spend: Number.NaN, day: 1 });
+    expect(useCountryStore.getState().game!.queuedActions).toHaveLength(count);
   });
 });
