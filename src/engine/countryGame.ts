@@ -60,6 +60,9 @@ export interface CountryElectionData {
   label: string;
   tagline: string;
   salience: Record<string, number>;
+  // Scenario-specific capacity to convert campaigning into voter movement.
+  // Applies to the party whether it is controlled by the player or the AI.
+  campaignPower?: Record<PartyId, number>;
   regions: Record<string, CountryRegionResult>;
   // Chamber-size override for elections fought under a different apportionment
   // (Canada 2021: 338 seats; Bundestag 2021: 735 with overhang). Region pools
@@ -310,6 +313,7 @@ export interface CountryGameState {
   parties: PartyId[];
   leaders: Record<PartyId, CountryLeader>;
   salience: Record<string, number>;
+  campaignPower?: Record<PartyId, number>;
   regions: StateContest[];
   resources: Record<PartyId, CountryResources>;
   causes: CauseEntry[];
@@ -455,6 +459,7 @@ export function createCountryGame(country: CountryBundle, opts: NewCountryGameOp
     parties,
     leaders,
     salience: { ...election.salience },
+    campaignPower: election.campaignPower ? { ...election.campaignPower } : undefined,
     regions,
     resources,
     causes: [],
@@ -483,7 +488,8 @@ function addAppeal(g: CountryGameState, region: StateContest, party: PartyId, ca
   // Difficulty scales campaigning: the player's own effort by `persuasion`,
   // every rival's by `aiPersuasion`. Both are 1.0 on normal (identity).
   const hc = COUNTRY_HANDICAP[g.difficulty ?? "normal"];
-  const scaled = delta * (party === g.playerParty ? hc.persuasion : hc.aiPersuasion);
+  const scaled = delta * (party === g.playerParty ? hc.persuasion : hc.aiPersuasion)
+    * (g.campaignPower?.[party] ?? 1);
   for (const bloc of region.blocs) {
     if (!bloc.campaignAppeal) bloc.campaignAppeal = {};
     bloc.campaignAppeal[party] = (bloc.campaignAppeal[party] ?? 0) + saturate(bloc, party, scaled);
@@ -837,9 +843,8 @@ export function countryAdvanceTurn(g: CountryGameState, country: CountryBundle, 
 export function computeCountryResult(g: CountryGameState, country: CountryBundle): CountryResult {
   const r = computeSeatsResult(g.regions, majorityFor(g, country), g.abstaining, country.compatible);
   const playerName = g.leaders[g.playerParty]?.name ?? "";
-  const mine = g.causes.filter((c) => c.marginDelta !== 0 && c.cause.includes(playerName));
-  const pool = mine.length > 0 ? mine : g.causes.filter((c) => c.marginDelta !== 0);
-  const postMortem = [...pool]
+  const postMortem = g.causes
+    .filter((c) => playerName.length > 0 && c.marginDelta !== 0 && c.cause.includes(playerName))
     .sort((a, b) => Math.abs(b.marginDelta) - Math.abs(a.marginDelta))
     .slice(0, 8);
   return { ...r, postMortem };

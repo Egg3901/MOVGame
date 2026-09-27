@@ -240,19 +240,18 @@ export function UkResults() {
               </button>
             )}
 
-            {r.postMortem.length > 0 && (
-              <div className="card">
-                <h3>Biggest swings you caused</h3>
-                {r.postMortem.map((c, i) => (
-                  <div className="kv" key={i}>
-                    <span className="k">{c.cause}</span>
-                    <span className={c.marginDelta >= 0 ? "chip up" : "chip down"}>
-                      {c.marginDelta > 0 ? "+" : ""}{(c.marginDelta * 100).toFixed(1)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="card">
+              <h3>Biggest swings you caused</h3>
+              {r.postMortem.length === 0 && <p className="muted small">No persuasive actions recorded. Other campaigns and events shaped the result.</p>}
+              {r.postMortem.map((c, i) => (
+                <div className="kv" key={i}>
+                  <span className="k">{c.cause}</span>
+                  <span className={c.marginDelta >= 0 ? "chip up" : "chip down"}>
+                    {c.marginDelta > 0 ? "+" : ""}{(c.marginDelta * 100).toFixed(1)}
+                  </span>
+                </div>
+              ))}
+            </div>
 
             <button className="primary" style={{ width: "100%", padding: 12 }} onClick={reset}>
               New campaign

@@ -649,13 +649,10 @@ export function ukCompatible(lead: PartyId, partner: PartyId): boolean {
 
 export function computeUkResult(g: UkGameState): UkResult {
   const r = computeSeatsResult(g.regions, majorityForUk(g), g.abstaining, ukCompatible);
-  // The post-mortem shows the *player's* biggest self-caused swings (the player's
-  // leader name tags their action causes), falling back to the whole campaign if
-  // the player sat on their hands.
+  // The post-mortem shows only the player's own persuasive actions.
   const playerName = g.leaders[g.playerParty]?.name ?? "";
-  const mine = g.causes.filter((c) => c.marginDelta !== 0 && c.cause.includes(playerName));
-  const pool = mine.length > 0 ? mine : g.causes.filter((c) => c.marginDelta !== 0);
-  const postMortem = [...pool]
+  const postMortem = g.causes
+    .filter((c) => playerName.length > 0 && c.marginDelta !== 0 && c.cause.includes(playerName))
     .sort((a, b) => Math.abs(b.marginDelta) - Math.abs(a.marginDelta))
     .slice(0, 8);
   return { ...r, postMortem };
