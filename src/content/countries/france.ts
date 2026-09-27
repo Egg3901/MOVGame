@@ -184,6 +184,10 @@ export const FRANCE: CountryBundle = {
       label: "2022 · Macron v. Le Pen",
       tagline: "April 24, 2022. The rematch nobody wanted twice: pouvoir d'achat against l'État McKinsey, war on the continent, and a much better-drilled Le Pen. Two weeks to hold the Republic's line.",
       salience: { cost_of_living: 0.95, immigration_identity: 0.7, security: 0.55, pensions: 0.7, public_services: 0.5, europe: 0.6 },
+      // The historical runoff still opens at 59-41. A disciplined RN operation
+      // can convert its late cost-of-living message into a narrow upset, while
+      // idle play keeps the historical favourite ahead.
+      campaignPower: { rn: 1.35 },
       regions: {
         HDF:  { v: { ens: 0.473, rn: 0.527 }, s: { ens: 4, rn: 5 } },
         NOR:  { v: { ens: 0.558, rn: 0.442 }, s: { ens: 3, rn: 2 } },

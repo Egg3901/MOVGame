@@ -91,4 +91,38 @@ describe("country bundles", () => {
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(1000);
   });
+
+  it("France 2022 preserves the historic opening but rewards a national RN campaign", () => {
+    const country = COUNTRIES.FR;
+    const opening = createCountryGame(country, { election: "2022", playerParty: "rn", seed: "fr-opening" });
+    const openingResult = computeCountryResult(opening, country);
+    expect(openingResult.seats.rn).toBeLessThan(51);
+    expect(openingResult.voteShare.rn).toBeCloseTo(0.4145, 1);
+
+    let passiveWins = 0;
+    let preparedWins = 0;
+    for (let seed = 0; seed < 12; seed++) {
+      for (const prepared of [false, true]) {
+        let game = createCountryGame(country, {
+          election: "2022", playerParty: "rn", difficulty: "normal", seed: `fr-probe-${seed}`,
+        });
+        while (game.phase !== "result") {
+          if (prepared) {
+            game.queuedActions = Array.from({ length: game.resources.rn.actions }, (_, action) =>
+              action < 2
+                ? { type: "broadcast" as const, party: "rn", spend: 0.5, mode: "contrast" as const, targetParty: "ens" }
+                : { type: "policy_prep" as const, party: "rn" },
+            );
+          }
+          game = countryAdvanceTurn(game, country, { autoResolvePlayerEvents: true });
+        }
+        const won = (game.result?.seats.rn ?? 0) >= 51;
+        if (prepared && won) preparedWins++;
+        if (!prepared && won) passiveWins++;
+      }
+    }
+    expect(passiveWins).toBe(0);
+    expect(preparedWins).toBeGreaterThanOrEqual(2);
+    expect(preparedWins).toBeLessThanOrEqual(8);
+  });
 });

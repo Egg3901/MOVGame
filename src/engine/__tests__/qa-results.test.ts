@@ -5,13 +5,29 @@ import { createRng } from "../rng";
 import { computeResult } from "../voteModel";
 import { initUsReplayLog, syncUsReplayLog } from "@store/usReplay";
 import { createReplayLog, deriveReport } from "@lib/replay";
-import { createUkGame, majorityForUk, projectUk, ukCompatible } from "../ukGame";
-import { createCountryGame, majorityFor, projectCountry } from "../countryGame";
+import { createUkGame, majorityForUk, projectUk, computeUkResult, ukCompatible } from "../ukGame";
+import { createCountryGame, majorityFor, projectCountry, countryAdvanceTurn, computeCountryResult } from "../countryGame";
 import { COUNTRIES } from "@content/countries";
 import { advanceTurn, beginGame } from "../turn";
 import { usOpponentEvMargin } from "../scoring";
 
 describe("QA result reconciliation", () => {
+  it("does not credit rivals when a country player only raises money", () => {
+    const country = COUNTRIES.CA;
+    let game = createCountryGame(country, { election: "2021", playerParty: "lpc", seed: "fundraise-only" });
+    for (let turn = 0; turn < game.totalTurns; turn++) {
+      game.queuedActions = [{ type: "fundraise", party: "lpc" }];
+      game = countryAdvanceTurn(game, country, { autoResolvePlayerEvents: true });
+    }
+    expect(game.causes.some((cause) => cause.marginDelta !== 0)).toBe(true);
+    expect(computeCountryResult(game, country).postMortem).toEqual([]);
+  });
+
+  it("does not credit rivals when a UK player took no persuasive action", () => {
+    const game = createUkGame({ election: "2024", playerParty: "lab", seed: "no-campaign" });
+    game.causes.push({ turn: 0, cause: "Rishi Sunak rally in London", marginDelta: 0.1 });
+    expect(computeUkResult(game).postMortem).toEqual([]);
+  });
   it("records the decided election result in the final replay snapshot", () => {
     const game = createGame({ seed: "qa-final", playerCandidate: "rep" });
     game.result = computeResult(game);
