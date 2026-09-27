@@ -4,22 +4,26 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.lakesidegames.electioneer.engine.CandidateId
 import com.lakesidegames.electioneer.engine.EventMode
 
 @Composable
 fun HomeScreen(session: GameSession) {
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Spacer(Modifier.height(28.dp))
         Text("THE ROAD TO 270", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-        Text("Margin of\nVictory", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black)
+        Text("Margin of\nVictory", style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black)
         Text("Every state has a story. Every decision moves the map.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         if (session.hasSave()) {
@@ -69,19 +73,20 @@ fun SetupScreen(session: GameSession) {
         }
         item {
             SetupSection("01  THE ELECTION") {
-                Text(campaign.label, style = MaterialTheme.typography.titleLarge)
-                Text(campaign.tagline, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                Text("Select a year", style = MaterialTheme.typography.labelMedium)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    campaigns.chunked(4).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            row.forEach { c ->
-                                FilterChip(selected = scenarioId == c.id, onClick = { scenarioId = c.id; mateId = "" }, label = { Text(c.year.toString()) })
+                Text("SWIPE THROUGH 17 ELECTIONS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(campaigns) { c ->
+                        val selected = scenarioId == c.id
+                        OutlinedCard(onClick = { scenarioId = c.id; mateId = "" }, modifier = Modifier.width(248.dp), colors = CardDefaults.outlinedCardColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(c.year.toString(), style = MaterialTheme.typography.displaySmall, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Black, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                Text(c.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("${c.demName}  v.  ${c.repName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
                 }
+                Text(campaign.tagline, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         item {

@@ -15,6 +15,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.Card
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,9 +37,10 @@ fun StoreScreen(session: GameSession, activity: Activity) {
 
     if (products.isEmpty()) {
         Shell(
-            title = "Store",
-            body = "Scenario packs will appear here after store setup. " +
-                "Nothing is for sale yet.",
+            eyebrow = "CAMPAIGN LIBRARY",
+            title = "History is yours to play",
+            feature = "17 campaigns included",
+            body = "All 17 U.S. presidential campaigns are available in New Campaign today. There are no purchases in the app yet.",
         )
         return
     }
@@ -80,21 +84,27 @@ fun StoreScreen(session: GameSession, activity: Activity) {
 @Composable
 fun AccountScreen() {
     Shell(
-        title = "Account",
-        body = "Campaign progress is saved on this device. Account sign in and " +
-            "cross-device sync are not available yet.",
+        eyebrow = "YOUR PROFILE",
+        title = "The campaign stays with you",
+        feature = "Saved on this device",
+        body = "Campaign progress is saved on this device. Sign in and cross-device sync are not available yet.",
     )
 }
 
 @Composable
-private fun Shell(title: String, body: String) {
+private fun Shell(eyebrow: String, title: String, feature: String, body: String) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(body, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(28.dp))
+        Text(eyebrow, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black)
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(feature, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(body, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
     }
 }

@@ -11,9 +11,11 @@ The Play tab opens a native campaign menu. Players can resume a local save or
 start a new campaign from 17 U.S. presidential elections (1960–2024). Setup
 includes ticket, running mate, three staff slots, difficulty, historical or
 plausible events, 5/9/14 week length, a replayable seed, and the three free
-modifiers. The campaign desk, state map, event decisions, election results,
-Store, and Account are native views. All campaign options feed the shared
-engine; local saves persist after setup and each game mutation.
+modifiers. The campaign desk, state map, seven day planner, event decisions,
+election results, Store, and Account are native views. The planner exposes all
+ten actions, state targets, ad mode and spend, issue pivots, and a limit of
+three actions per day. All campaign options feed the shared engine; local
+saves persist after setup and each game mutation.
 
 The shared engine also contains UK and country systems. The current native
 menu exposes the U.S. scenarios because those other game loops do not yet

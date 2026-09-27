@@ -20,8 +20,6 @@ struct GameView: View {
             uniqueKeysWithValues: states.map { ($0.abbr.uppercased(), $0.id) }
         )
         let selId = selectedAbbr.flatMap { abbrToId[$0] }
-        let selState = states.first(where: { $0.id == selId })
-        let selContest = selId.flatMap { contests[$0] }
 
         return AnyView(
             ScrollView {
@@ -64,32 +62,7 @@ struct GameView: View {
                         onSelect: { selectedAbbr = $0 }
                     )
 
-                    if let st = selState, let ct = selContest {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("\(st.name)  ·  \(Int(st.electoralVotes)) EV").font(.headline)
-                            Text("Democratic projection \(Int(ct.demShare * 100))%")
-                                .font(.subheadline).foregroundStyle(.secondary)
-                            HStack {
-                                actionButton("Ads") { session.queueAction(typeSerial: "advertise", stateId: st.id) }
-                                actionButton("Rally") { session.queueAction(typeSerial: "rally", stateId: st.id) }
-                            }
-                            HStack {
-                                actionButton("Ground") { session.queueAction(typeSerial: "ground_game", stateId: st.id) }
-                                actionButton("GOTV") { session.queueAction(typeSerial: "gotv", stateId: st.id) }
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
-                        .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 16))
-                    } else {
-                        Text("Tap a state, then queue actions.").font(.caption)
-                    }
-
-                    HStack {
-                        actionButton("Fundraise") { session.queueAction(typeSerial: "fundraise", stateId: nil) }
-                        Spacer()
-                        Text("Queued \(Int(g.queuedCount()))").font(.caption)
-                        Button("Clear") { session.clearQueue() }
-                    }
+                    ActionPlannerView(session: session, selectedStateId: selId)
 
                     Button { session.endTurn() } label: {
                         Text("End week  →").font(.headline).frame(maxWidth: .infinity).padding(16)
@@ -112,10 +85,6 @@ struct GameView: View {
                 }
             }
         )
-    }
-
-    private func actionButton(_ label: String, run: @escaping () -> Void) -> some View {
-        Button(label, action: run).buttonStyle(.bordered)
     }
 
     // Presents the pending-event sheet; hidden while the recap is up so the
@@ -154,5 +123,151 @@ struct EventDialogView: View {
                 .padding()
             }
         )
+    }
+}
+
+private struct PlannerAction: Identifiable {
+    let id: String
+    let label: String
+}
+
+struct ActionPlannerView: View {
+    @ObservedObject var session: GameSession
+    let selectedStateId: String?
+    @State private var type = "advertise"
+    @State private var target = "PA"
+    @State private var day = 1
+    @State private var adMode = "positive"
+    @State private var spend = 8.0
+    @State private var issue = "economy"
+    @State private var position = 0.0
+    @State private var notice: String? = nil
+
+    private let actions = [
+        PlannerAction(id: "advertise", label: "Advertising"), PlannerAction(id: "rally", label: "Rally"),
+        PlannerAction(id: "surrogate", label: "Surrogate"), PlannerAction(id: "fundraise", label: "Fundraise"),
+        PlannerAction(id: "ground_game", label: "Field offices"), PlannerAction(id: "gotv", label: "GOTV"),
+        PlannerAction(id: "oppo_research", label: "Oppo research"), PlannerAction(id: "debate_prep", label: "Debate prep"),
+        PlannerAction(id: "policy_prep", label: "Policy prep"), PlannerAction(id: "issue_pivot", label: "Issue pivot"),
+    ]
+
+    private var needsState: Bool {
+        ["advertise", "rally", "surrogate", "fundraise", "ground_game", "gotv"].contains(type)
+    }
+
+    var body: some View {
+        let _ = session.version
+        let states = session.states().filter { !$0.blocs.isEmpty }
+        let issues = session.issues()
+        let plan = session.plannedActions()
+        let dayCount = plan.filter { Int($0.day) == day }.count
+
+        VStack(alignment: .leading, spacing: 11) {
+            Text("WEEK PLAN").font(.caption.bold()).tracking(2).foregroundStyle(.orange)
+            Text("Choose an action, set the target, then add it to a day.")
+                .font(.caption).foregroundStyle(.secondary)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(actions) { action in
+                    Button {
+                        type = action.id
+                        if type == "issue_pivot" { position = session.playerIssuePosition(issue) }
+                        notice = nil
+                    } label: {
+                        Text(action.label).font(.subheadline.bold()).frame(maxWidth: .infinity).padding(10)
+                    }
+                    .buttonStyle(.plain)
+                    .background(type == action.id ? Color.orange.opacity(0.28) : Color.black.opacity(0.35),
+                                in: RoundedRectangle(cornerRadius: 11))
+                }
+            }
+            if needsState {
+                Menu {
+                    ForEach(states, id: \.id) { state in
+                        Button("\(state.name) · \(Int(state.electoralVotes)) EV") { target = state.id }
+                    }
+                } label: {
+                    Label("Target: \(states.first(where: { $0.id == target })?.name ?? "Pennsylvania")", systemImage: "map")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .tint(.orange)
+            }
+            if type == "advertise" {
+                Picker("Ad mode", selection: $adMode) {
+                    Text("Positive").tag("positive")
+                    Text("Contrast").tag("contrast")
+                    Text("Issue").tag("issue")
+                }.pickerStyle(.segmented)
+                Text("Spend: $\(Int(spend))M").font(.subheadline.bold())
+                Slider(value: $spend, in: 1...30, step: 1).tint(.orange)
+            }
+            if type == "issue_pivot" || (type == "advertise" && adMode == "issue") {
+                Menu {
+                    ForEach(issues, id: \.id.serial) { item in
+                        Button(item.name) {
+                            issue = item.id.serial
+                            position = session.playerIssuePosition(issue)
+                        }
+                    }
+                } label: {
+                    Label("Issue: \(issues.first(where: { $0.id.serial == issue })?.name ?? issue)", systemImage: "text.book.closed")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .tint(.orange)
+            }
+            if type == "issue_pivot" {
+                Text(String(format: "Position: %.2f · left −1 to right +1", position)).font(.subheadline.bold())
+                Slider(value: $position, in: -1...1, step: 0.05).tint(.orange)
+            }
+            Text("ADD TO DAY").font(.caption.bold()).tracking(1).foregroundStyle(.orange)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
+                ForEach(1...7, id: \.self) { n in
+                    Button("\(n)") { day = n }
+                        .buttonStyle(.plain).frame(maxWidth: .infinity).padding(9)
+                        .background(day == n ? Color.orange.opacity(0.28) : Color.black.opacity(0.35),
+                                    in: RoundedRectangle(cornerRadius: 10))
+                }
+            }
+            Button {
+                let added = session.queueConfiguredAction(typeSerial: type, stateId: needsState ? target : nil,
+                    day: day, adModeSerial: type == "advertise" ? adMode : nil,
+                    spendMillions: type == "advertise" ? spend : nil,
+                    issueSerial: (type == "issue_pivot" || (type == "advertise" && adMode == "issue")) ? issue : nil,
+                    newPosition: type == "issue_pivot" ? position : nil)
+                notice = added ? nil : "That day is full or your action pool is spent."
+            } label: {
+                Text("Add to day \(day)").font(.headline).frame(maxWidth: .infinity).padding(12)
+            }
+            .buttonStyle(.plain).foregroundStyle(.black)
+            .background(.orange, in: RoundedRectangle(cornerRadius: 12))
+            .disabled(dayCount >= 3 || (session.currentGame()?.slotsLeft() ?? 0) == 0)
+            if let notice = notice { Text(notice).font(.caption).foregroundStyle(.red) }
+            HStack {
+                Text("\(plan.count) planned").font(.headline)
+                Spacer()
+                Button("Clear all") { session.clearQueue() }.disabled(plan.isEmpty)
+            }
+            ForEach(1...7, id: \.self) { n in
+                HStack(alignment: .top) {
+                    Text("DAY \(n)").font(.caption.bold()).foregroundStyle(.orange).frame(width: 48, alignment: .leading)
+                    let items = plan.filter { Int($0.day) == n }
+                    if items.isEmpty {
+                        Text("Open").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading) {
+                            ForEach(items, id: \.index) { item in
+                                Button("\(item.label)  ×") { session.removeAction(Int(item.index)) }
+                                    .font(.subheadline).buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+        .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
+        .onChange(of: selectedStateId) { next in
+            if let next = next, states.contains(where: { $0.id == next }) { target = next }
+        }
     }
 }

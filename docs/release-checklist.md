@@ -6,8 +6,10 @@ require portal access, device testing, or store configuration.
 
 ## Android (Play)
 
-- [ ] On a device: start a campaign, queue an action, close the app, reopen it,
-  finish a turn, and confirm the same campaign and event queue resume.
+- [ ] On a device: choose a scenario, ticket, running mate, staff, and rules;
+  queue an issue ad and a pivot on separate days; remove one action; close the
+  app, reopen it, and confirm the plan and campaign resume. Finish a turn and
+  confirm the same event queue and result flow remain usable.
 - [ ] Play Console: create the app and first non-consumable products, then fill
   `SkuTable.entries` (`billing/SkuTable.kt`). Supply the license key as
   `MOV_PLAY_PUBLIC_KEY` through a build environment or Gradle property.
@@ -47,12 +49,12 @@ The owner will resume portal setup when the migration completes.
   `MOV_REVIEW_COMMIT` set to its full SHA. Confirm a signed IPA uploads and
   reaches Apple's `VALID` processing state. The workflow does not submit
   to App Review; assign the build to internal testers after processing.
-- [ ] On a device: repeat the campaign close/reopen test and verify the shared
-  save restores through the SwiftUI session.
+- [ ] On a device: repeat the campaign and action plan close/reopen test and
+  verify the shared save restores through the SwiftUI session.
 - [x] macOS verify: Codemagic `ios-verify` fully passed for the native
-  campaign menu, setup, dashboard, and results at
-  `600e4f77fb591620bed1bb384d33ac0542e41f99` (build
-  `6ab9644bccabf1ff83f8db61`). This workflow does not sign or publish.
+  campaign menu, setup, seven day action planner, dashboard, and results at
+  `b167b2a6308bc6f6ba7d952809678023385985a5` (build
+  `6ab96a805703a7f193752a54`). This workflow does not sign or publish.
 - [ ] App Store Connect: products matching the SKU table, sandbox +
   TestFlight exercise of purchase/restore/refund through `StoreKitAdapter`.
 - [ ] App Store Server Notifications endpoint on the campaign server (web

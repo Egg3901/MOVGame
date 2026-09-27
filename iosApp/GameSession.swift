@@ -93,6 +93,28 @@ final class GameSession: ObservableObject {
 
     func states() -> [StateContest] { game?.stateList() ?? [] }
 
+    func issues() -> [Issue] { MobileGame.companion.issues() }
+    func playerIssuePosition(_ issueSerial: String) -> Double { game?.playerIssuePosition(issueSerial: issueSerial) ?? 0 }
+    func plannedActions() -> [PlannedActionRow] { game?.plannedActions() ?? [] }
+
+    func queueConfiguredAction(typeSerial: String, stateId: String?, day: Int,
+                               adModeSerial: String?, spendMillions: Double?,
+                               issueSerial: String?, newPosition: Double?) -> Bool {
+        guard let game = game else { return false }
+        let added = game.queueConfiguredAction(typeSerial: typeSerial, stateId: stateId,
+                                               day: Int32(day), adModeSerial: adModeSerial,
+                                               spendMillions: spendMillions.map { KotlinDouble(double: $0) },
+                                               issueSerial: issueSerial,
+                                               newPosition: newPosition.map { KotlinDouble(double: $0) })
+        if added { touch() }
+        return added
+    }
+
+    func removeAction(_ index: Int) {
+        guard let game = game else { return }
+        if game.removeAction(index: Int32(index)) { touch() }
+    }
+
     func queueAction(typeSerial: String, stateId: String?) {
         game?.queueAction(typeSerial: typeSerial, stateId: stateId)
         touch()

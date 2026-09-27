@@ -61,6 +61,19 @@ class MobileApiTest {
     }
 
     @Test
+    fun configuredActionFacadeBuildsARealAdAndCanRemoveIt() {
+        val game = MobileGame.startGame("dem", "normal", 33L)
+        val target = game.stateList().first { it.abbr == "PA" }
+        assertTrue(game.queueConfiguredAction("advertise", target.id, 2, "contrast", 8.0, null, null))
+        val planned = game.plannedActions()
+        assertEquals(1, planned.size)
+        assertEquals(2, planned.first().day)
+        assertTrue(planned.first().label.contains("ads"))
+        assertTrue(game.removeAction(0))
+        assertEquals(0, game.queuedCount())
+    }
+
+    @Test
     fun configuredCampaignPreservesSetupAndSave() {
         val campaigns = MobileGame.campaigns()
         assertEquals(17, campaigns.size)

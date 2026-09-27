@@ -5,6 +5,7 @@ import com.lakesidegames.electioneer.content.EVENTS_BY_ID
 import com.lakesidegames.electioneer.content.SCENARIOS
 import com.lakesidegames.electioneer.content.SCENARIO_IDS
 import com.lakesidegames.electioneer.content.STAFF_POOL
+import com.lakesidegames.electioneer.content.ISSUES
 
 data class CampaignChoice(val id: String, val year: Int, val label: String, val tagline: String, val demName: String, val repName: String)
 data class MateChoice(val id: String, val name: String, val blurb: String, val historical: Boolean)
@@ -56,6 +57,8 @@ class MobileGame private constructor(
 
         fun staffChoices(): List<StaffChoice> = STAFF_POOL.map { StaffChoice(it.id, it.name, it.role, it.blurb) }
 
+        fun issues(): List<Issue> = IssueId.entries.map { ISSUES.getValue(it.serial) }
+
         fun startConfiguredGame(
             scenarioId: String, playerSerial: String, mateId: String,
             staffIds: List<String>, difficulty: String, eventModeSerial: String,
@@ -95,6 +98,11 @@ class MobileGame private constructor(
 
     fun queuedCount(): Int = game.queuedActions.size
 
+    fun plannedActions(): List<PlannedActionRow> = plannedActionRows(game)
+
+    fun playerIssuePosition(issueSerial: String): Double =
+        game.candidates.getValue(game.playerCandidate.serial).issuePositions[issueSerial] ?: 0.0
+
     fun slotsLeft(): Int {
         val res = game.resources.getValue(game.playerCandidate.serial)
         return (res.actions - game.queuedActions.size).coerceAtLeast(0)
@@ -113,14 +121,23 @@ class MobileGame private constructor(
     fun contests(): List<ContestProjection> = projectElection(game).contests
 
     fun queueAction(typeSerial: String, stateId: String?) {
-        if (slotsLeft() < 1) return
         val type = ActionType.entries.first { it.serial == typeSerial }
-        game.queuedActions = game.queuedActions + CampaignAction(
-            type = type,
-            candidate = game.playerCandidate,
-            stateId = stateId,
-        )
+        val day = nextOpenPlanDay(game) ?: return
+        queuePlannedAction(game, type, stateId, day,
+            adMode = if (type == ActionType.ADVERTISE) AdMode.POSITIVE else null,
+            spendMillions = if (type == ActionType.ADVERTISE) 8.0 else null)
     }
+
+    fun queueConfiguredAction(typeSerial: String, stateId: String?, day: Int,
+                              adModeSerial: String?, spendMillions: Double?,
+                              issueSerial: String?, newPosition: Double?): Boolean {
+        val type = ActionType.entries.firstOrNull { it.serial == typeSerial } ?: return false
+        val adMode = AdMode.entries.firstOrNull { it.serial == adModeSerial }
+        val issueId = IssueId.entries.firstOrNull { it.serial == issueSerial }
+        return queuePlannedAction(game, type, stateId, day, adMode, spendMillions, issueId, newPosition)
+    }
+
+    fun removeAction(index: Int): Boolean = removePlannedAction(game, index)
 
     fun clearQueue() {
         game.queuedActions = emptyList()

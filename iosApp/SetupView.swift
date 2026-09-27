@@ -72,15 +72,29 @@ struct SetupView: View {
                 Text("Build the ticket. Assemble the team. Rewrite the map.").foregroundStyle(CampaignStyle.muted)
 
                 section("01  THE ELECTION") {
-                    Text(campaign.label).font(.title2.bold())
-                    Text(campaign.tagline).foregroundStyle(CampaignStyle.muted)
-                    Picker("Election year", selection: $scenarioId) {
-                        ForEach(campaigns, id: \.id) { item in
-                            Text("\(item.year) · \(item.label)").tag(item.id)
+                    Text("SWIPE THROUGH 17 ELECTIONS").font(.caption2.bold()).tracking(1).foregroundStyle(CampaignStyle.muted)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(campaigns, id: \.id) { item in
+                                Button {
+                                    scenarioId = item.id
+                                    mateId = ""
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("\(item.year)").font(.system(size: 40, weight: .black, design: .serif))
+                                            .foregroundStyle(scenarioId == item.id ? CampaignStyle.gold : Color.white)
+                                        Text(item.label).font(.headline).foregroundStyle(.white)
+                                        Text("\(item.demName)  v.  \(item.repName)").font(.caption).foregroundStyle(CampaignStyle.muted)
+                                    }
+                                    .frame(width: 218, alignment: .leading).padding(16)
+                                    .background(scenarioId == item.id ? CampaignStyle.gold.opacity(0.2) : CampaignStyle.background,
+                                                in: RoundedRectangle(cornerRadius: 15))
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
-                    .tint(CampaignStyle.gold)
-                    .onChange(of: scenarioId) { _ in mateId = "" }
+                    Text(campaign.tagline).foregroundStyle(CampaignStyle.muted)
                 }
 
                 section("02  YOUR TICKET") {

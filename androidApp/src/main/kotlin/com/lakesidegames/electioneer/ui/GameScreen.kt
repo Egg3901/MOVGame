@@ -14,13 +14,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.CardDefaults
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
@@ -31,11 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.lakesidegames.electioneer.engine.ActionType
 import com.lakesidegames.electioneer.engine.CandidateId
 
-// Phase 3 Game screen (#21): EV bar, tile map, state panel with queued
-// actions, end turn, event dialogs, turn recap.
+// Native campaign desk: projection, state map, seven-day plan, events and recap.
 @Composable
 fun GameScreen(session: GameSession) {
     val game by session.game.collectAsState()
@@ -53,9 +47,6 @@ fun GameScreen(session: GameSession) {
         g.states.associate { it.id to it.abbr.uppercase() }
     }
     val selectedAbbr = selectedId?.let { idToAbbr[it] }
-    val contestById = remember(projection) {
-        projection?.contests?.associateBy { it.stateId } ?: emptyMap()
-    }
     val res = g.resources[g.playerCandidate.serial]
     val demEv = projection?.ev?.get(CandidateId.DEM.serial) ?: 0
     val repEv = projection?.ev?.get(CandidateId.REP.serial) ?: 0
@@ -106,46 +97,8 @@ fun GameScreen(session: GameSession) {
         )
         Spacer(Modifier.height(8.dp))
 
-        // Selected state panel.
-        val sel = g.states.firstOrNull { it.id == selectedId }
-        val selContest = selectedId?.let { contestById[it] }
-        if (sel != null && selContest != null) {
-            val pct = (selContest.demShare * 100).toInt()
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("${sel.name}  ·  ${sel.electoralVotes} EV", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Democratic projection $pct%", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ActionButton("Ads") { session.queueAction(ActionType.ADVERTISE, sel.id) }
-                        ActionButton("Rally") { session.queueAction(ActionType.RALLY, sel.id) }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ActionButton("Ground") { session.queueAction(ActionType.GROUND_GAME, sel.id) }
-                        ActionButton("GOTV") { session.queueAction(ActionType.GOTV, sel.id) }
-                    }
-                }
-            }
-        } else {
-            Text(
-                "Tap a state, then queue actions.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ActionButton("Fundraise") {
-                session.queueAction(ActionType.FUNDRAISE)
-            }
-            Spacer(Modifier.weight(1f))
-            Text(
-                "Queued ${g.queuedActions.size}",
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.align(Alignment.CenterVertically),
-            )
-            OutlinedButton(onClick = { session.clearQueue() }) { Text("Clear") }
-        }
-        Spacer(Modifier.height(8.dp))
+        ActionPlanner(session, g, selectedId)
+        Spacer(Modifier.height(12.dp))
         Button(
             onClick = { session.endTurn() },
             modifier = Modifier.fillMaxWidth(),
@@ -205,9 +158,4 @@ fun GameScreen(session: GameSession) {
             )
         }
     }
-}
-
-@Composable
-private fun ActionButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick) { Text(label) }
 }

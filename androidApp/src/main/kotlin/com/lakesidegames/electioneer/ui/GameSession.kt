@@ -11,7 +11,6 @@ import com.lakesidegames.electioneer.content.CANDIDATES
 import com.lakesidegames.electioneer.content.EVENTS_BY_ID
 import com.lakesidegames.electioneer.engine.ActionType
 import com.lakesidegames.electioneer.engine.AdvanceOptions
-import com.lakesidegames.electioneer.engine.CampaignAction
 import com.lakesidegames.electioneer.engine.CandidateId
 import com.lakesidegames.electioneer.engine.GamePhase
 import com.lakesidegames.electioneer.engine.GameState
@@ -28,6 +27,11 @@ import com.lakesidegames.electioneer.engine.saveGame
 import com.lakesidegames.electioneer.engine.MobileGame
 import com.lakesidegames.electioneer.engine.EventMode
 import com.lakesidegames.electioneer.engine.GameModifiers
+import com.lakesidegames.electioneer.engine.AdMode
+import com.lakesidegames.electioneer.engine.IssueId
+import com.lakesidegames.electioneer.engine.nextOpenPlanDay
+import com.lakesidegames.electioneer.engine.queuePlannedAction
+import com.lakesidegames.electioneer.engine.removePlannedAction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CoroutineScope
@@ -37,8 +41,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// Phase 3: hand-rolled nav (5 screens; no navigation-compose dependency).
-// The session survives rotation via the platform ViewModel;Compose collects
+// Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
 enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT }
 
@@ -216,13 +219,23 @@ class GameSession : ViewModel() {
 
     fun queueAction(type: ActionType, stateId: String? = null) {
         val g = _game.value ?: return
-        if (slotsLeft() < 1) return
-        g.queuedActions = g.queuedActions + CampaignAction(
-            type = type,
-            candidate = g.playerCandidate,
-            stateId = stateId,
-        )
+        val day = nextOpenPlanDay(g) ?: return
+        if (queuePlannedAction(g, type, stateId, day,
+                adMode = if (type == ActionType.ADVERTISE) AdMode.POSITIVE else null,
+                spendMillions = if (type == ActionType.ADVERTISE) 8.0 else null)) emit()
+    }
+
+    fun queueConfiguredAction(type: ActionType, stateId: String?, day: Int,
+                              adMode: AdMode?, spendMillions: Double?, issueId: IssueId?, newPosition: Double?): Boolean {
+        val g = _game.value ?: return false
+        if (!queuePlannedAction(g, type, stateId, day, adMode, spendMillions, issueId, newPosition)) return false
         emit()
+        return true
+    }
+
+    fun removeAction(index: Int) {
+        val g = _game.value ?: return
+        if (removePlannedAction(g, index)) emit()
     }
 
     fun clearQueue() {
