@@ -231,7 +231,7 @@ function GameScreen({ onHome }: { onHome: () => void }) {
         {live && <EvBar projection={live} />}
         <div className="stat"><span className="v">{money(res.cash)}</span><span className="l">Cash</span></div>
         <div className="stat"><span className="v" style={{ color: plannedActions >= res.maxActions ? "var(--gold)" : undefined }}>{res.maxActions - plannedActions}/{res.maxActions}</span><span className="l">Actions left</span></div>
-        <div className="stat"><span className="v">{res.nationalMomentum.toFixed(0)}</span><span className="l">Momentum</span></div>
+        <div className="stat" aria-label={`Momentum ${res.nationalMomentum.toFixed(0)}`}><span className="v">{res.nationalMomentum.toFixed(0)}</span><span className="l">Momentum</span></div>
         <SaveControls />
         <button className="ghost small" onClick={onHome}>Home</button>
         <button className="ghost small" onClick={() => setStatsOpen(true)}>Stats</button>

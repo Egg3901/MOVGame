@@ -207,7 +207,7 @@ export function CountryStandings() {
 
       <h3 style={{ marginTop: 14 }}>Issue Salience</h3>
       {issues.map((id) => (
-        <div className="bloc" key={id}>
+        <div className="bloc issue-row" key={id} aria-label={`${issueName(id)} salience ${(game.salience[id] * 100).toFixed(0)}%`}>
           <span className="name">{issueName(id)}</span>
           <span className="meta">{(game.salience[id] * 100).toFixed(0)}%</span>
           <div className="suppbar"><div style={{ width: `${game.salience[id] * 100}%`, background: "var(--gold)" }} /></div>

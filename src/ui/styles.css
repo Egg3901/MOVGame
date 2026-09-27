@@ -767,6 +767,7 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
   .bloc { padding: 4px 0; gap: 2px 6px; }
   .bloc .name { font-size: 10px; }
   .bloc .meta { font-size: 9px; }
+  .issue-row .meta { font-size: 12px; font-weight: 700; color: var(--text-body); }
   .kv { font-size: 10px; padding: 2px 0; }
   .pollrow { font-size: 10px; padding: 2px 0; }
   .queue { gap: 6px; }
