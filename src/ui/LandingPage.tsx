@@ -563,7 +563,7 @@ export function LandingPage({ onGo }: { onGo: (dest: LandingDestination) => void
               <h3>Free</h3>
               <p className="pricing-price">$0</p>
               <ul className="pricing-list">
-                <li><Check size={13} /> 2 full scenarios, no account needed</li>
+                <li><Check size={13} /> {PAYWALL_ENABLED ? "2 full scenarios" : `All ${SCENARIO_REGISTRY.length} scenarios`}, no account needed</li>
                 <li><Check size={13} /> A new daily challenge every day</li>
                 <li><Check size={13} /> Leaderboards with a free account</li>
               </ul>
@@ -571,13 +571,19 @@ export function LandingPage({ onGo }: { onGo: (dest: LandingDestination) => void
             </div>
             <div className="pricing-card">
               <h3>Scenario packs</h3>
-              <p className="pricing-price">Priced per pack</p>
+              <p className="pricing-price">{PAYWALL_ENABLED ? "Priced per pack" : "Free for now"}</p>
               <ul className="pricing-list">
                 <li><Check size={13} /> {SCENARIO_REGISTRY.length - free.length} additional elections across {PACKS.length} packs</li>
-                <li><Check size={13} /> One time purchase, yours to keep, no subscription</li>
-                <li><Check size={13} /> {DISTRIBUTION.externalStore ? "Bought and delivered through the Lakeside store" : `Purchased and restored through ${DISTRIBUTION.nativeStoreName}`}</li>
+                {PAYWALL_ENABLED ? (
+                  <>
+                    <li><Check size={13} /> One time purchase, yours to keep, no subscription</li>
+                    <li><Check size={13} /> {DISTRIBUTION.externalStore ? "Bought and delivered through the Lakeside store" : `Purchased and restored through ${DISTRIBUTION.nativeStoreName}`}</li>
+                  </>
+                ) : (
+                  <li><Check size={13} /> Play every election free while paid tiers are being prepared</li>
+                )}
               </ul>
-              {DISTRIBUTION.externalStore ? (
+              {!PAYWALL_ENABLED ? null : DISTRIBUTION.externalStore ? (
                 <a className="ghost small" style={{ marginTop: 8 }} href={BRAND.storeUrl}>
                   <ShoppingBag size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />Browse packs on lakesidegames.net
                 </a>
@@ -592,7 +598,7 @@ export function LandingPage({ onGo }: { onGo: (dest: LandingDestination) => void
 
         {/* Packs strip: text-led, no cover art */}
         <div className="field" style={{ textAlign: "left", margin: "36px 0 0" }}>
-          <label>{PAYWALL_ENABLED ? "Scenario packs" : "Scenario packs: everything is playable free while we're in open beta"}</label>
+          <label>{PAYWALL_ENABLED ? "Scenario packs" : "Scenario packs: free for now, every scenario is playable while we finish the paid tiers"}</label>
           <div className="scenario-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
             {PACKS.map((p) => {
               const owned = unlocked.packIds.includes(p.id);
@@ -605,7 +611,16 @@ export function LandingPage({ onGo }: { onGo: (dest: LandingDestination) => void
                   <span className="scenario-match">{p.scenarios.length} scenarios</span>
                   <span className="muted small" style={{ fontSize: 11 }}>{p.description}</span>
                   <span className="pack-foot">
-                    <span className="pack-price">${((packPrices[p.id] ?? p.price) / 100).toFixed(2)}</span>
+                    <span className="pack-price">
+                      {PAYWALL_ENABLED ? (
+                        <>${((packPrices[p.id] ?? p.price) / 100).toFixed(2)}</>
+                      ) : (
+                        <>
+                          <s style={{ opacity: 0.5, fontWeight: 500 }}>${((packPrices[p.id] ?? p.price) / 100).toFixed(2)}</s>
+                          <span style={{ color: "var(--green)", fontWeight: 800, marginLeft: 6 }}>Free</span>
+                        </>
+                      )}
+                    </span>
                     {owned ? (
                       <span className="muted small">Owned</span>
                     ) : PAYWALL_ENABLED && DISTRIBUTION.externalStore ? (
@@ -615,7 +630,7 @@ export function LandingPage({ onGo }: { onGo: (dest: LandingDestination) => void
                     ) : PAYWALL_ENABLED ? (
                       <span className="pack-beta-note">Available through {DISTRIBUTION.nativeStoreName}</span>
                     ) : (
-                      <span className="pack-beta-note">Free during open beta</span>
+                      <span className="pack-beta-note">Free for now</span>
                     )}
                   </span>
                 </div>
