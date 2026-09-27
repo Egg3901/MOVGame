@@ -60,7 +60,7 @@ export function CountryActionPanel() {
   ];
 
   const [type, setType] = useState<CountryActionType>("broadcast");
-  const [regionId, setRegionId] = useState<string>(regions[0]?.id ?? "");
+  const [regionId, setRegionId] = useState<string>(country.id === "FR" ? "__national" : regions[0]?.id ?? "");
   const [mode, setMode] = useState<CountryAdMode>("positive");
   const [issueId, setIssueId] = useState<string>(country.issues[0].id);
   const [spendM, setSpendM] = useState<number>(2);
@@ -112,7 +112,7 @@ export function CountryActionPanel() {
 
   const addToDay = (d: number) => {
     if (used >= pool || dayItems(d).length >= MAX_PER_DAY) return;
-    if (regionRequired && !regionId) return;
+    if (regionRequired && (!regionId || regionId === "__national")) return;
     if (mpActionCost(buildAction()) > availableFunds) return;
     queueAction({ ...buildAction(), day: d });
   };
@@ -138,7 +138,10 @@ export function CountryActionPanel() {
         {ACTIONS.map((a) => {
           const Ico = ICON[a.type];
           return (
-            <button key={a.type} className={`actionbtn${type === a.type ? " sel" : ""}`} onClick={() => setType(a.type)}>
+            <button key={a.type} className={`actionbtn${type === a.type ? " sel" : ""}`} onClick={() => {
+              if (NEEDS_REGION.includes(a.type) && regionId === "__national") setRegionId(regions[0]?.id ?? "");
+              setType(a.type);
+            }}>
               <Ico size={18} />
               <span className="t">{a.label}</span>
               <span className="c">{a.type === "fundraise" ? `≈+${cur}${(1.5 + game.leaders[player].machine / 50).toFixed(1)}M` : a.cost}</span>
@@ -157,6 +160,11 @@ export function CountryActionPanel() {
                 <option key={r.id} value={r.id}>{r.name} ({r.seats} {country.unitNamePlural})</option>
               ))}
             </select>
+            {country.id === "FR" && type === "broadcast" && (
+              <p className="muted small" style={{ margin: "4px 0 0" }}>
+                National broadcasts move runoff support across France. Choose a region for a concentrated push.
+              </p>
+            )}
           </div>
         )}
 
@@ -202,7 +210,7 @@ export function CountryActionPanel() {
         {DAYS.map((d) => {
           const items = dayItems(d);
           const full = items.length >= MAX_PER_DAY;
-          const canAdd = used < pool && !full && !(regionRequired && !regionId) && mpActionCost(buildAction()) <= availableFunds;
+          const canAdd = used < pool && !full && !(regionRequired && (!regionId || regionId === "__national")) && mpActionCost(buildAction()) <= availableFunds;
           return (
             <div className={`day${full ? " full" : ""}`} key={d}>
               <div className="day-head">
