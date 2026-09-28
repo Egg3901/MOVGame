@@ -12,8 +12,9 @@ output.mkdir(parents=True, exist_ok=True)
 bundle = 'com.lakesidegames.electioneer'
 
 
-def run(*args):
-    return subprocess.check_output(args, text=True).strip()
+def run(*args, timeout=120):
+    print("Running:", " ".join(args), flush=True)
+    return subprocess.check_output(args, text=True, timeout=timeout).strip()
 
 
 devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '--json'))
@@ -24,7 +25,7 @@ if not phones:
 device = phones[0]['udid']
 if phones[0]['state'] != 'Booted':
     run('xcrun', 'simctl', 'boot', device)
-run('xcrun', 'simctl', 'bootstatus', device, '-b')
+run('xcrun', 'simctl', 'bootstatus', device, '-b', timeout=300)
 run('xcrun', 'simctl', 'install', device, str(app))
 console = (output / 'launch-console.log').open('w')
 process = subprocess.Popen(['xcrun', 'simctl', 'launch', '--console', device, bundle],
