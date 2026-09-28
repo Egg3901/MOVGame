@@ -51,7 +51,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :shared:jvmTest :androidApp:assembleDebug --no-daemon --max-workers=2
   ios:
-    name: iOS simulator compile
+    name: iOS simulator launch
     runs-on: macos-26
     timeout-minutes: 40
     defaults:
@@ -72,7 +72,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: >-
           xcodebuild -project iosApp/MOVGameiOS.xcodeproj
-          -scheme MOVGameiOS -configuration Debug
+          -scheme MOVGameiOS -configuration Release
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/mov-derived"
           CODE_SIGNING_ALLOWED=NO build
+      - name: Launch app on iPhone simulator
+        run: python3 ../../scripts/ios-launch-smoke.py "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator/MOVGameiOS.app" "$RUNNER_TEMP/mov-launch"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator-launch
+          path: ${{ runner.temp }}/mov-launch
