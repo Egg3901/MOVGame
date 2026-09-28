@@ -28,6 +28,7 @@ jobs:
       IOS_APP_TARGET: MOVGameiOS
     steps:
       - uses: actions/checkout@v4
+      - run: python3 "${{ github.workspace }}/scripts/verify-ios-metadata.py"
       - name: Require the exact reviewed default-branch commit
         env:
           REVIEWED_SHA: ${{ inputs.reviewed_sha }}
