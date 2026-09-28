@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - run: python3 "${{ github.workspace }}/scripts/verify-ios-metadata.py"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
