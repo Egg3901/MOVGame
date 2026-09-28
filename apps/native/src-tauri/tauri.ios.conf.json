@@ -1,0 +1,5 @@
+{
+  "build": {
+    "beforeBuildCommand": "./scripts/fetch-web.sh ios"
+  }
+}

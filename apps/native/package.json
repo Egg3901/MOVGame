@@ -1,0 +1,19 @@
+{
+  "name": "movgame-native",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Margin of Victory native mobile clients and Tauri desktop shell",
+  "scripts": {
+    "native:verify": "./gradlew :shared:jvmTest :androidApp:assembleDebug",
+    "fetch:web": "node scripts/fetch-web.mjs desktop-direct --no-build",
+    "build:web": "node scripts/fetch-web.mjs desktop-direct",
+    "build:web:steam": "node scripts/fetch-web.mjs steam",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "steam:build": "tauri build --config src-tauri/tauri.steam.conf.json"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0"
+  }
+}

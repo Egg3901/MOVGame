@@ -13,7 +13,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "calibrate": "vitest run src/engine/__tests__/calibration.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "native:verify": "npm --prefix apps/native run native:verify",
+    "native:content": "tsx apps/native/scripts/export-content-bundles.ts",
+    "desktop:build": "npm --prefix apps/native run desktop:build",
+    "steam:build": "npm --prefix apps/native run steam:build"
   },
   "dependencies": {
     "@sentry/browser": "^10.64.0",
