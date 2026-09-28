@@ -6,7 +6,7 @@
   "build": {
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist",
-    "beforeDevCommand": "node scripts/fetch-web.mjs desktop-direct --no-build && cd web && npm run dev",
+    "beforeDevCommand": "npm --prefix ../.. run dev",
     "beforeBuildCommand": "node scripts/fetch-web.mjs desktop-direct"
   },
   "app": {

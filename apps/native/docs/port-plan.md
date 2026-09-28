@@ -1,3 +1,5 @@
+> Historical planning document. Current source and builds live in MOVGame under `apps/native`; follow README.md and mobile.md.
+
 # Margin of Victory native port
 
 Mobile is Kotlin Multiplatform with native user interfaces: Jetpack Compose on Android and SwiftUI on iOS. Desktop alone uses Tauri. The earlier Tauri mobile plan was superseded by `docs/native-plan.md`.

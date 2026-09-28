@@ -1,3 +1,5 @@
+> Historical planning document. Current source and builds live in MOVGame under `apps/native`; follow README.md and mobile.md.
+
 # Native mobile plan — Kotlin Multiplatform
 
 Decision: mobile clients are fully native, not Tauri wrappers. Desktop stays

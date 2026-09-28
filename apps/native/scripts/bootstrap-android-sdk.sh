@@ -8,7 +8,7 @@
 #                CMDLINE_URL
 set -euo pipefail
 
-SDK="${ANDROID_HOME:-/root/Android/Sdk}"
+SDK="${ANDROID_HOME:-$HOME/Android/Sdk}"
 API="${ANDROID_API:-35}"
 BUILD_TOOLS="${BUILD_TOOLS_VERSION:-35.0.0}"
 NDK_VERSION="${NDK_VERSION:-27.2.12479018}"

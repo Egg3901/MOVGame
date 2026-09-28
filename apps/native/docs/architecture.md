@@ -1,6 +1,6 @@
 # Client architecture
 
-MOVGame is the source of truth for web gameplay and content. `shared/` ports its deterministic TypeScript simulation to Kotlin for native mobile clients. Cross-checked tests keep the two engines aligned; `scripts/export-content-bundles.ts` exports content from the revision in `web.pin` to the KMP bundle resources.
+MOVGame is the source of truth for web gameplay and content. `shared/` ports its deterministic TypeScript simulation to Kotlin for native mobile clients. Cross-checked tests keep the two engines aligned; `scripts/export-content-bundles.ts` exports content from the web source in this checkout to the KMP bundle resources.
 
 Android renders gameplay with Jetpack Compose in `androidApp/`. iOS renders it with SwiftUI in `iosApp/`. Their platform billing adapters use Play Billing and StoreKit. The mobile apps contain no React, WebView game UI, or Tauri runtime.
 

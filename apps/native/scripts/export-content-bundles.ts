@@ -1,19 +1,19 @@
 // Build-time content export: serializes the web game's src/content tables to
 // JSON bundles consumed by the KMP shared module (Phase 2, Option A).
 //
-// Usage (needs the web checkout + its tsx):
-//   WEB_REPO=/root/projects/ahd-sim ./node_modules/.bin/tsx scripts/export-content-bundles.ts
+// Usage from the repository root: npm run native:content
 //
-// Reads web.pin for the source-of-truth revision and writes bundles plus a
+// Reads web content from this checkout and writes bundles plus a
 // manifest into shared/src/commonMain/resources/bundles/. Functions (AI
 // predicates, government text) and map SVG paths do not serialize and stay
 // hand-ported in shared content/ (see UkContent.kt).
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const WEB_REPO = process.env.WEB_REPO ?? "/root/projects/ahd-sim";
-const HERE = path.dirname(new URL(import.meta.url).pathname);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const WEB_REPO = path.resolve(HERE, "../../..");
 const OUT = path.resolve(HERE, "../shared/src/commonMain/resources/bundles");
 
 async function main() {
@@ -92,30 +92,29 @@ async function main() {
     "1964": hist.HIST_1964, "1960": hist.HIST_1960,
   };
 
-  fs.mkdirSync(path.join(OUT, "countries"), { recursive: true });
-  let webPin = "unknown";
-  try {
-    webPin = fs.readFileSync(path.resolve(HERE, "../web.pin"), "utf8").trim();
-  } catch { /* no pin file */ }
-  let webHead = "unknown";
-  try {
-    webHead = execSync("git rev-parse --short HEAD", { cwd: WEB_REPO }).toString().trim();
-  } catch { /* not a checkout */ }
+  const check = process.argv.includes("--check");
+  if (!check) fs.mkdirSync(path.join(OUT, "countries"), { recursive: true });
+  const webHead = execFileSync("git", ["rev-parse", "HEAD"], { cwd: WEB_REPO, encoding: "utf8" }).trim();
   const manifest: Record<string, { bytes: number; events?: number }> = {};
   for (const [name, data] of Object.entries(bundles)) {
     const text = JSON.stringify(data);
-    fs.writeFileSync(path.join(OUT, `${name}.json`), text);
+    const target = path.join(OUT, `${name}.json`);
+    if (check) {
+      if (fs.readFileSync(target, "utf8") !== text) throw new Error(`Stale native bundle: ${name}; run npm run native:content`);
+    } else {
+      fs.writeFileSync(target, text);
+    }
     manifest[name] = { bytes: text.length };
   }
-  fs.writeFileSync(
+  if (!check) fs.writeFileSync(
     path.join(OUT, "manifest.json"),
     JSON.stringify(
-      { webPin, webHead, exportedAt: new Date().toISOString(), bundles: manifest },
+      { webHead, exportedAt: new Date().toISOString(), bundles: manifest },
       null,
       2,
     ),
   );
-  console.log("wrote " + Object.keys(bundles).length + " bundles to " + OUT);
+  console.log((check ? "verified " : "wrote ") + Object.keys(bundles).length + " bundles to " + OUT);
 }
 
 main();

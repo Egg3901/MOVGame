@@ -2,7 +2,8 @@
 
 Android uses Kotlin Multiplatform for the simulation and Jetpack Compose for the interface. iOS uses the same KMP simulation with a SwiftUI interface. Neither mobile app runs the web UI or a Tauri wrapper. Desktop remains a Tauri shell around the [MOVGame](https://github.com/Egg3901/MOVGame) web client.
 
-The store-visible package identifier remains `com.lakesidegames.electioneer`. The web game lives at `/games/electioneer/`.
+The store-visible package identifier remains `com.lakesidegames.electioneer`. The web game lives at `/games/electioneer/`. All clients are maintained in this
+repository: web at the root, native clients in `apps/native`.
 
 ## Project layout
 
@@ -12,9 +13,9 @@ The store-visible package identifier remains `com.lakesidegames.electioneer`. Th
 | `androidApp/` | Compose screens and Play Billing adapter |
 | `iosApp/` | SwiftUI screens and StoreKit adapter |
 | `src-tauri/` | Desktop shell only |
-| `web.pin` | Pinned MOVGame revision for desktop and exported native content |
+| `../../src/` | Web engine and content from the same checkout |
 
-The Kotlin engine is a port of MOVGame's TypeScript engine. Both implementations have cross-checked tests for deterministic behavior. Content bundles are exported from the pinned web revision. Any engine or content change must be compared against that revision and its calibration suite.
+The Kotlin engine is a port of MOVGame's TypeScript engine. Both implementations have cross-checked tests for deterministic behavior. Content bundles are exported from the web source in this checkout. Any engine or content change must be compared against the web source in this checkout and its calibration suite.
 
 ## Verify Android on Linux
 
@@ -24,9 +25,9 @@ npm run native:verify
 
 This runs shared JVM tests and builds the Compose debug APK at `androidApp/build/outputs/apk/debug/androidApp-debug.apk`. Use `./gradlew :androidApp:installDebug` to install on a connected device. Android builds need JDK 21 and Android SDK platform 36.
 
-The iOS app requires Xcode on macOS. Build the `MOVGameiOS` scheme in `iosApp/MOVGameiOS.xcodeproj`. Codemagic `ios-verify` compiles the simulator app without signing; `ios-testflight` is the signed upload route once Apple restores Developer Program access and the MOV profile and app record exist.
+The iOS app requires Xcode on macOS. Build the `MOVGameiOS` scheme in `iosApp/MOVGameiOS.xcodeproj`. GitHub Actions compiles the simulator app without signing. The manual iOS TestFlight workflow signs and uploads an exact reviewed main commit using Actions secrets.
 
-Desktop builds use `npm run desktop:build` or `npm run steam:build`. The desktop scripts fetch MOVGame at `web.pin`.
+Desktop builds use `npm run desktop:build` or `npm run steam:build`. The desktop scripts build the web source from this same checkout. Install dependencies at both the repository root and `apps/native`.
 
 ## Release status
 

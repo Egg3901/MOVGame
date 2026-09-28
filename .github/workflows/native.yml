@@ -1,0 +1,73 @@
+name: Native and web
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Check native content matches web
+        run: npm run native:content -- --check
+      - name: Verify desktop uses this checkout
+        run: node apps/native/scripts/fetch-web.mjs steam
+  android:
+    name: Native tests and Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :shared:jvmTest :androidApp:assembleDebug --no-daemon --max-workers=2
+  ios:
+    name: iOS simulator compile
+    runs-on: macos-26
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/native
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: >-
+          xcodebuild -project iosApp/MOVGameiOS.xcodeproj
+          -scheme MOVGameiOS -configuration Debug
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/mov-derived"
+          CODE_SIGNING_ALLOWED=NO build

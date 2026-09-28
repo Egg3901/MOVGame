@@ -35,20 +35,12 @@ decisions, screen sizes, and Play purchase behavior.
 
 ## iOS verification and TestFlight
 
-`codemagic.yaml` has two workflows:
-
-- `ios-verify` compiles the shared Kotlin framework and SwiftUI app for the
-  iOS simulator, without signing or publishing.
-- `ios-testflight` archives, signs, and uploads a reviewed commit after the
-  App ID, distribution profile, and App Store Connect app record exist. It
-  checks `MOV_REVIEW_COMMIT` against the exact source SHA.
-
-Apple Developer Program benefits are temporarily disabled during the team's
-membership migration (Apple case `102973233199`). The missing MOV App ID,
-provisioning profile, and App Store Connect app record block TestFlight.
-Codemagic has the other encrypted signing inputs. The owner will resume
-portal setup when Apple completes the migration; see `release-checklist.md`
-for the exact sequence. No signed MOV IPA or TestFlight build exists yet.
+The root `.github/workflows/native.yml` compiles the shared Kotlin framework
+and SwiftUI app on macOS without signing. `.github/workflows/ios-testflight.yml`
+archives, signs, and uploads an exact reviewed main commit using Actions
+secrets. The Apple organization migration is complete. The App ID is
+`com.lakesidegames.electioneer`; the App Store distribution profile is
+`MOV App Store`. Upload and physical-device results must still be verified.
 
 ## Release gates
 

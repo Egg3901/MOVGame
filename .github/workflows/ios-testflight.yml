@@ -1,0 +1,97 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_sha:
+        description: Full reviewed default-branch commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      IOS_BUNDLE_ID: com.lakesidegames.electioneer
+      IOS_PROJECT: iosApp/MOVGameiOS.xcodeproj
+      IOS_APP_TARGET: MOVGameiOS
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the exact reviewed default-branch commit
+        env:
+          REVIEWED_SHA: ${{ inputs.reviewed_sha }}
+        run: |
+          python3 - <<'PYTHON'
+          import os, re, subprocess
+          expected = os.environ['REVIEWED_SHA']
+          actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          if not re.fullmatch(r'[0-9a-f]{40}', expected) or actual != expected:
+              raise SystemExit('Choose the default branch and its exact reviewed commit')
+          PYTHON
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Shared engine tests
+        working-directory: apps/native
+        run: ./gradlew :shared:jvmTest --no-daemon --max-workers=2
+      - name: Prepare Xcode project editor
+        run: ruby -rxcodeproj -e 'puts "Xcode project editor ready"' || gem install --user-install xcodeproj --no-document
+      - name: Install App Store signing
+        working-directory: apps/native
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_MOBILE_PROVISION: ${{ secrets.IOS_MOBILE_PROVISION }}
+        run: python3 ../../scripts/ios-signing.py
+      - name: Archive signed app
+        working-directory: apps/native
+        run: |
+          xcodebuild -project iosApp/MOVGameiOS.xcodeproj -scheme MOVGameiOS -configuration Release             -destination 'generic/platform=iOS'             -archivePath "$RUNNER_TEMP/App.xcarchive"             CURRENT_PROJECT_VERSION="$((1000 + GITHUB_RUN_NUMBER))" archive
+      - name: Export internal TestFlight IPA
+        run: |
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive"             -exportPath "$RUNNER_TEMP/ipa"             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+      - name: Upload to App Store Connect
+        env:
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          python3 - <<'PYTHON'
+          import os, pathlib, subprocess
+          names = ['APP_STORE_CONNECT_PRIVATE_KEY', 'APP_STORE_CONNECT_KEY_IDENTIFIER', 'APP_STORE_CONNECT_ISSUER_ID']
+          if any(not os.environ.get(name) for name in names):
+              raise SystemExit('Missing App Store Connect upload secrets')
+          directory = pathlib.Path.home() / '.appstoreconnect/private_keys'
+          directory.mkdir(parents=True, exist_ok=True)
+          key = directory / ('AuthKey_' + os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'] + '.p8')
+          key.write_text(os.environ['APP_STORE_CONNECT_PRIVATE_KEY'])
+          key.chmod(0o600)
+          ipas = list((pathlib.Path(os.environ['RUNNER_TEMP']) / 'ipa').glob('*.ipa'))
+          if len(ipas) != 1:
+              raise SystemExit('Expected exactly one signed IPA')
+          try:
+              subprocess.run(['xcrun', 'altool', '--upload-app', '--type', 'ios', '--file', str(ipas[0]),
+                  '--apiKey', os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'],
+                  '--apiIssuer', os.environ['APP_STORE_CONNECT_ISSUER_ID']], check=True)
+          finally:
+              key.unlink(missing_ok=True)
+          PYTHON
+      - name: Remove signing material
+        if: always()
+        run: python3 scripts/ios-signing.py --cleanup

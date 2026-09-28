@@ -1,7 +1,6 @@
 # Desktop builds
 
-The Tauri 2 desktop shell lives here. It wraps the web edition fetched at the
-commit in `web.pin`, so the simulation and interface are never forked.
+The Tauri 2 desktop shell lives here. It wraps the web edition from this same checkout, so the simulation and interface are never forked.
 
 ## Status
 
@@ -24,9 +23,10 @@ The checked-in master icon is `public/brand/margin-of-victory-icon.png` in
 ## Build
 
 ```text
-npm install
-npm run fetch:web          # fetch MOVGame at web.pin (source only, for tauri dev)
-npm run tauri:dev          # dev shell against the fetched web source
+npm ci --prefix ../..
+npm ci
+npm run fetch:web          # check the local web source path
+npm run tauri:dev          # dev shell against the root web source
 
 npm run desktop:build      # .deb / .rpm / .AppImage (mode desktop-direct)
 npm run steam:build        # Steam channel (mode steam)

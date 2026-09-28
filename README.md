@@ -31,10 +31,23 @@ activation codes, and cloud-facing platform integration.
 
 The simulation core is kept separate from the interface. `src/engine` is pure
 TypeScript with no React, DOM, or browser dependencies, so it can run in the
-browser, in the native shells, in tests, or headless for calibration. The native
-shells (Tauri 2 desktop, iOS, Android) live in the separate
-[`MOVGame-native`](https://github.com/Egg3901/MOVGame-native) repository and
-consume this one at a pinned commit — this repo publishes the web edition only.
+browser, in tests, or headless for calibration. All clients live in this repo:
+`apps/native` contains the Kotlin Multiplatform engine, Android Compose app,
+iOS SwiftUI app, and Tauri desktop shell. The mobile engine is a Kotlin port
+with parity tests; desktop builds use the web source from the same checkout.
+See [native setup](apps/native/README.md).
+
+```bash
+npm ci --prefix apps/native
+npm run native:verify       # shared JVM tests and Android APK
+npm run native:content      # regenerate native content from web source
+npm run desktop:build      # Tauri shell using this checkout's web game
+```
+
+GitHub Actions checks web, Android, and iOS independently. The manual
+`iOS TestFlight` workflow signs and uploads a reviewed `main` commit.
+The former MOVGame-native repository is retained for historical links; new
+native work belongs here.
 
 ```text
 src/
@@ -43,6 +56,7 @@ src/
   persistence/   Local and remote save providers
   store/         Zustand state, autosave, replay, and entitlement state
   ui/            React game, setup, guide, leaderboard, and results screens
+apps/native/     KMP, Compose, SwiftUI, and Tauri clients
 server/          Accounts, scores, identity linking, and entitlements
 ```
 

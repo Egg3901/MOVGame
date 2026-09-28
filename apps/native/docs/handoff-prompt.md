@@ -1,3 +1,5 @@
+> Historical planning document. Current source and builds live in MOVGame under `apps/native`; follow README.md and mobile.md.
+
 # MOV Native Port — Handoff Prompt
 
 > Historical Phase 0 prompt. The scaffold and engine port are complete. For
