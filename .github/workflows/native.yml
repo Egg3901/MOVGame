@@ -76,6 +76,8 @@ jobs:
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/mov-derived"
           CODE_SIGNING_ALLOWED=NO build
+      - name: Verify packaged campaign content
+        run: python3 ../../scripts/verify-ios-bundles.py "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator/MOVGameiOS.app"
       - name: Package unsigned simulator app for runtime compatibility testing
         run: tar -C "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator" -czf "$RUNNER_TEMP/mov-simulator.tar.gz" MOVGameiOS.app
       - uses: actions/upload-artifact@v4
