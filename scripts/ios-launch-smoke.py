@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Install and launch the built app, failing if it exits during startup."""
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -18,11 +19,16 @@ def run(*args, timeout=120):
 
 
 devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '--json'))
-phones = [d for runtime, group in devices['devices'].items() if 'iOS' in runtime
-          for d in group if d['name'].startswith('iPhone')]
+requested = os.environ.get('SIMULATOR_UDID')
+phones = [dict(d, runtime=runtime)
+          for runtime, group in devices['devices'].items() if 'iOS' in runtime
+          for d in group if d['name'].startswith('iPhone')
+          and (not requested or d['udid'] == requested)]
 if not phones:
     raise SystemExit('No available iPhone simulator')
 device = phones[0]['udid']
+print(json.dumps(phones[0]), flush=True)
+(output / 'simulator.json').write_text(json.dumps(phones[0], indent=2))
 if phones[0]['state'] != 'Booted':
     run('xcrun', 'simctl', 'boot', device)
 run('xcrun', 'simctl', 'bootstatus', device, '-b', timeout=300)

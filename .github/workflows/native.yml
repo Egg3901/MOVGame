@@ -76,6 +76,13 @@ jobs:
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/mov-derived"
           CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned simulator app for runtime compatibility testing
+        run: tar -C "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator" -czf "$RUNNER_TEMP/mov-simulator.tar.gz" MOVGameiOS.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-ios-simulator-app
+          path: ${{ runner.temp }}/mov-simulator.tar.gz
+          retention-days: 3
       - name: Launch app on iPhone simulator
         run: python3 ../../scripts/ios-launch-smoke.py "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator/MOVGameiOS.app" "$RUNNER_TEMP/mov-launch"
       - uses: actions/upload-artifact@v4
@@ -83,3 +90,27 @@ jobs:
         with:
           name: ios-simulator-launch
           path: ${{ runner.temp }}/mov-launch
+  ios27:
+    name: iOS 27 iPhone 17 Pro Max launch
+    needs: ios
+    runs-on: xcode-27
+    timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned-ios-simulator-app
+          path: ${{ runner.temp }}/mov-compat
+      - name: Launch existing Release binary on iOS 27
+        run: |
+          tar -xzf "$RUNNER_TEMP/mov-compat/mov-simulator.tar.gz" -C "$RUNNER_TEMP/mov-compat"
+          SIMULATOR_UDID=$(xcrun simctl create 'iPhone 17 Pro Max MOV' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max com.apple.CoreSimulator.SimRuntime.iOS-27-0)
+          export SIMULATOR_UDID
+          python3 scripts/ios-launch-smoke.py "$RUNNER_TEMP/mov-compat/MOVGameiOS.app" "$RUNNER_TEMP/mov-ios27-launch"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios27-simulator-launch
+          path: ${{ runner.temp }}/mov-ios27-launch
