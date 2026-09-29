@@ -38,6 +38,9 @@ final class PlannerDraft: ObservableObject {
 // Native campaign desk with map, state projection, action plan, and turn recap.
 struct GameView: View {
     @ObservedObject var session: GameSession
+    @AppStorage("mov.hasSeenCampaignGuide") private var hasSeenCampaignGuide = false
+    @State private var coachStep: Int? = nil
+    @State private var coachStartTurn = 0
     @State private var selectedStateId: String? = nil
     @State private var mapMode = "tiles"
     @State private var deskSection: DeskSection = .map
@@ -56,11 +59,13 @@ struct GameView: View {
             uniqueKeysWithValues: states.map { ($0.abbr.uppercased(), $0.id) }
         )
         let selId = selectedStateId
-        let battlegrounds = states.compactMap { state -> Battleground? in
-            guard let contest = contests[state.id], !state.blocs.isEmpty else { return nil }
+        let allContests = states.compactMap { state -> Battleground? in
+            guard let contest = contests[state.id] else { return nil }
             return Battleground(state: state, contest: contest)
-        }.sorted { abs(MapMargin.points($0.contest)) < abs(MapMargin.points($1.contest)) }
-        let focused = selId.flatMap { id in battlegrounds.first(where: { $0.state.id == id }) }
+        }
+        let battlegrounds = allContests.filter { !$0.state.blocs.isEmpty }
+            .sorted { abs(MapMargin.points($0.contest)) < abs(MapMargin.points($1.contest)) }
+        let focused = selId.flatMap { id in allContests.first(where: { $0.state.id == id }) }
             ?? battlegrounds.first
         let addDisabled = Int(g.slotsLeft()) == 0 ||
             session.plannedActions().filter { Int($0.day) == draft.day }.count >= 3 ||
@@ -151,12 +156,20 @@ struct GameView: View {
                             if mapMode == "tiles" {
                                 TileMapView(contestsById: contests, states: states,
                                             selectedId: selId,
-                                            onSelect: { selectedStateId = $0; draft.target = $0 })
+                                            onSelect: { id in
+                                                selectedStateId = id
+                                                if states.first(where: { $0.id == id })?.blocs.isEmpty == false { draft.target = id }
+                                                if coachStep == 1 { advanceCoach() }
+                                            })
                                     .padding(10)
                             } else {
                                 GeoMapView(contestsById: contests, abbrToStateId: abbrToId,
                                            selectedAbbr: focused?.state.abbr.uppercased(),
-                                           onSelect: { if let id = abbrToId[$0] { selectedStateId = id; draft.target = id } })
+                                           onSelect: { if let id = abbrToId[$0] {
+                                               selectedStateId = id
+                                               if states.first(where: { $0.id == id })?.blocs.isEmpty == false { draft.target = id }
+                                               if coachStep == 1 { advanceCoach() }
+                                           } })
                                     .frame(height: 260)
                             }
                         }
@@ -231,7 +244,7 @@ struct GameView: View {
                   if deskSection == .map {
                       if let focused {
                           selectedStateId = focused.state.id
-                          draft.target = focused.state.id
+                          if !focused.state.blocs.isEmpty { draft.target = focused.state.id }
                       }
                       deskSection = .plan
                   } else {
@@ -250,7 +263,23 @@ struct GameView: View {
             }
             .background(Color(red: 10/255, green: 15/255, blue: 20/255))
             .preferredColorScheme(.dark)
+            .overlay(alignment: .bottom) {
+                if let coachStep {
+                    coachCard(coachStep)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 76)
+                }
+            }
             .onAppear {
+                #if targetEnvironment(simulator)
+                let capturing = ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--mov-capture-") }
+                #else
+                let capturing = false
+                #endif
+                if !hasSeenCampaignGuide && !capturing && Int(g.turn()) == 0 {
+                    coachStartTurn = Int(g.turn())
+                    coachStep = 0
+                }
                 if draft.target.isEmpty, let first = battlegrounds.first {
                     draft.target = first.state.id
                     selectedStateId = first.state.id
@@ -265,6 +294,15 @@ struct GameView: View {
                 if let state = states.first(where: { $0.id == next }) {
                     selectedStateId = state.id
                 }
+            }
+            .onChange(of: hasSeenCampaignGuide) { seen in
+                if !seen { coachStartTurn = Int(g.turn()); coachStep = 0 }
+            }
+            .onChange(of: session.plannedActions().count) { count in
+                if coachStep == 3 && count > 0 { coachStep = 4 }
+            }
+            .onChange(of: Int(g.turn())) { turn in
+                if coachStep == 4 && turn > coachStartTurn { coachStep = 5 }
             }
             .alert("Week \(Int(g.turn())) recap", isPresented: $session.showRecap) {
                 Button("OK") { session.dismissRecap() }
@@ -284,6 +322,57 @@ struct GameView: View {
             Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(CampaignStyle.muted)
             Text(value).font(.subheadline.bold()).minimumScaleFactor(0.75).lineLimit(1)
         }
+    }
+
+    private func advanceCoach() {
+        guard let step = coachStep else { return }
+        if step >= 7 {
+            coachStep = nil
+            hasSeenCampaignGuide = true
+        } else {
+            coachStep = step + 1
+            if step == 2 { deskSection = .plan }
+        }
+    }
+
+    private func coachCard(_ step: Int) -> some View {
+        let titles = ["Welcome to the war room", "The battleground", "Read the margin", "Plan your week",
+                      "Lock it in", "Curveballs", "Your campaign menu", "That's the loop"]
+        let details = [
+            "Win 270 electoral votes. Every week changes the map.",
+            "Gray, amber-ringed tiles are toss-ups. Tap a state on the map to inspect it.",
+            "The inspector shows electoral votes and the poll margin. Target close contests first.",
+            "Choose a target and move, tune its settings, then add at least one move to a day.",
+            "Scroll to the week schedule and end the week. The opposing campaign acts too.",
+            "Events and debates interrupt the campaign. Each response has a trade-off.",
+            "Home, saves, and this tour live in Menu. You can replay it any time.",
+            "Watch the projected electoral votes. Election Night decides the result."
+        ]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("TOUR · \(step + 1)/8").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
+                Spacer()
+                Button("Skip tour") { coachStep = nil; hasSeenCampaignGuide = true }
+                    .font(.caption).foregroundStyle(CampaignStyle.muted)
+            }
+            Text(titles[step]).font(.headline)
+            Text(details[step]).font(.subheadline).foregroundStyle(CampaignStyle.muted)
+            HStack {
+                if step > 0 {
+                    Button("Back") { coachStep = step - 1; if step == 3 { deskSection = .map } }
+                        .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                }
+                Spacer()
+                Button(step == 0 ? "Show me  →" : step == 7 ? "Done" : "Next  →") { advanceCoach() }
+                    .font(.subheadline.bold()).foregroundStyle(CampaignStyle.background)
+                    .padding(.horizontal, 14).padding(.vertical, 9)
+                    .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 9))
+            }
+        }
+        .padding(14)
+        .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 15))
+        .overlay(RoundedRectangle(cornerRadius: 15).strokeBorder(CampaignStyle.gold.opacity(0.7)))
+        .shadow(radius: 12)
     }
 
     private func legendItem(_ title: String, color: Color) -> some View {
