@@ -276,7 +276,7 @@ struct GameView: View {
                 #else
                 let capturing = false
                 #endif
-                if !hasSeenCampaignGuide && !capturing && Int(g.turn()) == 0 {
+                if !hasSeenCampaignGuide && !capturing {
                     coachStartTurn = Int(g.turn())
                     coachStep = 0
                 }
