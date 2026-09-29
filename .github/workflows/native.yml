@@ -96,7 +96,7 @@ jobs:
     name: iOS 27 iPhone 17 Pro Max launch
     needs: ios
     runs-on: xcode-27
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
     steps:
