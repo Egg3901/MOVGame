@@ -26,9 +26,15 @@ def capture_ready(name, process, attempts=3):
         if process.poll() is not None:
             raise SystemExit(f'FAIL: app exited before {name} was rendered')
         run('xcrun', 'simctl', 'io', device, 'screenshot', str(screenshot))
-        checked = subprocess.run(
-            [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')), str(screenshot)],
-            text=True, capture_output=True, timeout=45)
+        probe = output / f'{name}-probe.png'
+        try:
+            subprocess.run(['sips', '-Z', '160', str(screenshot), '--out', str(probe)],
+                           check=True, capture_output=True, timeout=30)
+            checked = subprocess.run(
+                [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')), str(probe)],
+                text=True, capture_output=True, timeout=30)
+        finally:
+            probe.unlink(missing_ok=True)
         print(f'{name} capture {attempt + 1}: {checked.stdout.strip()}', flush=True)
         if checked.returncode == 0:
             print(f'PASS: {name} app screen rendered', flush=True)
