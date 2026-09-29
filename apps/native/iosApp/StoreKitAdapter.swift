@@ -5,7 +5,7 @@ import StoreKit
 // listProducts / purchase / restore / entitlements for non-consumables.
 //
 // Product IDs come from the SKU table (docs/billing.md); the table is
-// exported from MOVGame, so this starts EMPTY and the Store tab keeps its
+// exported from MOVGame, so this starts EMPTY and the campaign library keeps its
 // "nothing for sale yet" posture until the first App Store Connect product
 // exists. Entitlements are the on-device verified set
 // (Transaction.currentEntitlements, Apple-signed, no server needed) plus a

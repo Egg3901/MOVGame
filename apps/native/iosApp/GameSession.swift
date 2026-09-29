@@ -4,13 +4,12 @@ import shared
 // Phase 4 session (#22): mirrors androidApp GameSession. The Swift side
 // talks only to the MobileGame facade (string serials in, plain reads out)
 // and bumps `version` after every mutation so views re-render.
-enum PlayScreen {
+enum PlayScreen: Equatable {
     case home, setup, loading, game, results
 }
 
 final class GameSession: ObservableObject {
     private static let saveKey = "mov_campaign_v1"
-    @Published var tab = 0 // 0 play, 1 store, 2 account
     @Published var playScreen: PlayScreen = .home
     @Published var version = 0
 
@@ -20,6 +19,9 @@ final class GameSession: ObservableObject {
     @Published var eventResult: String? = nil
 
     private var game: MobileGame? = nil
+    #if targetEnvironment(simulator)
+    private var didPrepareSimulatorCapture = false
+    #endif
 
     init() {
         if let snapshot = UserDefaults.standard.string(forKey: Self.saveKey),
@@ -29,6 +31,25 @@ final class GameSession: ObservableObject {
             eventId = restored.pendingEventIds().first
         }
     }
+
+    #if targetEnvironment(simulator)
+    func prepareSimulatorCaptureIfRequested() {
+        guard !didPrepareSimulatorCapture else { return }
+        didPrepareSimulatorCapture = true
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--mov-capture-setup") {
+            playScreen = .setup
+        } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") {
+            let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
+                ?? mates(scenarioId: "2024", playerSerial: "dem").first
+            guard let mate else { return }
+            newGame(scenarioId: "2024", playerSerial: "dem", mateId: mate.id,
+                    staffIds: [], difficulty: "normal", eventMode: "historical",
+                    totalTurns: 9, seed: "240927", whatIfState: "",
+                    mirrorMatch: false, pandemic: false)
+        }
+    }
+    #endif
 
     var hasGame: Bool { game != nil }
     var savedCampaignLabel: String { game?.campaignLabel() ?? "Your campaign" }
@@ -40,7 +61,6 @@ final class GameSession: ObservableObject {
 
     func playTab() {
         playScreen = .home
-        tab = 0
     }
 
     func touch() {

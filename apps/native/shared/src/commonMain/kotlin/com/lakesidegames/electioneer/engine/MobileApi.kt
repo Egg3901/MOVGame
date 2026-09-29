@@ -6,10 +6,13 @@ import com.lakesidegames.electioneer.content.SCENARIOS
 import com.lakesidegames.electioneer.content.SCENARIO_IDS
 import com.lakesidegames.electioneer.content.STAFF_POOL
 import com.lakesidegames.electioneer.content.ISSUES
+import kotlin.math.roundToInt
 
 data class CampaignChoice(val id: String, val year: Int, val label: String, val tagline: String, val demName: String, val repName: String)
-data class MateChoice(val id: String, val name: String, val blurb: String, val historical: Boolean)
-data class StaffChoice(val id: String, val name: String, val role: String, val blurb: String)
+data class MateChoice(val id: String, val name: String, val blurb: String, val historical: Boolean,
+                      val bonus: String)
+data class StaffChoice(val id: String, val name: String, val role: String, val blurb: String,
+                       val salaryPerWeek: Double, val bonus: String)
 
 // Swift-friendly facade over the US game loop (Phase 4, #22).
 //
@@ -52,10 +55,34 @@ class MobileGame private constructor(
         fun mates(scenarioId: String, playerSerial: String): List<MateChoice> {
             val s = SCENARIOS.getValue(scenarioId)
             val roster = if (playerSerial == CandidateId.DEM.serial) s.dem.runningMates else s.rep.runningMates
-            return roster.map { MateChoice(it.id, it.name, it.blurb, it.historical) }
+            return roster.map { mate ->
+                val bonuses = buildList {
+                    mate.traitBonuses.forEach { (trait, points) ->
+                        add("+${points.roundToInt()} ${trait.replace(Regex("([a-z])([A-Z])"), "$1 $2")}")
+                    }
+                    mate.favorability.forEach { (bloc, value) ->
+                        add("+${(value * 100).roundToInt()} ${bloc.replace('_', ' ')}")
+                    }
+                    mate.cashBonus?.let { add("+\$${(it / 1_000_000).roundToInt()}M war chest") }
+                    mate.candidateDayBonus?.let { add("+${it.roundToInt()} candidate day") }
+                }
+                MateChoice(mate.id, mate.name, mate.blurb, mate.historical, bonuses.joinToString(" · "))
+            }
         }
 
-        fun staffChoices(): List<StaffChoice> = STAFF_POOL.map { StaffChoice(it.id, it.name, it.role, it.blurb) }
+        fun staffChoices(): List<StaffChoice> = STAFF_POOL.map { staff ->
+            val e = staff.effects
+            val bonuses = buildList {
+                if (e.maxActions > 0) add("+${e.maxActions} action/week")
+                if (e.adMult > 1.0) add("+${((e.adMult - 1) * 100).roundToInt()}% ad impact")
+                if (e.fundraiseMult > 1.0) add("+${((e.fundraiseMult - 1) * 100).roundToInt()}% fundraising")
+                if (e.oppoShield > 0.0) add("-${(e.oppoShield * 100).roundToInt()}% opposition damage")
+                if (e.debatePrepBonus > 0.0) add("+${e.debatePrepBonus.roundToInt()} debate prep")
+                e.traitBonuses.forEach { (trait, points) -> add("+${points.roundToInt()} ${trait.replace(Regex("([a-z])([A-Z])"), "$1 $2")}") }
+            }
+            StaffChoice(staff.id, staff.name, staff.role, staff.blurb,
+                        staff.salaryPerWeek, bonuses.joinToString(" · "))
+        }
 
         fun issues(): List<Issue> = IssueId.entries.map { ISSUES.getValue(it.serial) }
 
@@ -95,6 +122,8 @@ class MobileGame private constructor(
     fun totalTurns(): Int = game.totalTurns
 
     fun playerCash(): Double = game.resources.getValue(game.playerCandidate.serial).cash
+
+    fun playerMomentum(): Double = game.resources.getValue(game.playerCandidate.serial).nationalMomentum
 
     fun plannedSpend(): Double = game.queuedActions.sumOf { if (it.type == ActionType.ADVERTISE) it.spend ?: 0.0 else 0.0 }
 
@@ -139,6 +168,22 @@ class MobileGame private constructor(
         val adMode = AdMode.entries.firstOrNull { it.serial == adModeSerial }
         val issueId = IssueId.entries.firstOrNull { it.serial == issueSerial }
         return queuePlannedAction(game, type, stateId, day, adMode, spendMillions, issueId, newPosition)
+    }
+
+    // A deterministic planning estimate. Apply the proposed move to a snapshot,
+    // never to the live campaign; the turn's random events can change the result.
+    fun previewMarginPoints(typeSerial: String, stateId: String, day: Int,
+                            adModeSerial: String?, spendMillions: Double?, issueSerial: String?,
+                            newPosition: Double?): Double {
+        val copy = loadGame(saveGame(game, seedStr))?.state ?: return Double.NaN
+        val type = ActionType.entries.firstOrNull { it.serial == typeSerial } ?: return Double.NaN
+        val mode = AdMode.entries.firstOrNull { it.serial == adModeSerial }
+        val issue = IssueId.entries.firstOrNull { it.serial == issueSerial }
+        if (!queuePlannedAction(copy, type, stateId, day, mode, spendMillions, issue, newPosition)) return Double.NaN
+        val action = copy.queuedActions.last()
+        applyAction(copy, action, Rng.createRng("$seedStr:preview:${copy.turn}:$stateId:$day:$typeSerial"))
+        val contest = projectElection(copy).contests.firstOrNull { it.stateId == stateId } ?: return Double.NaN
+        return (contest.demShare - 0.5) * 200
     }
 
     fun removeAction(index: Int): Boolean = removePlannedAction(game, index)

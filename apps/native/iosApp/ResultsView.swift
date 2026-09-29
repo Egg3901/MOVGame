@@ -27,17 +27,28 @@ struct ResultsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 9) {
-                        Text("ELECTION NIGHT").font(.caption.bold()).tracking(2).foregroundStyle(.orange)
+                        HStack(spacing: 8) {
+                            Image("MOVMark")
+                                .resizable()
+                                .frame(width: 28, height: 28)
+                                .accessibilityHidden(true)
+                            Text("ELECTION NIGHT").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
+                        }
                         Text(g.resultWinnerSerial() == g.playerSerial() ? "Victory" : "The race is over")
                             .font(.largeTitle.bold())
                         Text("\(g.resultWinnerName()) wins the presidency").font(.title3)
-                        Text("DEM \(Int(g.resultDemEv()))   ·   \(Int(g.resultRepEv())) REP").font(.title2.bold())
+                        HStack {
+                            Text("DEM \(Int(g.resultDemEv()))").foregroundStyle(CampaignStyle.democrat)
+                            Spacer()
+                            Text("\(Int(g.resultRepEv())) REP").foregroundStyle(CampaignStyle.republican)
+                        }
+                        .font(.title2.bold())
                         Text(String(format: "Democratic popular vote %.1f%%", g.resultDemPopularShare() * 100))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(20)
                     .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
-                    Text("STATE RESULTS").font(.caption.bold()).tracking(2).foregroundStyle(.orange).padding(.top, 10)
+                    Text("STATE RESULTS").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold).padding(.top, 10)
 
                     ForEach(rows, id: \.stateId) { sr in
                         HStack {
@@ -46,13 +57,13 @@ struct ResultsView: View {
                             Text("\(Int(sr.electoralVotes)) EV").font(.caption)
                             Text(String(format: "+%.1f", sr.margin))
                                 .font(.caption)
-                                .foregroundColor(sr.winner.serial == "dem" ? .blue : .red)
+                                .foregroundColor(sr.winner.serial == "dem" ? CampaignStyle.democrat : CampaignStyle.republican)
                         }
                     }
 
                     let causes = g.resultCauses()
                     if !causes.isEmpty {
-                        Text("WHAT DECIDED IT").font(.caption.bold()).tracking(2).foregroundStyle(.orange).padding(.top, 10)
+                        Text("WHAT DECIDED IT").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold).padding(.top, 10)
                         ForEach(causes, id: \.self) { cause in
                             Text(cause).font(.caption).frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -60,7 +71,6 @@ struct ResultsView: View {
 
                     Button("Play Again") {
                         session.playScreen = .setup
-                        session.tab = 0
                     }
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)

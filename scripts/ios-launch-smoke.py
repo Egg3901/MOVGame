@@ -18,6 +18,30 @@ def run(*args, timeout=120):
     return subprocess.check_output(args, text=True, timeout=timeout).strip()
 
 
+def capture_ready(name, process, attempts=3):
+    screenshot = output / f'{name}.png'
+    for attempt in range(attempts):
+        if attempt:
+            time.sleep(10)
+        if process.poll() is not None:
+            raise SystemExit(f'FAIL: app exited before {name} was rendered')
+        run('xcrun', 'simctl', 'io', device, 'screenshot', str(screenshot))
+        probe = output / f'{name}-probe.png'
+        try:
+            subprocess.run(['sips', '-Z', '160', str(screenshot), '--out', str(probe)],
+                           check=True, capture_output=True, timeout=30)
+            checked = subprocess.run(
+                [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')), str(probe)],
+                text=True, capture_output=True, timeout=30)
+        finally:
+            probe.unlink(missing_ok=True)
+        print(f'{name} capture {attempt + 1}: {checked.stdout.strip()}', flush=True)
+        if checked.returncode == 0:
+            print(f'PASS: {name} app screen rendered', flush=True)
+            return
+    raise SystemExit(f'FAIL: {name} remained blank or showed the simulator home screen')
+
+
 devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '--json'))
 requested = os.environ.get('SIMULATOR_UDID')
 phones = [dict(d, runtime=runtime)
@@ -43,14 +67,34 @@ try:
             console.flush()
             print((output / 'launch-console.log').read_text())
             raise SystemExit(f'FAIL: app exited during startup after {second + 1}s')
-    listing = run('xcrun', 'simctl', 'spawn', device, 'launchctl', 'list')
-    entries = [line for line in listing.splitlines() if bundle in line]
-    if not any(line.split()[0].isdigit() for line in entries):
-        raise SystemExit('FAIL: app has no running process after launch')
-    run('xcrun', 'simctl', 'io', device, 'screenshot', str(output / 'launch.png'))
-    print('PASS: app stayed running for 30 seconds; launch screenshot captured')
+    capture_ready('launch', process)
+    if os.environ.get('MOV_CAPTURE_SCREENS') == '1':
+        process.terminate()
+        process.wait(timeout=5)
+        for name, argument, seconds in [
+            ('setup', '--mov-capture-setup', 8),
+            ('campaign', '--mov-capture-game', 20),
+            ('plan', '--mov-capture-plan', 20),
+        ]:
+            subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
+            with (output / f'{name}-console.log').open('w') as preview_console:
+                preview = subprocess.Popen(
+                    ['xcrun', 'simctl', 'launch', '--console', device, bundle, argument],
+                    stdout=preview_console, stderr=subprocess.STDOUT)
+                try:
+                    for second in range(seconds):
+                        time.sleep(1)
+                        if preview.poll() is not None:
+                            preview_console.flush()
+                            print((output / f'{name}-console.log').read_text())
+                            raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
+                    capture_ready(name, preview)
+                finally:
+                    preview.terminate()
+                    preview.wait(timeout=5)
 finally:
-    process.terminate()
+    if process.poll() is None:
+        process.terminate()
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
