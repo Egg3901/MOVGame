@@ -107,6 +107,7 @@ try:
             ('setup-2016', '--mov-capture-setup-2016', 8),
             ('campaign', '--mov-capture-game', 20),
             ('plan', '--mov-capture-plan', 20),
+            ('ask', '--mov-capture-ask', 20),
         ]:
             subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
             with (output / f'{name}-console.log').open('w') as preview_console:

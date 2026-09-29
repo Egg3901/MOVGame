@@ -130,6 +130,14 @@ struct ContentView: View {
                     }
             }
         }
+        .onAppear {
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") {
+                session.prepareSimulatorCaptureIfRequested()
+                openAsk()
+            }
+            #endif
+        }
     }
 
     private func openAsk() {
