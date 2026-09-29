@@ -36,6 +36,7 @@
 				7A0000010000000000000022,
 				7A000001000000000000002B,
 				7A000001000000000000002A,
+				7A000001000000000000002E,
 				7A0000010000000000000003,
 			);
 			sourceTree = "<group>";
@@ -108,6 +109,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A0000010000000000000029,
+				7A000001000000000000002D,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -213,6 +215,17 @@
 			lastKnownFileType = folder.assetcatalog;
 			path = Assets.xcassets;
 			sourceTree = "<group>";
+		};
+		7A000001000000000000002D = {
+			isa = PBXBuildFile;
+			fileRef = 7A000001000000000000002E;
+		};
+		7A000001000000000000002E = {
+			isa = PBXFileReference;
+			lastKnownFileType = folder;
+			name = bundles;
+			path = ../shared/src/commonMain/resources/bundles;
+			sourceTree = SOURCE_ROOT;
 		};
 		7A000001000000000000002B = {
 			isa = PBXFileReference;

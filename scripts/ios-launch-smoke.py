@@ -32,7 +32,7 @@ print(json.dumps(phones[0]), flush=True)
 if phones[0]['state'] != 'Booted':
     run('xcrun', 'simctl', 'boot', device)
 run('xcrun', 'simctl', 'bootstatus', device, '-b', timeout=300)
-run('xcrun', 'simctl', 'install', device, str(app))
+run('xcrun', 'simctl', 'install', device, str(app), timeout=300)
 console = (output / 'launch-console.log').open('w')
 process = subprocess.Popen(['xcrun', 'simctl', 'launch', '--console', device, bundle],
                            stdout=console, stderr=subprocess.STDOUT)

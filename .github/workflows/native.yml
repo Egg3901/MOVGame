@@ -76,6 +76,8 @@ jobs:
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/mov-derived"
           CODE_SIGNING_ALLOWED=NO build
+      - name: Verify packaged campaign content
+        run: python3 ../../scripts/verify-ios-bundles.py "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator/MOVGameiOS.app"
       - name: Package unsigned simulator app for runtime compatibility testing
         run: tar -C "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator" -czf "$RUNNER_TEMP/mov-simulator.tar.gz" MOVGameiOS.app
       - uses: actions/upload-artifact@v4
@@ -94,7 +96,7 @@ jobs:
     name: iOS 27 iPhone 17 Pro Max launch
     needs: ios
     runs-on: xcode-27
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
     steps:
