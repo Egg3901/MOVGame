@@ -187,12 +187,6 @@ struct SetupView: View {
                     .foregroundStyle(CampaignStyle.gold)
 
                     VStack(alignment: .leading, spacing: 14) {
-                        Image("cover-country-us")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .accessibilityLabel("United States Capitol")
                         Text(campaign.label).font(.title2.bold())
                         Text(campaign.tagline).font(.subheadline).foregroundStyle(CampaignStyle.muted)
                         Text("CHOOSE YOUR SIDE")
@@ -201,6 +195,12 @@ struct SetupView: View {
                             partyCard("dem", name: campaign.demName, party: "DEMOCRAT", color: CampaignStyle.democrat)
                             partyCard("rep", name: campaign.repName, party: "REPUBLICAN", color: CampaignStyle.republican)
                         }
+                        Image("cover-country-us")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .accessibilityLabel("United States Capitol")
                     }
                     .padding(16)
                     .background(CampaignStyle.background, in: RoundedRectangle(cornerRadius: 16))
