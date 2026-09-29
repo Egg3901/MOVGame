@@ -436,6 +436,7 @@ struct ActionPlannerView: View {
     @ObservedObject var draft: PlannerDraft
     let selectedStateId: String?
     let battlegrounds: [Battleground]
+    @State private var showingMoves = false
 
     private let actions = [
         PlannerAction(id: "advertise", label: "Advertising", icon: "megaphone.fill", hint: "$1-30M · move voters"),
@@ -503,9 +504,37 @@ struct ActionPlannerView: View {
                 }
             }
 
-            Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 7) {
-                ForEach(actions) { action in actionButton(action) }
+            HStack {
+                Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
+                Spacer()
+                Text("10 moves available").font(.caption).foregroundStyle(CampaignStyle.muted)
+            }
+            if let selected = actions.first(where: { $0.id == draft.type }) {
+                Button { showingMoves.toggle() } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: selected.icon).font(.title3).frame(width: 27)
+                            .foregroundStyle(CampaignStyle.gold)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(selected.label).font(.subheadline.bold())
+                            Text(selected.hint).font(.caption).foregroundStyle(CampaignStyle.muted)
+                        }
+                        Spacer()
+                        Text(showingMoves ? "Close" : "Change")
+                            .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
+                        Image(systemName: showingMoves ? "chevron.up" : "chevron.down")
+                            .font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
+                    }
+                    .padding(12)
+                    .background(CampaignStyle.background, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(CampaignStyle.gold.opacity(0.65)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Campaign move: \(selected.label). \(showingMoves ? "Close choices" : "Change move")")
+            }
+            if showingMoves {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 7) {
+                    ForEach(actions) { action in actionButton(action) }
+                }
             }
             if draft.type == "advertise" {
                 Text("ADVERTISING SETTINGS").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
@@ -630,6 +659,7 @@ struct ActionPlannerView: View {
             draft.type = action.id
             if action.id == "issue_pivot" { draft.position = session.playerIssuePosition(draft.issue) }
             draft.notice = nil
+            showingMoves = false
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: action.icon).font(.subheadline)
