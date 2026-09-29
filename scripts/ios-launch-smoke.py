@@ -18,6 +18,24 @@ def run(*args, timeout=120):
     return subprocess.check_output(args, text=True, timeout=timeout).strip()
 
 
+def capture_ready(name, process, attempts=3):
+    screenshot = output / f'{name}.png'
+    for attempt in range(attempts):
+        if attempt:
+            time.sleep(10)
+        if process.poll() is not None:
+            raise SystemExit(f'FAIL: app exited before {name} was rendered')
+        run('xcrun', 'simctl', 'io', device, 'screenshot', str(screenshot))
+        checked = subprocess.run(
+            [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')), str(screenshot)],
+            text=True, capture_output=True, timeout=45)
+        print(f'{name} capture {attempt + 1}: {checked.stdout.strip()}', flush=True)
+        if checked.returncode == 0:
+            print(f'PASS: {name} app screen rendered', flush=True)
+            return
+    raise SystemExit(f'FAIL: {name} remained blank or showed the simulator home screen')
+
+
 devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '--json'))
 requested = os.environ.get('SIMULATOR_UDID')
 phones = [dict(d, runtime=runtime)
@@ -43,12 +61,7 @@ try:
             console.flush()
             print((output / 'launch-console.log').read_text())
             raise SystemExit(f'FAIL: app exited during startup after {second + 1}s')
-    run('xcrun', 'simctl', 'io', device, 'screenshot', str(output / 'launch.png'))
-    if process.poll() is not None:
-        console.flush()
-        print((output / 'launch-console.log').read_text())
-        raise SystemExit('FAIL: app exited before the screenshot was captured')
-    print('PASS: app stayed running for 30 seconds; launch screenshot captured')
+    capture_ready('launch', process)
     if os.environ.get('MOV_CAPTURE_SCREENS') == '1':
         process.terminate()
         process.wait(timeout=5)
@@ -69,8 +82,7 @@ try:
                             preview_console.flush()
                             print((output / f'{name}-console.log').read_text())
                             raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
-                    run('xcrun', 'simctl', 'io', device, 'screenshot', str(output / f'{name}.png'))
-                    print(f'PASS: {name} screenshot captured')
+                    capture_ready(name, preview)
                 finally:
                     preview.terminate()
                     preview.wait(timeout=5)
