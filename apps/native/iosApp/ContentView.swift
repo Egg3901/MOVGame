@@ -32,8 +32,8 @@ struct ContentView: View {
             NavigationStack {
                 Group {
                     switch destination {
-                    case .store: StoreView()
-                    case .account: AccountView()
+                    case .store: StoreView(session: session)
+                    case .account: AccountView(session: session)
                     case .credits: ImageCreditsView()
                     case .guide: CampaignGuideView()
                     }

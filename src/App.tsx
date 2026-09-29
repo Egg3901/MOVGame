@@ -320,6 +320,7 @@ function historyView(): View {
 }
 
 export function App() {
+  const dailyLinkHandled = useRef(false);
   const game = useGameStore((s) => s.game);
   const ukGame = useUkStore((s) => s.game);
   const countryGame = useCountryStore((s) => s.game);
@@ -453,6 +454,15 @@ export function App() {
     else if (dest.kind === "country") useCountryStore.getState().unload();
     navigate({ ...dest, setup: dest.kind === "us" || dest.kind === "uk" || dest.kind === "country" } as View);
   };
+  useEffect(() => {
+    if (restoring || dailyLinkHandled.current) return;
+    if (new URLSearchParams(window.location.search).get("daily") !== "1") return;
+    dailyLinkHandled.current = true;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("daily");
+    window.history.replaceState(window.history.state, "", url);
+    go({ kind: "daily" });
+  }, [restoring]);
   const home = () => { navigate({ kind: "landing" }); void refreshSaves(); };
   const resume = async (target: ResumeTarget) => {
     if (target.kind === "us") {

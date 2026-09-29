@@ -73,6 +73,7 @@ try:
         process.wait(timeout=5)
         for name, argument, seconds in [
             ('setup', '--mov-capture-setup', 8),
+            ('setup-2016', '--mov-capture-setup-2016', 8),
             ('campaign', '--mov-capture-game', 20),
             ('plan', '--mov-capture-plan', 20),
         ]:

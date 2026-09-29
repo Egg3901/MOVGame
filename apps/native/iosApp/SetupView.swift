@@ -1,4 +1,5 @@
 import SwiftUI
+import SafariServices
 import shared
 
 enum CampaignStyle {
@@ -13,6 +14,8 @@ enum CampaignStyle {
 
 struct HomeView: View {
     @ObservedObject var session: GameSession
+    @State private var daily: TodayChallenge?
+    @State private var showingDaily = false
 
     var body: some View {
         ScrollView {
@@ -62,19 +65,58 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
                 .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))
+                Button { showingDaily = true } label: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("DAILY CHALLENGE · \(daily?.date ?? "TODAY")")
+                            .font(.caption.bold()).tracking(1.2).foregroundStyle(CampaignStyle.gold)
+                        Text(daily.map { "\($0.flag) \($0.label)" } ?? "Today's shared election")
+                            .font(.headline).foregroundStyle(.white)
+                        Text(daily.map { "Play as \($0.role.uppercased()) · same race and seed for everyone" }
+                             ?? "Open the live challenge and leaderboard")
+                            .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                        Text("Play today's challenge  ↗")
+                            .font(.subheadline.bold()).foregroundStyle(CampaignStyle.coral)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(18)
+                    .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
                 Text("17 U.S. presidential campaigns · 1960–2024").font(.caption).foregroundStyle(CampaignStyle.muted)
             }
             .padding(22)
         }
+        .task {
+            guard let url = URL(string: "https://sim.ahousedividedgame.com/api/daily") else { return }
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                daily = try JSONDecoder().decode(TodayChallenge.self, from: data)
+            } catch { daily = nil }
+        }
+        .sheet(isPresented: $showingDaily) {
+            DailyWebView(url: URL(string: "https://sim.ahousedividedgame.com/?daily=1")!)
+        }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
     }
+}
+
+private struct TodayChallenge: Decodable {
+    let date: String
+    let label: String
+    let flag: String
+    let role: String
+}
+
+private struct DailyWebView: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> SFSafariViewController { SFSafariViewController(url: url) }
+    func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
 }
 
 struct SetupView: View {
     @ObservedObject var session: GameSession
     @State private var step = 0
     @State private var scenarioId = "2024"
-    @State private var player = "dem"
+    @State private var player = ""
     @State private var mateId = ""
     @State private var staffIds: Set<String> = []
     @State private var difficulty = "normal"
@@ -118,51 +160,50 @@ struct SetupView: View {
                 Text("STEP \(step + 1) OF 4").font(.caption.bold()).tracking(1.5).foregroundStyle(CampaignStyle.gold)
 
                 if step == 0 { section("01  THE ELECTION") {
-                    Text("SWIPE THROUGH \(campaigns.count) ELECTIONS")
-                        .font(.caption2.bold()).tracking(1).foregroundStyle(CampaignStyle.muted)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
+                    HStack {
+                        Button { changeElection(by: -1) } label: {
+                            Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                        }
+                        .disabled(selectedCampaignNumber == 1)
+                        Spacer()
+                        Menu {
                             ForEach(campaigns, id: \.id) { item in
-                                Button {
+                                Button("\(item.year) · \(item.demName) vs. \(item.repName)") {
                                     scenarioId = item.id
                                     mateId = ""
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Image(UIImage(named: "cover-us-\(item.year)") == nil ? "cover-country-us" : "cover-us-\(item.year)")
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 218, height: 90)
-                                            .clipped()
-                                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                                        HStack(spacing: 0) {
-                                            CampaignStyle.democrat
-                                            CampaignStyle.republican
-                                        }
-                                        .frame(height: 3)
-                                        .clipShape(Capsule())
-                                        Text(String(item.year)).font(.system(size: 40, weight: .black, design: .serif))
-                                            .foregroundStyle(scenarioId == item.id ? CampaignStyle.gold : Color.white)
-                                        Text(item.label).font(.headline).foregroundStyle(.white)
-                                        Text("\(item.demName)  v.  \(item.repName)").font(.caption).foregroundStyle(CampaignStyle.muted)
-                                    }
-                                    .frame(width: 218, alignment: .leading).padding(16)
-                                    .background(scenarioId == item.id ? CampaignStyle.gold.opacity(0.2) : CampaignStyle.background,
-                                                in: RoundedRectangle(cornerRadius: 15))
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 15)
-                                            .strokeBorder(scenarioId == item.id ? CampaignStyle.gold : .clear, lineWidth: 2)
-                                    }
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityElement(children: .combine)
-                                .accessibilityValue(scenarioId == item.id ? "Selected" : "Not selected")
-                                .accessibilityAddTraits(scenarioId == item.id ? .isSelected : [])
                             }
+                        } label: {
+                            Text("\(campaign.year)  ·  \(selectedCampaignNumber) of \(campaigns.count)  ⌄")
+                                .font(.headline).foregroundStyle(CampaignStyle.gold)
+                        }
+                        Spacer()
+                        Button { changeElection(by: 1) } label: {
+                            Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                        }
+                        .disabled(selectedCampaignNumber == campaigns.count)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(CampaignStyle.gold)
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        Image("cover-country-us")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .accessibilityLabel("United States Capitol")
+                        Text(campaign.label).font(.title2.bold())
+                        Text(campaign.tagline).font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                        Text("CHOOSE YOUR SIDE")
+                            .font(.caption.bold()).tracking(1.5).foregroundStyle(CampaignStyle.muted)
+                        HStack(spacing: 10) {
+                            partyCard("dem", name: campaign.demName, party: "DEMOCRAT", color: CampaignStyle.democrat)
+                            partyCard("rep", name: campaign.repName, party: "REPUBLICAN", color: CampaignStyle.republican)
                         }
                     }
-                    Text("Election \(selectedCampaignNumber) of \(campaigns.count) · \(campaign.label)")
-                        .font(.subheadline.bold())
-                    Text(campaign.tagline).foregroundStyle(CampaignStyle.muted)
+                    .padding(16)
+                    .background(CampaignStyle.background, in: RoundedRectangle(cornerRadius: 16))
                 } }
 
                 if step == 1 { section("02  YOUR TICKET") {
@@ -270,12 +311,54 @@ struct SetupView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(CampaignStyle.background)
                 .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))
-                .disabled(step == 3 && selectedMate == nil)
+                .disabled((step == 0 && player.isEmpty) || (step == 3 && selectedMate == nil))
             }
             .padding(.horizontal, 20).padding(.vertical, 10)
             .background(CampaignStyle.background)
         }
+        .onAppear {
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-setup-2016") {
+                scenarioId = "2016"
+            }
+            #endif
+            if let requested = session.setupScenarioId,
+               campaigns.contains(where: { $0.id == requested }) {
+                scenarioId = requested
+                session.setupScenarioId = nil
+            }
+        }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
+    }
+
+    private func changeElection(by offset: Int) {
+        let index = (campaigns.firstIndex(where: { $0.id == scenarioId }) ?? 0) + offset
+        guard campaigns.indices.contains(index) else { return }
+        scenarioId = campaigns[index].id
+        mateId = ""
+    }
+
+    private func partyCard(_ side: String, name: String, party: String, color: Color) -> some View {
+        Button {
+            player = side
+            mateId = ""
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(party).font(.caption2.bold()).tracking(0.7).foregroundStyle(color)
+                Text(name).font(.subheadline.bold()).foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Text(player == side ? "✓ Selected" : "Play this side")
+                    .font(.caption.bold()).foregroundStyle(player == side ? CampaignStyle.gold : CampaignStyle.muted)
+            }
+            .frame(maxWidth: .infinity, minHeight: 98, alignment: .topLeading)
+            .padding(12)
+            .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(player == side ? CampaignStyle.gold : color.opacity(0.6), lineWidth: player == side ? 2 : 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(player == side ? .isSelected : [])
     }
 
     private func launchCampaign() {
