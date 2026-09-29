@@ -74,31 +74,33 @@ struct GameView: View {
         return AnyView(
             VStack(spacing: 0) {
               ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
                         Image("MOVMark")
                             .resizable()
                             .frame(width: 28, height: 28)
                             .accessibilityHidden(true)
-                        Text("CAMPAIGN DESK").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("CAMPAIGN DESK").font(.caption2.bold()).tracking(1.5).foregroundStyle(CampaignStyle.gold)
+                            Text(g.campaignLabel()).font(.headline.bold()).lineLimit(1).minimumScaleFactor(0.8)
+                        }
                     }
-                    Text(g.campaignLabel()).font(.title2.bold())
                     if deskSection == .map {
-                    VStack(spacing: 14) {
+                    VStack(spacing: 7) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading) {
                                 Text("DEMOCRATS").font(.caption2.bold()).foregroundStyle(CampaignStyle.democrat)
-                                Text("\(proj.dem)").font(.largeTitle.bold())
+                                Text("\(proj.dem)").font(.title.bold())
                             }
                             Spacer()
                             VStack(spacing: 1) {
                                 Text("TOSS-UP EV").font(.caption2.bold()).foregroundStyle(CampaignStyle.gold)
-                                Text("\(proj.tossup)").font(.largeTitle.bold()).foregroundStyle(CampaignStyle.gold)
+                                Text("\(proj.tossup)").font(.title.bold()).foregroundStyle(CampaignStyle.gold)
                             }
                             Spacer()
                             VStack(alignment: .trailing) {
                                 Text("REPUBLICANS").font(.caption2.bold()).foregroundStyle(CampaignStyle.republican)
-                                Text("\(proj.rep)").font(.largeTitle.bold())
+                                Text("\(proj.rep)").font(.title.bold())
                             }
                         }
                         GeometryReader { geometry in
@@ -125,7 +127,7 @@ struct GameView: View {
                             headerStat("MOMENTUM", String(format: "%+.0f", g.playerMomentum()))
                         }
                     }
-                    .padding(16).background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
+                    .padding(12).background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
                     } else {
                         HStack {
                             Text("WEEK \(Int(g.turn()) + 1)/\(Int(g.totalTurns()))")
@@ -240,26 +242,18 @@ struct GameView: View {
                 }
                 .padding()
               }
-              Button {
-                  if deskSection == .map {
-                      if let focused {
-                          selectedStateId = focused.state.id
-                          if !focused.state.blocs.isEmpty { draft.target = focused.state.id }
-                      }
-                      deskSection = .plan
-                  } else {
-                      draft.add(to: session)
+              if deskSection == .plan {
+                  Button { draft.add(to: session) } label: {
+                      Text("Add to day \(draft.day)  →")
+                          .font(.headline).frame(maxWidth: .infinity).padding(14)
                   }
-              } label: {
-                  Text(deskSection == .map ? "Plan an action  →" : "Add to day \(draft.day)  →")
-                      .font(.headline).frame(maxWidth: .infinity).padding(14)
+                  .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
+                  .background(addDisabled ? CampaignStyle.muted : CampaignStyle.coral,
+                              in: RoundedRectangle(cornerRadius: 14))
+                  .disabled(addDisabled)
+                  .padding(.horizontal, 16).padding(.vertical, 8)
+                  .background(CampaignStyle.card)
               }
-              .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
-              .background(deskSection == .plan && addDisabled ? CampaignStyle.muted : CampaignStyle.coral,
-                          in: RoundedRectangle(cornerRadius: 14))
-              .disabled(deskSection == .plan && addDisabled)
-              .padding(.horizontal, 16).padding(.vertical, 8)
-              .background(CampaignStyle.card)
             }
             .background(Color(red: 10/255, green: 15/255, blue: 20/255))
             .preferredColorScheme(.dark)
@@ -267,7 +261,7 @@ struct GameView: View {
                 if let coachStep {
                     coachCard(coachStep)
                         .padding(.horizontal, 12)
-                        .padding(.bottom, 76)
+                        .padding(.bottom, deskSection == .plan ? 76 : 12)
                 }
             }
             .onAppear {
@@ -510,7 +504,7 @@ struct ActionPlannerView: View {
             }
 
             Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 7) {
                 ForEach(actions) { action in actionButton(action) }
             }
             if draft.type == "advertise" {
@@ -638,13 +632,13 @@ struct ActionPlannerView: View {
             draft.notice = nil
         } label: {
             VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: action.icon).font(.title3)
-                Text(action.label).font(.subheadline.bold()).lineLimit(1)
-                Text(action.hint).font(.caption).lineLimit(2)
+                Image(systemName: action.icon).font(.subheadline)
+                Text(action.label).font(.caption.bold()).lineLimit(1).minimumScaleFactor(0.8)
+                Text(action.hint).font(.caption2).lineLimit(2)
                     .foregroundStyle(selected ? CampaignStyle.background.opacity(0.8) : CampaignStyle.muted)
             }
-            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-            .padding(10)
+            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+            .padding(8)
             .foregroundStyle(selected ? CampaignStyle.background : .white)
             .background(selected ? CampaignStyle.gold : CampaignStyle.background,
                         in: RoundedRectangle(cornerRadius: 12))
