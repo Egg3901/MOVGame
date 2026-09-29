@@ -439,7 +439,11 @@ struct ActionPlannerView: View {
             }
 
 
-            Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
+            HStack {
+                Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
+                Spacer()
+                Text("Swipe for more  →").font(.caption).foregroundStyle(CampaignStyle.muted)
+            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(actions) { action in
@@ -464,8 +468,6 @@ struct ActionPlannerView: View {
                     }
                 }
             }
-            Text("Swipe for more moves").font(.caption).foregroundStyle(CampaignStyle.muted)
-
             if dayCount >= 3 {
                 Text("Day \(draft.day) is full. Choose another day.").font(.subheadline).foregroundStyle(CampaignStyle.gold)
             } else if (session.currentGame()?.slotsLeft() ?? 0) == 0 {
