@@ -671,6 +671,7 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
           <button className="ghost small" onClick={() => onGo({ kind: "legal", tab: "privacy" })}>Privacy</button>
           <button className="ghost small" onClick={() => onGo({ kind: "legal", tab: "terms" })}>Terms</button>
           <a className="ghost small" href={`mailto:${BRAND.supportEmail}`}>Contact</a>
+          <a className="ghost small" href="https://ask.lakesidegames.net/?game=electioneer" target="_blank" rel="noopener noreferrer">Ask about the game</a>
           {DISTRIBUTION.externalStore && <a className="ghost small" href={BRAND.storeUrl}>Store</a>}
           <span className="muted small" title="Coming soon">Discord (coming soon)</span>
           <a className="lakeside-credit" href="https://lakesidegames.net" target="_blank" rel="noopener">

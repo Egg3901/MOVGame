@@ -55,6 +55,20 @@ final class GameSession: ObservableObject {
     var hasGame: Bool { game != nil }
     var savedCampaignLabel: String { game?.campaignLabel() ?? "Your campaign" }
 
+    func askURL() -> URL {
+        let base = "https://ask.lakesidegames.net/from-mov"
+        guard let game,
+              let data = game.askSnapshot().data(using: .utf8),
+              data.count <= 8_000 else {
+            return URL(string: "https://ask.lakesidegames.net/?game=electioneer")!
+        }
+        let encoded = data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        return URL(string: "\(base)#mov=\(encoded)")!
+    }
+
     func resumeGame() {
         guard let game = game else { return }
         playScreen = game.isOver() ? .results : .game

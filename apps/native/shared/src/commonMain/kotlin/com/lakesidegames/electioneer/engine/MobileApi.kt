@@ -117,6 +117,8 @@ class MobileGame private constructor(
 
     fun saveSnapshot(): String = saveGame(game, seedStr)
 
+    fun askSnapshot(): String = askCampaignSnapshot(game, campaignLabel())
+
     fun turn(): Int = game.turn
 
     fun totalTurns(): Int = game.totalTurns
