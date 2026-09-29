@@ -190,10 +190,14 @@ struct SetupView: View {
 
                 if step == 2 { section("03  WAR ROOM · \(staffIds.count)/3") {
                     Text("Hire up to three advisers").foregroundStyle(CampaignStyle.muted)
+                    Text(String(format: "Selected payroll: $%.0fk / week",
+                        session.staffChoices().filter { staffIds.contains($0.id) }.reduce(0.0) { $0 + $1.salaryPerWeek } / 1_000))
+                        .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
                     ForEach(session.staffChoices(), id: \.id) { staff in
                         option(selected: staffIds.contains(staff.id),
                                enabled: staffIds.contains(staff.id) || staffIds.count < 3,
-                               title: "\(staff.name) · \(staff.role)", detail: staff.blurb) {
+                               title: "\(staff.name) · \(staff.role)",
+                               detail: "\(staff.bonus) · $\(Int(staff.salaryPerWeek / 1_000))k/week\n\(staff.blurb)") {
                             if staffIds.contains(staff.id) { staffIds.remove(staff.id) }
                             else if staffIds.count < 3 { staffIds.insert(staff.id) }
                         }
