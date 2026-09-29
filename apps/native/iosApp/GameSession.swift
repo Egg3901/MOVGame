@@ -4,7 +4,7 @@ import shared
 // Phase 4 session (#22): mirrors androidApp GameSession. The Swift side
 // talks only to the MobileGame facade (string serials in, plain reads out)
 // and bumps `version` after every mutation so views re-render.
-enum PlayScreen {
+enum PlayScreen: Equatable {
     case home, setup, loading, game, results
 }
 

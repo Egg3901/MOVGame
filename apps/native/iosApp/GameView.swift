@@ -62,8 +62,20 @@ struct GameView: View {
                         onSelect: { selectedAbbr = $0 }
                     )
                     .frame(height: 260)
-                    Text("Tap a state to inspect it and target your plan.")
-                        .font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        Text("Tap a state to inspect it and target your plan.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Menu {
+                            ForEach(states.sorted(by: { $0.name < $1.name }), id: \.id) { state in
+                                Button(state.name) { selectedAbbr = state.abbr.uppercased() }
+                            }
+                        } label: {
+                            Label("Find state", systemImage: "magnifyingglass")
+                                .font(.caption.bold())
+                        }
+                        .tint(CampaignStyle.gold)
+                    }
                     if let id = selId, let state = states.first(where: { $0.id == id }),
                        let contest = contests[id] {
                         VStack(alignment: .leading, spacing: 4) {
