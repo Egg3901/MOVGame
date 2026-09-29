@@ -53,6 +53,22 @@ struct AccountView: View {
     }
 }
 
+struct ImageCreditsView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Campaign photography").font(.title2.bold())
+                Text("The U.S. Capitol and most election photos are public domain or CC0 images. The 2016 election photo is by Gage Skidmore, licensed CC BY-SA 3.0.")
+                Link("2016 photo source", destination: URL(string: "https://commons.wikimedia.org/wiki/File:Hillary_Clinton_by_Gage_Skidmore_2.jpg")!)
+                Link("CC BY-SA 3.0 license", destination: URL(string: "https://creativecommons.org/licenses/by-sa/3.0/")!)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(22)
+        }
+        .background(CampaignStyle.background)
+    }
+}
+
 private func shell(eyebrow: String, title: String, feature: String, body: String) -> some View {
     ScrollView {
         VStack(alignment: .leading, spacing: 20) {

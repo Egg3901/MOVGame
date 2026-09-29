@@ -6,7 +6,7 @@ struct ContentView: View {
     @State private var menuDestination: MenuDestination? = nil
 
     private enum MenuDestination: String, Identifiable {
-        case store, account
+        case store, account, credits
         var id: String { rawValue }
     }
 
@@ -25,6 +25,7 @@ struct ContentView: View {
             Button("Start a new campaign") { session.playScreen = .setup }
             Button("Campaign library") { menuDestination = .store }
             Button("Account and saves") { menuDestination = .account }
+            Button("Image credits") { menuDestination = .credits }
         }
         .sheet(item: $menuDestination) { destination in
             NavigationStack {
@@ -32,9 +33,10 @@ struct ContentView: View {
                     switch destination {
                     case .store: StoreView()
                     case .account: AccountView()
+                    case .credits: ImageCreditsView()
                     }
                 }
-                .navigationTitle(destination == .store ? "Campaign library" : "Account and saves")
+                .navigationTitle(destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : "Image credits")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { menuDestination = nil }
