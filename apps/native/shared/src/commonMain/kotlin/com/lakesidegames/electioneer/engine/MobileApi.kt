@@ -96,6 +96,8 @@ class MobileGame private constructor(
 
     fun playerCash(): Double = game.resources.getValue(game.playerCandidate.serial).cash
 
+    fun playerMomentum(): Double = game.resources.getValue(game.playerCandidate.serial).nationalMomentum
+
     fun plannedSpend(): Double = game.queuedActions.sumOf { if (it.type == ActionType.ADVERTISE) it.spend ?: 0.0 else 0.0 }
 
     fun availableCash(): Double = (playerCash() - plannedSpend()).coerceAtLeast(0.0)
@@ -139,6 +141,22 @@ class MobileGame private constructor(
         val adMode = AdMode.entries.firstOrNull { it.serial == adModeSerial }
         val issueId = IssueId.entries.firstOrNull { it.serial == issueSerial }
         return queuePlannedAction(game, type, stateId, day, adMode, spendMillions, issueId, newPosition)
+    }
+
+    // A deterministic planning estimate. Apply the proposed move to a snapshot,
+    // never to the live campaign; the turn's random events can change the result.
+    fun previewMarginPoints(typeSerial: String, stateId: String, day: Int,
+                            adModeSerial: String?, spendMillions: Double?, issueSerial: String?,
+                            newPosition: Double?): Double {
+        val copy = loadGame(saveGame(game, seedStr))?.state ?: return Double.NaN
+        val type = ActionType.entries.firstOrNull { it.serial == typeSerial } ?: return Double.NaN
+        val mode = AdMode.entries.firstOrNull { it.serial == adModeSerial }
+        val issue = IssueId.entries.firstOrNull { it.serial == issueSerial }
+        if (!queuePlannedAction(copy, type, stateId, day, mode, spendMillions, issue, newPosition)) return Double.NaN
+        val action = copy.queuedActions.last()
+        applyAction(copy, action, Rng.createRng("$seedStr:preview:${copy.turn}:$stateId:$day:$typeSerial"))
+        val contest = projectElection(copy).contests.firstOrNull { it.stateId == stateId } ?: return Double.NaN
+        return (contest.demShare - 0.5) * 200
     }
 
     fun removeAction(index: Int): Boolean = removePlannedAction(game, index)

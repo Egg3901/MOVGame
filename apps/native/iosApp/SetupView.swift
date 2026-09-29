@@ -5,6 +5,7 @@ enum CampaignStyle {
     static let background = Color(red: 10/255, green: 15/255, blue: 20/255)
     static let card = Color(red: 17/255, green: 27/255, blue: 38/255)
     static let gold = Color(red: 245/255, green: 185/255, blue: 66/255)
+    static let coral = Color(red: 239/255, green: 105/255, blue: 91/255)
     static let muted = Color(red: 168/255, green: 181/255, blue: 194/255)
     static let democrat = Color(red: 55/255, green: 121/255, blue: 237/255)
     static let republican = Color(red: 225/255, green: 75/255, blue: 75/255)
@@ -60,7 +61,7 @@ struct HomeView: View {
                     Text("Start a new campaign  →").font(.headline).frame(maxWidth: .infinity).padding(18)
                 }
                 .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
-                .background(CampaignStyle.gold, in: RoundedRectangle(cornerRadius: 14))
+                .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))
                 Text("17 U.S. presidential campaigns · 1960–2024").font(.caption).foregroundStyle(CampaignStyle.muted)
             }
             .padding(22)
@@ -71,6 +72,7 @@ struct HomeView: View {
 
 struct SetupView: View {
     @ObservedObject var session: GameSession
+    @State private var step = 0
     @State private var scenarioId = "2024"
     @State private var player = "dem"
     @State private var mateId = ""
@@ -103,8 +105,19 @@ struct SetupView: View {
                 }
                 Text("Choose your path").font(.largeTitle.bold())
                 Text("Build the ticket. Assemble the team. Rewrite the map.").foregroundStyle(CampaignStyle.muted)
+                HStack(spacing: 7) {
+                    ForEach(0..<4, id: \.self) { index in
+                        VStack(spacing: 4) {
+                            Capsule().fill(index == step ? CampaignStyle.gold : CampaignStyle.muted.opacity(0.3)).frame(height: 4)
+                            Text(["Election", "Ticket", "War room", "Briefing"][index])
+                                .font(.system(size: 10, weight: index == step ? .bold : .regular))
+                                .foregroundStyle(index == step ? CampaignStyle.gold : CampaignStyle.muted)
+                        }
+                    }
+                }
+                Text("STEP \(step + 1) OF 4").font(.caption.bold()).tracking(1.5).foregroundStyle(CampaignStyle.gold)
 
-                section("01  THE ELECTION") {
+                if step == 0 { section("01  THE ELECTION") {
                     Text("SWIPE THROUGH \(campaigns.count) ELECTIONS")
                         .font(.caption2.bold()).tracking(1).foregroundStyle(CampaignStyle.muted)
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -150,9 +163,9 @@ struct SetupView: View {
                     Text("Election \(selectedCampaignNumber) of \(campaigns.count) · \(campaign.label)")
                         .font(.subheadline.bold())
                     Text(campaign.tagline).foregroundStyle(CampaignStyle.muted)
-                }
+                } }
 
-                section("02  YOUR TICKET") {
+                if step == 1 { section("02  YOUR TICKET") {
                     Picker("Ticket", selection: $player) {
                         Text(campaign.demName).tag("dem")
                         Text(campaign.repName).tag("rep")
@@ -173,9 +186,9 @@ struct SetupView: View {
                             mateId = mate.id
                         }
                     }
-                }
+                } }
 
-                section("03  WAR ROOM · \(staffIds.count)/3") {
+                if step == 2 { section("03  WAR ROOM · \(staffIds.count)/3") {
                     Text("Hire up to three advisers").foregroundStyle(CampaignStyle.muted)
                     ForEach(session.staffChoices(), id: \.id) { staff in
                         option(selected: staffIds.contains(staff.id),
@@ -189,12 +202,23 @@ struct SetupView: View {
                         Text("Three advisers selected. Remove one to choose another.")
                             .font(.caption).foregroundStyle(CampaignStyle.muted)
                     }
-                }
+                } }
 
-                section("04  CAMPAIGN BRIEFING") {
+                if step == 3 { section("04  CAMPAIGN BRIEFING") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("YOUR FIRST WEEK").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
+                        Text("1. Tap a gray, amber-ringed state on the EV map. Those are the closest races.")
+                        Text("2. Choose a campaign move and tune its settings. The projected margin updates before you add it.")
+                        Text("3. Schedule moves across seven days, then end the week to see what changed.")
+                        Text("Win 270 electoral votes by Election Day.").font(.subheadline.bold())
+                    }
+                    .font(.subheadline).foregroundStyle(.white)
+                    .padding(12).background(CampaignStyle.background, in: RoundedRectangle(cornerRadius: 12))
                     Picker("Difficulty", selection: $difficulty) {
                         ForEach(session.difficulties(), id: \.self) { Text($0.capitalized).tag($0) }
                     }.pickerStyle(.segmented)
+                    Text(difficulty == "easy" ? "More cash and a softer opponent." : difficulty == "hard" ? "Fewer resources and a tougher opponent." : "Balanced resources and opposition.")
+                        .font(.caption).foregroundStyle(CampaignStyle.muted)
                     Picker("Events", selection: $eventMode) {
                         Text("Historical").tag("historical")
                         Text("Plausible").tag("plausible")
@@ -204,6 +228,8 @@ struct SetupView: View {
                         Text("9 weeks").tag(9)
                         Text("14 weeks").tag(14)
                     }.pickerStyle(.segmented)
+                    Text(totalTurns == 5 ? "A short, urgent sprint to Election Day." : totalTurns == 14 ? "More time to build a ground game." : "Nine weeks to shape the map.")
+                        .font(.caption).foregroundStyle(CampaignStyle.muted)
                     Picker("What if: make a state a tossup", selection: $whatIfState) {
                         Text("Off").tag("")
                         ForEach(["TX", "FL", "OH", "PA", "MI", "WI", "GA", "AZ", "NC", "NY"], id: \.self) {
@@ -217,21 +243,31 @@ struct SetupView: View {
                         .autocorrectionDisabled()
                         .textFieldStyle(.roundedBorder)
                     Text("Use the same seed to replay the same campaign").font(.caption).foregroundStyle(CampaignStyle.muted)
-                }
+                } }
             }
             .padding(20)
         }
+        .id(step)
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Button(action: launchCampaign) {
-                Text("Launch campaign  →").font(.headline).frame(maxWidth: .infinity).padding(18)
+            HStack(spacing: 10) {
+                if step > 0 {
+                    Button("← Back") { step -= 1 }
+                        .font(.subheadline.bold()).foregroundStyle(.white)
+                        .padding(17).background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                }
+                Button {
+                    if step < 3 { step += 1 } else { launchCampaign() }
+                } label: {
+                    Text(step < 3 ? "Next  →" : "Launch campaign  →")
+                        .font(.headline).frame(maxWidth: .infinity).padding(18)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(CampaignStyle.background)
+                .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))
+                .disabled(step == 3 && selectedMate == nil)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(CampaignStyle.background)
-            .background(CampaignStyle.gold, in: RoundedRectangle(cornerRadius: 14))
-            .disabled(selectedMate == nil)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 20).padding(.vertical, 10)
             .background(CampaignStyle.background)
         }
         .background(CampaignStyle.background).preferredColorScheme(.dark)

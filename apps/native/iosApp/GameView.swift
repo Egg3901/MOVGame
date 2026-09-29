@@ -38,7 +38,8 @@ final class PlannerDraft: ObservableObject {
 // Native campaign desk with map, state projection, action plan, and turn recap.
 struct GameView: View {
     @ObservedObject var session: GameSession
-    @State private var selectedAbbr: String? = nil
+    @State private var selectedStateId: String? = nil
+    @State private var mapMode = "tiles"
     @State private var deskSection: DeskSection = .map
     @StateObject private var draft = PlannerDraft()
 
@@ -54,7 +55,7 @@ struct GameView: View {
         let abbrToId = Dictionary(
             uniqueKeysWithValues: states.map { ($0.abbr.uppercased(), $0.id) }
         )
-        let selId = selectedAbbr.flatMap { abbrToId[$0] }
+        let selId = selectedStateId
         let battlegrounds = states.compactMap { state -> Battleground? in
             guard let contest = contests[state.id], !state.blocs.isEmpty else { return nil }
             return Battleground(state: state, contest: contest)
@@ -109,13 +110,15 @@ struct GameView: View {
                         .frame(height: 12)
                         Text("270 TO WIN").font(.caption2.bold()).foregroundStyle(CampaignStyle.muted)
                             .frame(maxWidth: .infinity)
-                        HStack {
-                            Text("WEEK \(Int(g.turn()) + 1)/\(Int(g.totalTurns()))")
+                        HStack(spacing: 8) {
+                            headerStat("WEEK", "\(Int(g.turn()) + 1)/\(Int(g.totalTurns()))")
                             Spacer()
-                            Text(String(format: "$%.1fM", g.playerCash() / 1_000_000))
+                            headerStat("CASH", String(format: "$%.1fM", g.playerCash() / 1_000_000))
                             Spacer()
-                            Text("\(Int(g.slotsLeft())) slots left")
-                        }.font(.caption.bold())
+                            headerStat("ACTIONS LEFT", "\(Int(g.slotsLeft()))")
+                            Spacer()
+                            headerStat("MOMENTUM", String(format: "%+.0f", g.playerMomentum()))
+                        }
                     }
                     .padding(16).background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
                     } else {
@@ -136,14 +139,29 @@ struct GameView: View {
                     .padding(5).background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 13))
 
                     if deskSection == .map {
-                        GeoMapView(
-                            contestsById: contests,
-                            abbrToStateId: abbrToId,
-                            selectedAbbr: focused?.state.abbr.uppercased(),
-                            onSelect: { selectedAbbr = $0 }
-                        )
-                        .frame(height: 260)
-                        .overlay(alignment: .bottom) {
+                        HStack {
+                            Text("ELECTORAL MAP").font(.caption.bold()).tracking(1.5).foregroundStyle(CampaignStyle.gold)
+                            Spacer()
+                            Picker("Map style", selection: $mapMode) {
+                                Text("EV tiles").tag("tiles")
+                                Text("Geographic").tag("geographic")
+                            }.pickerStyle(.segmented).frame(width: 190)
+                        }
+                        Group {
+                            if mapMode == "tiles" {
+                                TileMapView(contestsById: contests, states: states,
+                                            selectedId: selId,
+                                            onSelect: { selectedStateId = $0; draft.target = $0 })
+                                    .padding(10)
+                            } else {
+                                GeoMapView(contestsById: contests, abbrToStateId: abbrToId,
+                                           selectedAbbr: focused?.state.abbr.uppercased(),
+                                           onSelect: { if let id = abbrToId[$0] { selectedStateId = id; draft.target = id } })
+                                    .frame(height: 260)
+                            }
+                        }
+                        .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                        VStack {
                             if let focused {
                                 HStack(spacing: 10) {
                                     VStack(alignment: .leading, spacing: 3) {
@@ -152,12 +170,6 @@ struct GameView: View {
                                             .font(.caption).foregroundStyle(CampaignStyle.muted)
                                     }
                                     Spacer(minLength: 0)
-                                    Button("Plan  →") {
-                                        selectedAbbr = focused.state.abbr.uppercased()
-                                        draft.target = focused.state.id
-                                        deskSection = .plan
-                                    }
-                                    .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
                                 }
                                 .padding(12)
                                 .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 12))
@@ -166,7 +178,7 @@ struct GameView: View {
                         HStack {
                             legendItem("Dem", color: CampaignStyle.democrat)
                             Spacer()
-                            legendItem("Toss-up", color: CampaignStyle.gold)
+                            legendItem("Toss-up", color: Color(red: 0.36, green: 0.39, blue: 0.44))
                             Spacer()
                             legendItem("GOP", color: CampaignStyle.republican)
                         }
@@ -179,7 +191,7 @@ struct GameView: View {
                             Spacer()
                             Menu {
                                 ForEach(states.sorted(by: { $0.name < $1.name }), id: \.id) { state in
-                                    Button(state.name) { selectedAbbr = state.abbr.uppercased() }
+                                    Button(state.name) { selectedStateId = state.id }
                                 }
                             } label: {
                                 Label("Find state", systemImage: "magnifyingglass")
@@ -191,7 +203,7 @@ struct GameView: View {
                             Text("CLOSEST CONTESTS").font(.caption.bold()).tracking(1.5).foregroundStyle(CampaignStyle.gold)
                             ForEach(Array(battlegrounds.prefix(3))) { item in
                                 Button {
-                                    selectedAbbr = item.state.abbr.uppercased()
+                                    selectedStateId = item.state.id
                                     draft.target = item.state.id
                                 } label: {
                                     HStack {
@@ -218,7 +230,7 @@ struct GameView: View {
               Button {
                   if deskSection == .map {
                       if let focused {
-                          selectedAbbr = focused.state.abbr.uppercased()
+                          selectedStateId = focused.state.id
                           draft.target = focused.state.id
                       }
                       deskSection = .plan
@@ -230,7 +242,7 @@ struct GameView: View {
                       .font(.headline).frame(maxWidth: .infinity).padding(14)
               }
               .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
-              .background(deskSection == .plan && addDisabled ? CampaignStyle.muted : CampaignStyle.gold,
+              .background(deskSection == .plan && addDisabled ? CampaignStyle.muted : CampaignStyle.coral,
                           in: RoundedRectangle(cornerRadius: 14))
               .disabled(deskSection == .plan && addDisabled)
               .padding(.horizontal, 16).padding(.vertical, 8)
@@ -241,6 +253,7 @@ struct GameView: View {
             .onAppear {
                 if draft.target.isEmpty, let first = battlegrounds.first {
                     draft.target = first.state.id
+                    selectedStateId = first.state.id
                 }
                 #if targetEnvironment(simulator)
                 if ProcessInfo.processInfo.arguments.contains("--mov-capture-plan") {
@@ -250,7 +263,7 @@ struct GameView: View {
             }
             .onChange(of: draft.target) { next in
                 if let state = states.first(where: { $0.id == next }) {
-                    selectedAbbr = state.abbr.uppercased()
+                    selectedStateId = state.id
                 }
             }
             .alert("Week \(Int(g.turn())) recap", isPresented: $session.showRecap) {
@@ -264,6 +277,13 @@ struct GameView: View {
                 }
             }
         )
+    }
+
+    private func headerStat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(CampaignStyle.muted)
+            Text(value).font(.subheadline.bold()).minimumScaleFactor(0.75).lineLimit(1)
+        }
     }
 
     private func legendItem(_ title: String, color: Color) -> some View {
@@ -381,8 +401,7 @@ struct ActionPlannerView: View {
                         Label("TARGET · \(states.first(where: { $0.id == draft.target })?.name ?? "Choose a state")", systemImage: "map")
                             .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
                     }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                             ForEach(battlegrounds) { item in
                                 Button {
                                     draft.target = item.state.id
@@ -390,18 +409,40 @@ struct ActionPlannerView: View {
                                 } label: {
                                     Text("\(item.state.abbr.uppercased()) · \(Int(item.state.electoralVotes)) EV")
                                     .font(.subheadline.bold())
-                                    .padding(.horizontal, 12).padding(.vertical, 9)
+                                    .frame(maxWidth: .infinity).padding(.vertical, 9)
                                     .foregroundStyle(draft.target == item.state.id ? CampaignStyle.background : .white)
                                     .background(draft.target == item.state.id ? CampaignStyle.gold : CampaignStyle.background,
                                                 in: RoundedRectangle(cornerRadius: 11))
                                 }
                                 .buttonStyle(.plain)
                             }
-                        }
                     }
                 }
             }
 
+            Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(actions) { action in
+                        Button {
+                            draft.type = action.id
+                            if draft.type == "issue_pivot" { draft.position = session.playerIssuePosition(draft.issue) }
+                            draft.notice = nil
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Image(systemName: action.icon).font(.title3)
+                                Text(action.label).font(.subheadline.bold()).lineLimit(1)
+                                Text(action.hint).font(.caption).lineLimit(2)
+                                    .foregroundStyle(draft.type == action.id ? CampaignStyle.background.opacity(0.8) : CampaignStyle.muted)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+                            .padding(10)
+                            .foregroundStyle(draft.type == action.id ? CampaignStyle.background : .white)
+                            .background(draft.type == action.id ? CampaignStyle.gold : CampaignStyle.background,
+                                        in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+            }
             if draft.type == "advertise" {
                 Text("ADVERTISING SETTINGS").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
                 HStack(spacing: 6) {
@@ -414,6 +455,8 @@ struct ActionPlannerView: View {
                             .buttonStyle(.plain)
                     }
                 }
+                Text(draft.adMode == "positive" ? "Positive · build your appeal in this state." : draft.adMode == "contrast" ? "Contrast · weaken your rival, with a smaller direct lift." : "Issue · raise an issue's salience across the race.")
+                    .font(.subheadline).foregroundStyle(CampaignStyle.muted)
                 Text("Ad spend: $\(Int(draft.spend))M").font(.subheadline.bold())
                 Slider(value: $draft.spend, in: 1...30, step: 1)
                     .tint(CampaignStyle.gold).padding(.vertical, 8)
@@ -439,33 +482,24 @@ struct ActionPlannerView: View {
             }
 
 
-            HStack {
-                Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
-                Spacer()
-                Text("Swipe for more  →").font(.caption).foregroundStyle(CampaignStyle.muted)
-            }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(actions) { action in
-                        Button {
-                            draft.type = action.id
-                            if draft.type == "issue_pivot" { draft.position = session.playerIssuePosition(draft.issue) }
-                            draft.notice = nil
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Image(systemName: action.icon).font(.title3)
-                                Text(action.label).font(.subheadline.bold()).lineLimit(1)
-                                Text(action.hint).font(.caption).lineLimit(2)
-                                    .foregroundStyle(draft.type == action.id ? CampaignStyle.background.opacity(0.8) : CampaignStyle.muted)
-                            }
-                            .frame(width: 140, height: 86, alignment: .leading)
-                            .padding(10)
-                            .foregroundStyle(draft.type == action.id ? CampaignStyle.background : .white)
-                            .background(draft.type == action.id ? CampaignStyle.gold : CampaignStyle.background,
-                                        in: RoundedRectangle(cornerRadius: 12))
-                        }
-                        .buttonStyle(.plain)
+            if draft.needsState, let current = session.contestsById()[draft.target], let game = session.currentGame() {
+                let before = MapMargin.points(current)
+                let after = game.previewMarginPoints(typeSerial: draft.type, stateId: draft.target,
+                    day: draft.day, adModeSerial: draft.type == "advertise" ? draft.adMode : nil,
+                    spendMillions: draft.type == "advertise" ? draft.spend : nil,
+                    issueSerial: draft.type == "advertise" && draft.adMode == "issue" ? draft.issue : nil,
+                    newPosition: nil)
+                if after.isFinite {
+                    HStack {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                        Text(String(format: "PROJECTED MARGIN  %+.1f → %+.1f pts", before, after))
+                            .font(.caption.bold()).lineLimit(1).minimumScaleFactor(0.8)
                     }
+                    .foregroundStyle(CampaignStyle.gold)
+                    .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(CampaignStyle.background, in: RoundedRectangle(cornerRadius: 10))
+                    Text("Planning estimate; events and your opponent may change the result.")
+                        .font(.caption).foregroundStyle(CampaignStyle.muted)
                 }
             }
             if dayCount >= 3 {

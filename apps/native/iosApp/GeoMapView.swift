@@ -24,7 +24,7 @@ enum MapMargin {
     static func color(_ contest: ContestProjection?) -> String {
         guard let contest else { return "#556271" }
         let margin = points(contest)
-        if abs(margin) <= 3 { return "#f5b942" }
+        if abs(margin) <= 3 { return "#5c646f" }
         if margin > 0 {
             if margin <= 10 { return "#82b2ff" }
             if margin <= 20 { return "#397fe5" }
@@ -79,14 +79,15 @@ struct GeoMapView: UIViewRepresentable {
             let contest = abbrToStateId[abbr].flatMap { contestsById[$0] }
             let color = MapMargin.color(contest)
             let selected = abbr == selectedAbbr
-            let stroke = selected ? "#f5b942" : "#101a27"
-            let width = selected ? "3" : "1.3"
+            let tossup = contest.map { abs(MapMargin.points($0)) <= 3 } ?? false
+            let stroke = selected ? "#ffffff" : tossup ? "#f5b942" : "#101a27"
+            let width = selected ? "3" : tossup ? "2" : "1.3"
             let description = contest.map { "\(abbr), \(MapMargin.label($0)), \($0.ev) electoral votes" } ?? abbr
             return "<path d='\(Self.paths[abbr] ?? "")' fill='\(color)' stroke='\(stroke)' stroke-width='\(width)' data-state='\(abbr)' aria-label='\(description)' tabindex='0'><title>\(description)</title></path>"
         }.joined()
         return """
         <!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>
-        <style>html,body{margin:0;background:transparent;overflow:hidden}svg{width:100%;height:100%;display:block}path{cursor:pointer}path:focus{outline:none;stroke:#f5b942;stroke-width:3}</style>
+        <style>html,body{margin:0;background:transparent;overflow:hidden}svg{width:100%;height:100%;display:block}path{cursor:pointer}path:focus{outline:none;stroke:#ffffff;stroke-width:3}</style>
         </head><body><svg viewBox='0 0 1000 650' preserveAspectRatio='xMidYMid meet' role='img' aria-label='United States electoral map'>\(shapes)</svg>
         <script>document.querySelectorAll('path').forEach(function(p){
         function choose(){window.webkit.messageHandlers.stateSelected.postMessage(p.dataset.state)}
