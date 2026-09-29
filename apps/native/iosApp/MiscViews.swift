@@ -120,7 +120,7 @@ struct AccountView: View {
                     Text("CAMPAIGN SAVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
                     Text(session.hasGame ? session.savedCampaignLabel : "No campaign on this device")
                         .font(.headline)
-                    Text("Campaign progress currently stays on this device. Signing in enables your account and web leaderboard; native cloud save sync is still in development.")
+                    Text("Campaign progress currently stays on this device. Native cloud save sync is still in development. The Daily Challenge opens the web game, where you can sign in separately to post a score.")
                         .font(.subheadline).foregroundStyle(CampaignStyle.muted)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
