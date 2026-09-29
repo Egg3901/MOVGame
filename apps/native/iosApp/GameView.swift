@@ -13,7 +13,7 @@ struct Battleground: Identifiable {
 
 final class PlannerDraft: ObservableObject {
     @Published var type = "advertise"
-    @Published var target = "PA"
+    @Published var target = ""
     @Published var day = 1
     @Published var adMode = "positive"
     @Published var spend = 8.0
@@ -77,6 +77,7 @@ struct GameView: View {
                         Text("CAMPAIGN DESK").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
                     }
                     Text(g.campaignLabel()).font(.title2.bold())
+                    if deskSection == .map {
                     VStack(spacing: 14) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading) {
@@ -117,6 +118,16 @@ struct GameView: View {
                         }.font(.caption.bold())
                     }
                     .padding(16).background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
+                    } else {
+                        HStack {
+                            Text("WEEK \(Int(g.turn()) + 1)/\(Int(g.totalTurns()))")
+                                .foregroundStyle(CampaignStyle.gold)
+                            Spacer()
+                            Text("\(proj.dem) D · \(proj.tossup) toss · \(proj.rep) R")
+                        }
+                        .font(.subheadline.bold())
+                        .padding(12).background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 12))
+                    }
 
                     HStack(spacing: 6) {
                         deskButton("Electoral map", section: .map)
@@ -131,7 +142,27 @@ struct GameView: View {
                             selectedAbbr: focused?.state.abbr.uppercased(),
                             onSelect: { selectedAbbr = $0 }
                         )
-                        .frame(height: 280)
+                        .frame(height: 260)
+                        .overlay(alignment: .bottom) {
+                            if let focused {
+                                HStack(spacing: 10) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(focused.state.name).font(.headline)
+                                        Text("\(Int(focused.state.electoralVotes)) EV · \(MapMargin.label(focused.contest))")
+                                            .font(.caption).foregroundStyle(CampaignStyle.muted)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Button("Plan  →") {
+                                        selectedAbbr = focused.state.abbr.uppercased()
+                                        draft.target = focused.state.id
+                                        deskSection = .plan
+                                    }
+                                    .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
+                                }
+                                .padding(12)
+                                .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 12))
+                            }
+                        }
                         HStack {
                             legendItem("Dem", color: CampaignStyle.democrat)
                             Spacer()
@@ -155,26 +186,6 @@ struct GameView: View {
                                     .font(.caption.bold())
                             }
                             .tint(CampaignStyle.gold)
-                        }
-                        if let focused {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text(focused.state.name).font(.title3.bold())
-                                    Spacer()
-                                    Text("\(Int(focused.state.electoralVotes)) EV").font(.headline).foregroundStyle(CampaignStyle.gold)
-                                }
-                                Text(MapMargin.label(focused.contest)).font(.subheadline).foregroundStyle(CampaignStyle.muted)
-                                Button("Plan in \(focused.state.name)  →") {
-                                    selectedAbbr = focused.state.abbr.uppercased()
-                                    draft.target = focused.state.id
-                                    deskSection = .plan
-                                }
-                                    .font(.subheadline.bold())
-                                    .foregroundStyle(CampaignStyle.gold)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(14)
-                            .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
                         }
                         VStack(alignment: .leading, spacing: 8) {
                             Text("CLOSEST CONTESTS").font(.caption.bold()).tracking(1.5).foregroundStyle(CampaignStyle.gold)
@@ -228,6 +239,9 @@ struct GameView: View {
             .background(Color(red: 10/255, green: 15/255, blue: 20/255))
             .preferredColorScheme(.dark)
             .onAppear {
+                if draft.target.isEmpty, let first = battlegrounds.first {
+                    draft.target = first.state.id
+                }
                 #if targetEnvironment(simulator)
                 if ProcessInfo.processInfo.arguments.contains("--mov-capture-plan") {
                     deskSection = .plan
