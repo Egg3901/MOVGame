@@ -11,6 +11,7 @@ enum PlayScreen: Equatable {
 final class GameSession: ObservableObject {
     private static let saveKey = "mov_campaign_v1"
     @Published var playScreen: PlayScreen = .home
+    @Published var setupScenarioId: String? = nil
     @Published var version = 0
 
     @Published var recapLines: [String] = []
@@ -37,7 +38,7 @@ final class GameSession: ObservableObject {
         guard !didPrepareSimulatorCapture else { return }
         didPrepareSimulatorCapture = true
         let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--mov-capture-setup") {
+        if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
             playScreen = .setup
         } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") {
             let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
