@@ -127,7 +127,7 @@ struct SetupView: View {
                                         }
                                         .frame(height: 3)
                                         .clipShape(Capsule())
-                                        Text("\(item.year)").font(.system(size: 40, weight: .black, design: .serif))
+                                        Text(String(item.year)).font(.system(size: 40, weight: .black, design: .serif))
                                             .foregroundStyle(scenarioId == item.id ? CampaignStyle.gold : Color.white)
                                         Text(item.label).font(.headline).foregroundStyle(.white)
                                         Text("\(item.demName)  v.  \(item.repName)").font(.caption).foregroundStyle(CampaignStyle.muted)
