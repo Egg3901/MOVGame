@@ -59,6 +59,7 @@ struct SetupView: View {
 
     private var campaigns: [CampaignChoice] { session.campaigns() }
     private var campaign: CampaignChoice { campaigns.first(where: { $0.id == scenarioId }) ?? campaigns[0] }
+    private var selectedCampaignNumber: Int { (campaigns.firstIndex(where: { $0.id == scenarioId }) ?? 0) + 1 }
     private var mates: [MateChoice] { session.mates(scenarioId: scenarioId, playerSerial: player) }
     private var selectedMate: MateChoice? { mates.first(where: { $0.id == mateId }) ?? mates.first(where: { $0.historical }) ?? mates.first }
 
@@ -72,7 +73,8 @@ struct SetupView: View {
                 Text("Build the ticket. Assemble the team. Rewrite the map.").foregroundStyle(CampaignStyle.muted)
 
                 section("01  THE ELECTION") {
-                    Text("SWIPE THROUGH 17 ELECTIONS").font(.caption2.bold()).tracking(1).foregroundStyle(CampaignStyle.muted)
+                    Text("SWIPE THROUGH \(campaigns.count) ELECTIONS")
+                        .font(.caption2.bold()).tracking(1).foregroundStyle(CampaignStyle.muted)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
                             ForEach(campaigns, id: \.id) { item in
@@ -89,11 +91,20 @@ struct SetupView: View {
                                     .frame(width: 218, alignment: .leading).padding(16)
                                     .background(scenarioId == item.id ? CampaignStyle.gold.opacity(0.2) : CampaignStyle.background,
                                                 in: RoundedRectangle(cornerRadius: 15))
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 15)
+                                            .strokeBorder(scenarioId == item.id ? CampaignStyle.gold : .clear, lineWidth: 2)
+                                    }
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityElement(children: .combine)
+                                .accessibilityValue(scenarioId == item.id ? "Selected" : "Not selected")
+                                .accessibilityAddTraits(scenarioId == item.id ? .isSelected : [])
                             }
                         }
                     }
+                    Text("Election \(selectedCampaignNumber) of \(campaigns.count) · \(campaign.label)")
+                        .font(.subheadline.bold())
                     Text(campaign.tagline).foregroundStyle(CampaignStyle.muted)
                 }
 
@@ -115,10 +126,16 @@ struct SetupView: View {
                 section("03  WAR ROOM · \(staffIds.count)/3") {
                     Text("Hire up to three advisers").foregroundStyle(CampaignStyle.muted)
                     ForEach(session.staffChoices(), id: \.id) { staff in
-                        option(selected: staffIds.contains(staff.id), title: "\(staff.name) · \(staff.role)", detail: staff.blurb) {
+                        option(selected: staffIds.contains(staff.id),
+                               enabled: staffIds.contains(staff.id) || staffIds.count < 3,
+                               title: "\(staff.name) · \(staff.role)", detail: staff.blurb) {
                             if staffIds.contains(staff.id) { staffIds.remove(staff.id) }
                             else if staffIds.count < 3 { staffIds.insert(staff.id) }
                         }
+                    }
+                    if staffIds.count == 3 {
+                        Text("Three advisers selected. Remove one to choose another.")
+                            .font(.caption).foregroundStyle(CampaignStyle.muted)
                     }
                 }
 
@@ -149,21 +166,31 @@ struct SetupView: View {
                         .textFieldStyle(.roundedBorder)
                     Text("Use the same seed to replay the same campaign").font(.caption).foregroundStyle(CampaignStyle.muted)
                 }
-                Button {
-                    guard let mate = selectedMate else { return }
-                    session.newGame(scenarioId: scenarioId, playerSerial: player, mateId: mate.id,
-                                    staffIds: Array(staffIds).sorted(), difficulty: difficulty,
-                                    eventMode: eventMode, totalTurns: totalTurns, seed: seed,
-                                    whatIfState: whatIfState, mirrorMatch: mirrorMatch, pandemic: pandemic)
-                } label: {
-                    Text("Launch campaign  →").font(.headline).frame(maxWidth: .infinity).padding(18)
-                }
-                .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
-                .background(CampaignStyle.gold, in: RoundedRectangle(cornerRadius: 14))
             }
             .padding(20)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Button(action: launchCampaign) {
+                Text("Launch campaign  →").font(.headline).frame(maxWidth: .infinity).padding(18)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(CampaignStyle.background)
+            .background(CampaignStyle.gold, in: RoundedRectangle(cornerRadius: 14))
+            .disabled(selectedMate == nil)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(CampaignStyle.background)
+        }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
+    }
+
+    private func launchCampaign() {
+        guard let mate = selectedMate else { return }
+        session.newGame(scenarioId: scenarioId, playerSerial: player, mateId: mate.id,
+                        staffIds: Array(staffIds).sorted(), difficulty: difficulty,
+                        eventMode: eventMode, totalTurns: totalTurns, seed: seed,
+                        whatIfState: whatIfState, mirrorMatch: mirrorMatch, pandemic: pandemic)
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -175,7 +202,8 @@ struct SetupView: View {
         .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 18))
     }
 
-    private func option(selected: Bool, title: String, detail: String, action: @escaping () -> Void) -> some View {
+    private func option(selected: Bool, enabled: Bool = true, title: String, detail: String,
+                        action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 4) {
                 Text((selected ? "✓  " : "") + title).font(.subheadline.bold()).foregroundStyle(.white)
@@ -184,6 +212,12 @@ struct SetupView: View {
             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
             .background(selected ? CampaignStyle.gold.opacity(0.2) : CampaignStyle.background,
                         in: RoundedRectangle(cornerRadius: 12))
-        }.buttonStyle(.plain)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.55)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(selected ? "Selected" : (enabled ? "Not selected" : "Limit reached"))
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
