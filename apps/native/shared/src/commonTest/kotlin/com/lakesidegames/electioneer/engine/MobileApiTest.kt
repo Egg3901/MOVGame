@@ -74,6 +74,19 @@ class MobileApiTest {
     }
 
     @Test
+    fun marginPreviewRespondsToSpendWithoutChangingTheCampaign() {
+        val game = MobileGame.startGame("dem", "normal", 33L)
+        val target = game.stateList().first { it.abbr == "PA" }
+        val snapshot = game.saveSnapshot()
+        val small = game.previewMarginPoints("advertise", target.id, 1, "positive", 1.0, null, null)
+        val large = game.previewMarginPoints("advertise", target.id, 1, "positive", 20.0, null, null)
+        assertTrue(small.isFinite())
+        assertTrue(large > small)
+        assertEquals(snapshot, game.saveSnapshot())
+        assertEquals(0, game.queuedCount())
+    }
+
+    @Test
     fun configuredCampaignPreservesSetupAndSave() {
         val campaigns = MobileGame.campaigns()
         assertEquals(17, campaigns.size)
