@@ -362,10 +362,25 @@ struct ActionPlannerView: View {
             }
             Text(String(format: "Ad budget $%.1fM available", (session.currentGame()?.availableCash() ?? 0) / 1_000_000))
                 .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+            Menu {
+                ForEach(1...7, id: \.self) { n in
+                    Button("Day \(n) · \(plan.filter { Int($0.day) == n }.count)/3 planned") { draft.day = n }
+                }
+            } label: {
+                Label("DAY \(draft.day) · \(dayCount)/3 moves scheduled", systemImage: "calendar")
+                    .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
+            }
 
             if draft.needsState {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("TARGET STATE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
+                VStack(alignment: .leading, spacing: 6) {
+                    Menu {
+                        ForEach(states, id: \.id) { state in
+                            Button("\(state.name) · \(Int(state.electoralVotes)) EV") { draft.target = state.id }
+                        }
+                    } label: {
+                        Label("TARGET · \(states.first(where: { $0.id == draft.target })?.name ?? "Choose a state")", systemImage: "map")
+                            .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
+                    }
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(battlegrounds) { item in
@@ -373,12 +388,9 @@ struct ActionPlannerView: View {
                                     draft.target = item.state.id
                                     draft.notice = nil
                                 } label: {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(item.state.abbr.uppercased()).font(.headline)
-                                        Text("\(Int(item.state.electoralVotes)) EV · \(MapMargin.tier(item.contest))")
-                                            .font(.caption)
-                                    }
-                                    .frame(width: 106, alignment: .leading).padding(10)
+                                    Text("\(item.state.abbr.uppercased()) · \(Int(item.state.electoralVotes)) EV")
+                                    .font(.subheadline.bold())
+                                    .padding(.horizontal, 12).padding(.vertical, 9)
                                     .foregroundStyle(draft.target == item.state.id ? CampaignStyle.background : .white)
                                     .background(draft.target == item.state.id ? CampaignStyle.gold : CampaignStyle.background,
                                                 in: RoundedRectangle(cornerRadius: 11))
@@ -387,45 +399,11 @@ struct ActionPlannerView: View {
                             }
                         }
                     }
-                    Menu {
-                        ForEach(states, id: \.id) { state in
-                            Button("\(state.name) · \(Int(state.electoralVotes)) EV") { draft.target = state.id }
-                        }
-                    } label: {
-                        Label("\(states.first(where: { $0.id == draft.target })?.name ?? "Choose a state") · Change target", systemImage: "map")
-                            .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
-                    }
                 }
             }
-
-            Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(actions) { action in
-                        Button {
-                            draft.type = action.id
-                            if draft.type == "issue_pivot" { draft.position = session.playerIssuePosition(draft.issue) }
-                            draft.notice = nil
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Image(systemName: action.icon).font(.title3)
-                                Text(action.label).font(.subheadline.bold()).lineLimit(1)
-                                Text(action.hint).font(.caption).lineLimit(2)
-                                    .foregroundStyle(draft.type == action.id ? CampaignStyle.background.opacity(0.8) : CampaignStyle.muted)
-                            }
-                            .frame(width: 140, height: 86, alignment: .leading)
-                            .padding(10)
-                            .foregroundStyle(draft.type == action.id ? CampaignStyle.background : .white)
-                            .background(draft.type == action.id ? CampaignStyle.gold : CampaignStyle.background,
-                                        in: RoundedRectangle(cornerRadius: 12))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            Text("Swipe for more moves").font(.caption).foregroundStyle(CampaignStyle.muted)
 
             if draft.type == "advertise" {
+                Text("ADVERTISING SETTINGS").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
                 HStack(spacing: 6) {
                     ForEach(["positive", "contrast", "issue"], id: \.self) { mode in
                         Button(mode.capitalized) { draft.adMode = mode }
@@ -460,19 +438,34 @@ struct ActionPlannerView: View {
                     .tint(CampaignStyle.gold).padding(.vertical, 8)
             }
 
-            Text("SCHEDULE ON DAY").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
-            HStack(spacing: 6) {
-                ForEach(1...7, id: \.self) { n in
-                    Button("\(n)") { draft.day = n }
-                        .font(.subheadline.bold())
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
-                        .foregroundStyle(draft.day == n ? CampaignStyle.background : .white)
-                        .background(draft.day == n ? CampaignStyle.gold : CampaignStyle.background,
-                                    in: RoundedRectangle(cornerRadius: 9))
+
+            Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(actions) { action in
+                        Button {
+                            draft.type = action.id
+                            if draft.type == "issue_pivot" { draft.position = session.playerIssuePosition(draft.issue) }
+                            draft.notice = nil
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Image(systemName: action.icon).font(.title3)
+                                Text(action.label).font(.subheadline.bold()).lineLimit(1)
+                                Text(action.hint).font(.caption).lineLimit(2)
+                                    .foregroundStyle(draft.type == action.id ? CampaignStyle.background.opacity(0.8) : CampaignStyle.muted)
+                            }
+                            .frame(width: 140, height: 86, alignment: .leading)
+                            .padding(10)
+                            .foregroundStyle(draft.type == action.id ? CampaignStyle.background : .white)
+                            .background(draft.type == action.id ? CampaignStyle.gold : CampaignStyle.background,
+                                        in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
-            Text("Day \(draft.day) · \(dayCount)/3 moves scheduled")
-                .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+            Text("Swipe for more moves").font(.caption).foregroundStyle(CampaignStyle.muted)
+
             if dayCount >= 3 {
                 Text("Day \(draft.day) is full. Choose another day.").font(.subheadline).foregroundStyle(CampaignStyle.gold)
             } else if (session.currentGame()?.slotsLeft() ?? 0) == 0 {
