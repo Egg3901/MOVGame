@@ -458,21 +458,25 @@ struct ActionPlannerView: View {
         let plan = session.plannedActions()
         let dayCount = plan.filter { Int($0.day) == draft.day }.count
 
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("BUILD THE WEEK").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
                 Spacer()
                 Text("\(plan.count) planned").font(.subheadline.bold())
             }
-            Text(String(format: "Ad budget $%.1fM available", (session.currentGame()?.availableCash() ?? 0) / 1_000_000))
-                .font(.subheadline).foregroundStyle(CampaignStyle.muted)
-            Menu {
-                ForEach(1...7, id: \.self) { n in
-                    Button("Day \(n) · \(plan.filter { Int($0.day) == n }.count)/3 planned") { draft.day = n }
+            HStack {
+                Menu {
+                    ForEach(1...7, id: \.self) { n in
+                        Button("Day \(n) · \(plan.filter { Int($0.day) == n }.count)/3 planned") { draft.day = n }
+                    }
+                } label: {
+                    Label("DAY \(draft.day) · \(dayCount)/3 MOVES", systemImage: "calendar")
+                        .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
                 }
-            } label: {
-                Label("DAY \(draft.day) · \(dayCount)/3 moves scheduled", systemImage: "calendar")
-                    .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
+                Spacer()
+                Text(String(format: "CASH $%.1fM", (session.currentGame()?.availableCash() ?? 0) / 1_000_000))
+                    .font(.caption.bold()).foregroundStyle(CampaignStyle.muted)
+                    .minimumScaleFactor(0.8).lineLimit(1)
             }
 
             if draft.needsState {
@@ -486,7 +490,7 @@ struct ActionPlannerView: View {
                             .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
                     }
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                            ForEach(battlegrounds) { item in
+                            ForEach(Array(battlegrounds.prefix(3))) { item in
                                 Button {
                                     draft.target = item.state.id
                                     draft.notice = nil
@@ -552,7 +556,8 @@ struct ActionPlannerView: View {
                     .font(.subheadline).foregroundStyle(CampaignStyle.muted)
                 Text("Ad spend: $\(Int(draft.spend))M").font(.subheadline.bold())
                 Slider(value: $draft.spend, in: 1...30, step: 1)
-                    .tint(CampaignStyle.gold).padding(.vertical, 8)
+                    .tint(CampaignStyle.gold).controlSize(.large)
+                    .accessibilityLabel("Ad spend in millions")
             }
             if draft.type == "issue_pivot" || (draft.type == "advertise" && draft.adMode == "issue") {
                 Menu {
