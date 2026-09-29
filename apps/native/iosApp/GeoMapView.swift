@@ -2,6 +2,40 @@ import SwiftUI
 import WebKit
 import shared
 
+enum MapMargin {
+    static func points(_ contest: ContestProjection) -> Double {
+        (contest.demShare - 0.5) * 200
+    }
+
+    static func tier(_ contest: ContestProjection) -> String {
+        let margin = abs(points(contest))
+        if margin <= 3 { return "Toss-up" }
+        if margin <= 10 { return "Lean" }
+        if margin <= 20 { return "Likely" }
+        return "Safe"
+    }
+
+    static func label(_ contest: ContestProjection) -> String {
+        let margin = points(contest)
+        if abs(margin) <= 3 { return String(format: "Toss-up · %.1f pt margin", abs(margin)) }
+        return String(format: "%@ %@ · %.1f pt margin", tier(contest), margin > 0 ? "Dem" : "GOP", abs(margin))
+    }
+
+    static func color(_ contest: ContestProjection?) -> String {
+        guard let contest else { return "#556271" }
+        let margin = points(contest)
+        if abs(margin) <= 3 { return "#f5b942" }
+        if margin > 0 {
+            if margin <= 10 { return "#82b2ff" }
+            if margin <= 20 { return "#397fe5" }
+            return "#174b9b"
+        }
+        if margin >= -10 { return "#ff9a91" }
+        if margin >= -20 { return "#e45656" }
+        return "#96333e"
+    }
+}
+
 // The same state outlines used by the web game, rendered locally with no network access.
 struct GeoMapView: UIViewRepresentable {
     var contestsById: [String: ContestProjection]
@@ -43,16 +77,12 @@ struct GeoMapView: UIViewRepresentable {
     private func markup() -> String {
         let shapes = Self.paths.keys.sorted().map { abbr -> String in
             let contest = abbrToStateId[abbr].flatMap { contestsById[$0] }
-            let color: String
-            switch contest?.lean {
-            case "dem": color = "#3275d8"
-            case "rep": color = "#d75454"
-            default: color = "#657484"
-            }
+            let color = MapMargin.color(contest)
             let selected = abbr == selectedAbbr
             let stroke = selected ? "#f5b942" : "#101a27"
             let width = selected ? "3" : "1.3"
-            return "<path d='\(Self.paths[abbr] ?? "")' fill='\(color)' stroke='\(stroke)' stroke-width='\(width)' data-state='\(abbr)' aria-label='\(abbr)' tabindex='0'><title>\(abbr)</title></path>"
+            let description = contest.map { "\(abbr), \(MapMargin.label($0)), \($0.ev) electoral votes" } ?? abbr
+            return "<path d='\(Self.paths[abbr] ?? "")' fill='\(color)' stroke='\(stroke)' stroke-width='\(width)' data-state='\(abbr)' aria-label='\(description)' tabindex='0'><title>\(description)</title></path>"
         }.joined()
         return """
         <!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>

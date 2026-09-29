@@ -87,8 +87,8 @@ struct ContentView: View {
                                   enabled: Bool = true, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 3) {
-                Image(systemName: icon).font(.title3)
-                Text(title).font(.caption.bold())
+                Image(systemName: icon).font(.title3).frame(height: 24)
+                Text(title).font(.caption.bold()).frame(height: 17)
             }
             .foregroundStyle(selected ? CampaignStyle.gold : CampaignStyle.muted)
             .frame(maxWidth: .infinity)
