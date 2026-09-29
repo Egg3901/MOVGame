@@ -78,4 +78,8 @@ def screen_coverage(path: pathlib.Path):
 if __name__ == '__main__':
     fraction, amber, coral = screen_coverage(pathlib.Path(sys.argv[1]))
     print(f'dark={fraction:.2f} amber_samples={amber} coral_samples={coral}')
+    if '--boot' in sys.argv[2:]:
+        # The simulator's black Apple-logo boot splash is ~96% dark. Wait for
+        # SpringBoard before installing and launching the app.
+        sys.exit(0 if fraction < 0.90 else 1)
     sys.exit(0 if fraction >= 0.35 and (amber >= 3 or coral >= 3) else 1)
