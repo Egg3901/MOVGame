@@ -25,6 +25,9 @@ struct ContentView: View {
             Button("Start a new campaign") { session.playScreen = .setup }
             Button("Campaign library") { menuDestination = .store }
             Button("How to play") { menuDestination = .guide }
+            Button(session.hasGame ? "Ask about this campaign" : "Ask about Margin of Victory") {
+                UIApplication.shared.open(session.askURL())
+            }
             Button("Account and saves") { menuDestination = .account }
             Button("Image credits") { menuDestination = .credits }
         }

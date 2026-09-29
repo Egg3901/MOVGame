@@ -11,6 +11,7 @@ import { MultipartyEventModal } from "@ui/MultipartyEventModal";
 import { OnboardingCoach } from "@ui/coach/OnboardingCoach";
 import { Vote } from "lucide-react";
 import { BRAND } from "../../brand";
+import { movAskUrlFromSnapshot, movSeatAskSnapshot } from "@lib/ask";
 
 function countryEventView(countryId: string, electionId: string, eventId: string) {
   const country = COUNTRIES[countryId];
@@ -96,6 +97,7 @@ export function CountryApp({ countryId, onExit, initialElection, initialSeed, in
         <div className="stat"><span className="v">{country.currency}{res.funds.toFixed(0)}M</span><span className="l">Funds</span></div>
         <div className="stat"><span className="v" style={{ color: used >= res.maxActions ? "var(--gold)" : undefined }}>{res.maxActions - used}/{res.maxActions}</span><span className="l">Actions</span></div>
         <button className="ghost small" onClick={onExit}>Exit</button>
+        {live && <a className="ghost small" href={movAskUrlFromSnapshot(movSeatAskSnapshot(activeGame, live, country.label))} target="_blank" rel="noopener noreferrer">Ask about campaign</a>}
         <button onClick={undo} disabled={!canUndo}>↶ Undo</button>
         <button className="primary" data-coach="endweek" onClick={handleEndTurn} disabled={hasPending}>
           {hasPending ? "Resolve event first" : "End Week →"}

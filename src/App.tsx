@@ -22,6 +22,7 @@ import { registerSavedCustomScenarios } from "@persistence/local";
 import type { ResumeTarget } from "@persistence/resume";
 import { Spinner } from "@ui/Skeleton";
 import { hashSeed } from "@engine/rng";
+import { movAskUrl } from "@lib/ask";
 import { GENERIC_DEBATES, HISTORICAL_EVENTS } from "@content/events";
 
 // The UK and country shells carry their engines, content, and map geometry —
@@ -247,6 +248,7 @@ function GameScreen({ onHome }: { onHome: () => void }) {
         )}
         <button className="ghost small" onClick={() => setCandOpen(true)}>Candidates</button>
         <button className="ghost small" onClick={() => setGuideOpen(true)}>Guide</button>
+        {live && <a className="ghost small" href={movAskUrl(game, live)} target="_blank" rel="noopener noreferrer">Ask about campaign</a>}
         <button className="ghost small" data-coach="settings" onClick={() => setSettingsOpen(true)} aria-label="Settings"><Settings size={16} /></button>
         <button onClick={handleUndo} disabled={!canUndoWeek && plannedActions === 0}>
           ↶ {plannedActions > 0 ? "Undo action" : "Undo week"}
