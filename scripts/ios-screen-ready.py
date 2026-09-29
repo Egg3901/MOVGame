@@ -33,7 +33,7 @@ def screen_coverage(path: pathlib.Path):
     row_size = width * channels
     previous = bytearray(row_size)
     position = 0
-    dark = amber = coral = samples = 0
+    dark = amber = coral = blue_samples = samples = 0
     x_step = max(1, width // 40)
     y_step = max(1, height // 50)
     for y in range(height):
@@ -71,15 +71,17 @@ def screen_coverage(path: pathlib.Path):
                     amber += 1
                 if red > 180 and 75 < green <= 130 and 55 < blue < 155:
                     coral += 1
+                if blue > 110 and blue > red * 1.3 and blue > green * 1.1:
+                    blue_samples += 1
         previous = row
-    return dark / samples, amber, coral
+    return dark / samples, amber, coral, blue_samples
 
 
 if __name__ == '__main__':
-    fraction, amber, coral = screen_coverage(pathlib.Path(sys.argv[1]))
-    print(f'dark={fraction:.2f} amber_samples={amber} coral_samples={coral}')
+    fraction, amber, coral, blue_samples = screen_coverage(pathlib.Path(sys.argv[1]))
+    print(f'dark={fraction:.2f} amber_samples={amber} coral_samples={coral} blue_samples={blue_samples}')
     if '--boot' in sys.argv[2:]:
         # The simulator's black Apple-logo boot splash is ~96% dark. Wait for
         # SpringBoard before installing and launching the app.
         sys.exit(0 if fraction < 0.90 else 1)
-    sys.exit(0 if fraction >= 0.35 and (amber >= 3 or coral >= 3) else 1)
+    sys.exit(0 if fraction >= 0.35 and (amber >= 3 or coral >= 3 or blue_samples >= 8) else 1)
