@@ -511,26 +511,7 @@ struct ActionPlannerView: View {
 
             Text("CAMPAIGN MOVE").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(actions) { action in
-                        Button {
-                            draft.type = action.id
-                            if draft.type == "issue_pivot" { draft.position = session.playerIssuePosition(draft.issue) }
-                            draft.notice = nil
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Image(systemName: action.icon).font(.title3)
-                                Text(action.label).font(.subheadline.bold()).lineLimit(1)
-                                Text(action.hint).font(.caption).lineLimit(2)
-                                    .foregroundStyle(draft.type == action.id ? CampaignStyle.background.opacity(0.8) : CampaignStyle.muted)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-                            .padding(10)
-                            .foregroundStyle(draft.type == action.id ? CampaignStyle.background : .white)
-                            .background(draft.type == action.id ? CampaignStyle.gold : CampaignStyle.background,
-                                        in: RoundedRectangle(cornerRadius: 12))
-                        }
-                        .buttonStyle(.plain)
-                    }
+                ForEach(actions) { action in actionButton(action) }
             }
             if draft.type == "advertise" {
                 Text("ADVERTISING SETTINGS").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
@@ -647,5 +628,27 @@ struct ActionPlannerView: View {
                 draft.target = selectedStateId
             }
         }
+    }
+
+    private func actionButton(_ action: PlannerAction) -> some View {
+        let selected = draft.type == action.id
+        return Button {
+            draft.type = action.id
+            if action.id == "issue_pivot" { draft.position = session.playerIssuePosition(draft.issue) }
+            draft.notice = nil
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                Image(systemName: action.icon).font(.title3)
+                Text(action.label).font(.subheadline.bold()).lineLimit(1)
+                Text(action.hint).font(.caption).lineLimit(2)
+                    .foregroundStyle(selected ? CampaignStyle.background.opacity(0.8) : CampaignStyle.muted)
+            }
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+            .padding(10)
+            .foregroundStyle(selected ? CampaignStyle.background : .white)
+            .background(selected ? CampaignStyle.gold : CampaignStyle.background,
+                        in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
     }
 }
