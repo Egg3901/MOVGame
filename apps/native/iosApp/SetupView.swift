@@ -16,14 +16,16 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Image("cover-country-us")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: 180)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .accessibilityLabel("United States Capitol")
+                GeometryReader { geometry in
+                    Image("cover-country-us")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geometry.size.width, height: 180)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .accessibilityLabel("United States Capitol")
+                }
+                .frame(height: 180)
                 HStack(spacing: 0) {
                     CampaignStyle.democrat
                     CampaignStyle.republican
