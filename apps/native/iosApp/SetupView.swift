@@ -182,7 +182,8 @@ struct SetupView: View {
                     .foregroundStyle(player == "dem" ? CampaignStyle.democrat : CampaignStyle.republican)
                     Text("Running mate").font(.subheadline.bold())
                     ForEach(mates, id: \.id) { mate in
-                        option(selected: selectedMate?.id == mate.id, title: mate.name + (mate.historical ? " · Historical" : ""), detail: mate.blurb) {
+                        option(selected: selectedMate?.id == mate.id, title: mate.name + (mate.historical ? " · Historical" : ""),
+                               detail: "\(mate.bonus)\n\(mate.blurb)") {
                             mateId = mate.id
                         }
                     }

@@ -555,8 +555,8 @@ struct ActionPlannerView: View {
             if draft.needsState, let current = session.contestsById()[draft.target], let game = session.currentGame() {
                 let before = MapMargin.points(current)
                 let after = game.previewMarginPoints(typeSerial: draft.type, stateId: draft.target,
-                    day: draft.day, adModeSerial: draft.type == "advertise" ? draft.adMode : nil,
-                    spendMillions: draft.type == "advertise" ? draft.spend : nil,
+                    day: Int32(draft.day), adModeSerial: draft.type == "advertise" ? draft.adMode : nil,
+                    spendMillions: draft.type == "advertise" ? KotlinDouble(double: draft.spend) : nil,
                     issueSerial: draft.type == "advertise" && draft.adMode == "issue" ? draft.issue : nil,
                     newPosition: nil)
                 if after.isFinite {

@@ -9,7 +9,8 @@ import com.lakesidegames.electioneer.content.ISSUES
 import kotlin.math.roundToInt
 
 data class CampaignChoice(val id: String, val year: Int, val label: String, val tagline: String, val demName: String, val repName: String)
-data class MateChoice(val id: String, val name: String, val blurb: String, val historical: Boolean)
+data class MateChoice(val id: String, val name: String, val blurb: String, val historical: Boolean,
+                      val bonus: String)
 data class StaffChoice(val id: String, val name: String, val role: String, val blurb: String,
                        val salaryPerWeek: Double, val bonus: String)
 
@@ -54,7 +55,19 @@ class MobileGame private constructor(
         fun mates(scenarioId: String, playerSerial: String): List<MateChoice> {
             val s = SCENARIOS.getValue(scenarioId)
             val roster = if (playerSerial == CandidateId.DEM.serial) s.dem.runningMates else s.rep.runningMates
-            return roster.map { MateChoice(it.id, it.name, it.blurb, it.historical) }
+            return roster.map { mate ->
+                val bonuses = buildList {
+                    mate.traitBonuses.forEach { (trait, points) ->
+                        add("+${points.roundToInt()} ${trait.replace(Regex("([a-z])([A-Z])"), "$1 $2")}")
+                    }
+                    mate.favorability.forEach { (bloc, value) ->
+                        add("+${(value * 100).roundToInt()} ${bloc.replace('_', ' ')}")
+                    }
+                    mate.cashBonus?.let { add("+\$${(it / 1_000_000).roundToInt()}M war chest") }
+                    mate.candidateDayBonus?.let { add("+${it.roundToInt()} candidate day") }
+                }
+                MateChoice(mate.id, mate.name, mate.blurb, mate.historical, bonuses.joinToString(" · "))
+            }
         }
 
         fun staffChoices(): List<StaffChoice> = STAFF_POOL.map { staff ->
