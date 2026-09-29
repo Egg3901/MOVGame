@@ -118,14 +118,17 @@ struct ContentView: View {
             NavigationStack {
                 AskWebView(webView: askBrowser.webView)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .navigationTitle("Ask · Margin of Victory")
+                    .navigationTitle("Ask")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button("Done") { showingAsk = false }
                         }
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button("Refresh campaign") { askBrowser.open(session.askURL(), refresh: true) }
+                            Button { askBrowser.open(session.askURL(), refresh: true) } label: {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            .accessibilityLabel("Refresh campaign snapshot")
                         }
                     }
             }
