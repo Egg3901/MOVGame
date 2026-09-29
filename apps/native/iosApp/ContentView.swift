@@ -1,27 +1,51 @@
 import SwiftUI
 
-// Phase 4: Play tab switches Setup/Game/Results; Store/Account are shells
-// until Phase 5. Mirrors the Android bottom nav.
 struct ContentView: View {
     @ObservedObject var session: GameSession
+    @State private var showingMenu = false
+    @State private var menuDestination: MenuDestination? = nil
+
+    private enum MenuDestination: String, Identifiable {
+        case store, account
+        var id: String { rawValue }
+    }
 
     var body: some View {
-        TabView(selection: $session.tab) {
-            playTab
-                .tabItem { Label("Play", systemImage: "play.fill") }
-                .tag(0)
-            StoreView()
-                .tabItem { Label("Store", systemImage: "cart") }
-                .tag(1)
-            AccountView()
-                .tabItem { Label("Account", systemImage: "person.crop.circle") }
-                .tag(2)
+        VStack(spacing: 0) {
+            currentScreen
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            navigationBar
         }
+        .background(CampaignStyle.background)
         .preferredColorScheme(.dark)
+        .confirmationDialog("Campaign menu", isPresented: $showingMenu) {
+            if session.hasGame {
+                Button("Continue campaign") { session.resumeGame() }
+            }
+            Button("Start a new campaign") { session.playScreen = .setup }
+            Button("Campaign library") { menuDestination = .store }
+            Button("Account and saves") { menuDestination = .account }
+        }
+        .sheet(item: $menuDestination) { destination in
+            NavigationStack {
+                Group {
+                    switch destination {
+                    case .store: StoreView()
+                    case .account: AccountView()
+                    }
+                }
+                .navigationTitle(destination == .store ? "Campaign library" : "Account and saves")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { menuDestination = nil }
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder
-    private var playTab: some View {
+    private var currentScreen: some View {
         switch session.playScreen {
         case .home:
             HomeView(session: session)
@@ -29,7 +53,7 @@ struct ContentView: View {
             SetupView(session: session)
         case .loading:
             VStack(spacing: 16) {
-                ProgressView().tint(.orange)
+                ProgressView().tint(CampaignStyle.gold)
                 Text("Preparing the campaign trail…")
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         case .game:
@@ -37,6 +61,41 @@ struct ContentView: View {
         case .results:
             ResultsView(session: session)
         }
+    }
+
+    private var navigationBar: some View {
+        HStack(spacing: 8) {
+            navigationButton("Home", icon: "house.fill", selected: session.playScreen == .home) {
+                session.playScreen = .home
+            }
+            navigationButton("Campaign", icon: "flag.fill", selected: session.playScreen == .game || session.playScreen == .results,
+                             enabled: session.hasGame) {
+                session.resumeGame()
+            }
+            navigationButton("Menu", icon: "line.3.horizontal", selected: false) {
+                showingMenu = true
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(CampaignStyle.card)
+    }
+
+    private func navigationButton(_ title: String, icon: String, selected: Bool,
+                                  enabled: Bool = true, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon).font(.title3)
+                Text(title).font(.caption.bold())
+            }
+            .foregroundStyle(selected ? CampaignStyle.gold : CampaignStyle.muted)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(selected ? CampaignStyle.background : .clear, in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.45)
     }
 }
 

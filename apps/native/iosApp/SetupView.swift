@@ -1,11 +1,13 @@
 import SwiftUI
 import shared
 
-private enum CampaignStyle {
+enum CampaignStyle {
     static let background = Color(red: 10/255, green: 15/255, blue: 20/255)
     static let card = Color(red: 17/255, green: 27/255, blue: 38/255)
     static let gold = Color(red: 245/255, green: 185/255, blue: 66/255)
     static let muted = Color(red: 168/255, green: 181/255, blue: 194/255)
+    static let democrat = Color(red: 55/255, green: 121/255, blue: 237/255)
+    static let republican = Color(red: 225/255, green: 75/255, blue: 75/255)
 }
 
 struct HomeView: View {
@@ -14,7 +16,20 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Spacer().frame(height: 30)
+                Image("cover-country-us")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: 180)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .accessibilityLabel("United States Capitol")
+                HStack(spacing: 0) {
+                    CampaignStyle.democrat
+                    CampaignStyle.republican
+                }
+                .frame(height: 4)
+                .clipShape(Capsule())
                 Text("THE ROAD TO 270").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
                 Text("Margin of\nVictory").font(.system(size: 54, weight: .black, design: .serif)).fixedSize(horizontal: false, vertical: true)
                 Text("Every state has a story. Every decision moves the map.")
@@ -83,6 +98,18 @@ struct SetupView: View {
                                     mateId = ""
                                 } label: {
                                     VStack(alignment: .leading, spacing: 8) {
+                                        Image(UIImage(named: "cover-us-\(item.year)") == nil ? "cover-country-us" : "cover-us-\(item.year)")
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 218, height: 90)
+                                            .clipped()
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        HStack(spacing: 0) {
+                                            CampaignStyle.democrat
+                                            CampaignStyle.republican
+                                        }
+                                        .frame(height: 3)
+                                        .clipShape(Capsule())
                                         Text("\(item.year)").font(.system(size: 40, weight: .black, design: .serif))
                                             .foregroundStyle(scenarioId == item.id ? CampaignStyle.gold : Color.white)
                                         Text(item.label).font(.headline).foregroundStyle(.white)
@@ -115,6 +142,14 @@ struct SetupView: View {
                     }
                     .pickerStyle(.segmented)
                     .onChange(of: player) { _ in mateId = "" }
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(player == "dem" ? CampaignStyle.democrat : CampaignStyle.republican)
+                            .frame(width: 10, height: 10)
+                        Text("Leading the \(player == "dem" ? "Democratic" : "Republican") ticket")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundStyle(player == "dem" ? CampaignStyle.democrat : CampaignStyle.republican)
                     Text("Running mate").font(.subheadline.bold())
                     ForEach(mates, id: \.id) { mate in
                         option(selected: selectedMate?.id == mate.id, title: mate.name + (mate.historical ? " · Historical" : ""), detail: mate.blurb) {

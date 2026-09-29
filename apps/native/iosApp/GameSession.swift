@@ -10,7 +10,6 @@ enum PlayScreen {
 
 final class GameSession: ObservableObject {
     private static let saveKey = "mov_campaign_v1"
-    @Published var tab = 0 // 0 play, 1 store, 2 account
     @Published var playScreen: PlayScreen = .home
     @Published var version = 0
 
@@ -40,7 +39,6 @@ final class GameSession: ObservableObject {
 
     func playTab() {
         playScreen = .home
-        tab = 0
     }
 
     func touch() {

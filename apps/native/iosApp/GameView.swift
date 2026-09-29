@@ -29,7 +29,7 @@ struct GameView: View {
                     VStack(spacing: 14) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading) {
-                                Text("DEMOCRATS").font(.caption2.bold()).foregroundStyle(Color(red: 0.5, green: 0.66, blue: 1))
+                                Text("DEMOCRATS").font(.caption2.bold()).foregroundStyle(CampaignStyle.democrat)
                                 Text("\(proj.dem)").font(.largeTitle.bold())
                             }
                             Spacer()
@@ -39,12 +39,12 @@ struct GameView: View {
                             }
                             Spacer()
                             VStack(alignment: .trailing) {
-                                Text("REPUBLICANS").font(.caption2.bold()).foregroundStyle(Color(red: 1, green: 0.54, blue: 0.51))
+                                Text("REPUBLICANS").font(.caption2.bold()).foregroundStyle(CampaignStyle.republican)
                                 Text("\(proj.rep)").font(.largeTitle.bold())
                             }
                         }
                         ProgressView(value: Double(proj.dem) + Double(proj.tossup) / 2, total: 538)
-                            .tint(Color(red: 0.5, green: 0.66, blue: 1))
+                            .tint(CampaignStyle.democrat)
                         HStack {
                             Text("WEEK \(Int(g.turn()) + 1)/\(Int(g.totalTurns()))")
                             Spacer()
@@ -55,12 +55,15 @@ struct GameView: View {
                     }
                     .padding(16).background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
 
-                    TileMapView(
+                    GeoMapView(
                         contestsById: contests,
                         abbrToStateId: abbrToId,
                         selectedAbbr: selectedAbbr,
                         onSelect: { selectedAbbr = $0 }
                     )
+                    .frame(height: 260)
+                    Text("Tap a state to inspect it and target your plan.")
+                        .font(.caption).foregroundStyle(.secondary)
                     if let id = selId, let state = states.first(where: { $0.id == id }),
                        let contest = contests[id] {
                         VStack(alignment: .leading, spacing: 4) {
