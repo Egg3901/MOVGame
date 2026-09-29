@@ -24,7 +24,13 @@ struct GameView: View {
             VStack(spacing: 0) {
               ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("CAMPAIGN DESK").font(.caption.bold()).tracking(2).foregroundStyle(.orange)
+                    HStack(spacing: 8) {
+                        Image("MOVMark")
+                            .resizable()
+                            .frame(width: 28, height: 28)
+                            .accessibilityHidden(true)
+                        Text("CAMPAIGN DESK").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
+                    }
                     Text(g.campaignLabel()).font(.title2.bold())
                     VStack(spacing: 14) {
                         HStack(alignment: .top) {

@@ -16,6 +16,15 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                HStack(spacing: 12) {
+                    Image("MOVMark")
+                        .resizable()
+                        .frame(width: 56, height: 56)
+                        .accessibilityHidden(true)
+                    Text("MARGIN OF VICTORY")
+                        .font(.caption.bold()).tracking(2)
+                        .foregroundStyle(CampaignStyle.gold)
+                }
                 GeometryReader { geometry in
                     Image("cover-country-us")
                         .resizable()
@@ -85,7 +94,13 @@ struct SetupView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Button("← Campaign menu") { session.playScreen = .home }
                     .font(.subheadline.bold()).foregroundStyle(CampaignStyle.muted)
-                Text("NEW CAMPAIGN").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
+                HStack(spacing: 10) {
+                    Image("MOVMark")
+                        .resizable()
+                        .frame(width: 36, height: 36)
+                        .accessibilityHidden(true)
+                    Text("NEW CAMPAIGN").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
+                }
                 Text("Choose your path").font(.largeTitle.bold())
                 Text("Build the ticket. Assemble the team. Rewrite the map.").foregroundStyle(CampaignStyle.muted)
 
