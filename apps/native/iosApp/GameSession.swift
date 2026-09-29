@@ -19,6 +19,9 @@ final class GameSession: ObservableObject {
     @Published var eventResult: String? = nil
 
     private var game: MobileGame? = nil
+    #if targetEnvironment(simulator)
+    private var didPrepareSimulatorCapture = false
+    #endif
 
     init() {
         if let snapshot = UserDefaults.standard.string(forKey: Self.saveKey),
@@ -28,6 +31,25 @@ final class GameSession: ObservableObject {
             eventId = restored.pendingEventIds().first
         }
     }
+
+    #if targetEnvironment(simulator)
+    func prepareSimulatorCaptureIfRequested() {
+        guard !didPrepareSimulatorCapture else { return }
+        didPrepareSimulatorCapture = true
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--mov-capture-setup") {
+            playScreen = .setup
+        } else if arguments.contains("--mov-capture-game") {
+            let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
+                ?? mates(scenarioId: "2024", playerSerial: "dem").first
+            guard let mate else { return }
+            newGame(scenarioId: "2024", playerSerial: "dem", mateId: mate.id,
+                    staffIds: [], difficulty: "normal", eventMode: "historical",
+                    totalTurns: 9, seed: "240927", whatIfState: "",
+                    mirrorMatch: false, pandemic: false)
+        }
+    }
+    #endif
 
     var hasGame: Bool { game != nil }
     var savedCampaignLabel: String { game?.campaignLabel() ?? "Your campaign" }

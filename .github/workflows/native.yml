@@ -86,6 +86,8 @@ jobs:
           path: ${{ runner.temp }}/mov-simulator.tar.gz
           retention-days: 3
       - name: Launch app on iPhone simulator
+        env:
+          MOV_CAPTURE_SCREENS: '1'
         run: python3 ../../scripts/ios-launch-smoke.py "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator/MOVGameiOS.app" "$RUNNER_TEMP/mov-launch"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -106,6 +108,8 @@ jobs:
           name: unsigned-ios-simulator-app
           path: ${{ runner.temp }}/mov-compat
       - name: Launch existing Release binary on iOS 27
+        env:
+          MOV_CAPTURE_SCREENS: '1'
         run: |
           tar -xzf "$RUNNER_TEMP/mov-compat/mov-simulator.tar.gz" -C "$RUNNER_TEMP/mov-compat"
           SIMULATOR_UDID=$(xcrun simctl create 'iPhone 17 Pro Max MOV' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max com.apple.CoreSimulator.SimRuntime.iOS-27-0)

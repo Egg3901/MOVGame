@@ -7,6 +7,11 @@ struct MarginOfVictoryApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(session: session)
+                .onAppear {
+                    #if targetEnvironment(simulator)
+                    session.prepareSimulatorCaptureIfRequested()
+                    #endif
+                }
         }
     }
 }

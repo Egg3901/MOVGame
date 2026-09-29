@@ -49,8 +49,33 @@ try:
         print((output / 'launch-console.log').read_text())
         raise SystemExit('FAIL: app exited before the screenshot was captured')
     print('PASS: app stayed running for 30 seconds; launch screenshot captured')
+    if os.environ.get('MOV_CAPTURE_SCREENS') == '1':
+        process.terminate()
+        process.wait(timeout=5)
+        for name, argument, seconds in [
+            ('setup', '--mov-capture-setup', 8),
+            ('campaign', '--mov-capture-game', 20),
+        ]:
+            subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
+            with (output / f'{name}-console.log').open('w') as preview_console:
+                preview = subprocess.Popen(
+                    ['xcrun', 'simctl', 'launch', '--console', device, bundle, argument],
+                    stdout=preview_console, stderr=subprocess.STDOUT)
+                try:
+                    for second in range(seconds):
+                        time.sleep(1)
+                        if preview.poll() is not None:
+                            preview_console.flush()
+                            print((output / f'{name}-console.log').read_text())
+                            raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
+                    run('xcrun', 'simctl', 'io', device, 'screenshot', str(output / f'{name}.png'))
+                    print(f'PASS: {name} screenshot captured')
+                finally:
+                    preview.terminate()
+                    preview.wait(timeout=5)
 finally:
-    process.terminate()
+    if process.poll() is None:
+        process.terminate()
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
