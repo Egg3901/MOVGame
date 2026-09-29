@@ -58,21 +58,32 @@ if phones[0]['state'] != 'Booted':
 run('xcrun', 'simctl', 'bootstatus', device, '-b', timeout=300)
 for attempt in range(24):
     boot_image = output / 'boot.png'
+    boot_image.unlink(missing_ok=True)
     try:
         run('xcrun', 'simctl', 'io', device, 'screenshot', str(boot_image))
-        probe = output / 'boot-probe.png'
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        print(f'boot capture {attempt + 1}: screenshot command failed: {error}', flush=True)
+        # CoreSimulator sometimes writes the image and then hangs while
+        # returning from simctl. The file is still useful for checking whether
+        # SpringBoard is ready; only retry immediately when no image exists.
+        if not boot_image.is_file():
+            time.sleep(10)
+            continue
+    probe = output / 'boot-probe.png'
+    try:
         subprocess.run(['sips', '-Z', '160', str(boot_image), '--out', str(probe)],
                        check=True, capture_output=True, timeout=30)
         checked = subprocess.run(
             [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')),
              str(probe), '--boot'], text=True, capture_output=True, timeout=30)
-        probe.unlink(missing_ok=True)
         print(f'boot capture {attempt + 1}: {checked.stdout.strip()}', flush=True)
         if checked.returncode == 0:
             print('PASS: simulator home screen is ready', flush=True)
             break
-    except subprocess.CalledProcessError as error:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         print(f'boot capture {attempt + 1}: {error}', flush=True)
+    finally:
+        probe.unlink(missing_ok=True)
     time.sleep(10)
 else:
     raise SystemExit('FAIL: simulator never left Apple boot screen; app was not launched')
