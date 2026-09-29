@@ -14,6 +14,7 @@ enum CampaignStyle {
 
 struct HomeView: View {
     @ObservedObject var session: GameSession
+    let onAsk: () -> Void
     @State private var daily: TodayChallenge?
     @State private var showingDaily = false
 
@@ -65,6 +66,22 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
                 .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))
+                Button(action: onAsk) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "bubble.left.and.text.bubble.right").font(.title3)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Ask about Margin of Victory").font(.subheadline.bold())
+                            Text("Rules, strategy, and your current campaign")
+                                .font(.caption).foregroundStyle(CampaignStyle.muted)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption.bold())
+                    }
+                    .foregroundStyle(.white)
+                    .padding(14)
+                    .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
                 Button { showingDaily = true } label: {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("DAILY CHALLENGE · \(daily?.date ?? "TODAY")")
