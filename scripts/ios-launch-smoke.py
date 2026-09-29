@@ -55,6 +55,7 @@ try:
         for name, argument, seconds in [
             ('setup', '--mov-capture-setup', 8),
             ('campaign', '--mov-capture-game', 20),
+            ('plan', '--mov-capture-plan', 20),
         ]:
             subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
             with (output / f'{name}-console.log').open('w') as preview_console:

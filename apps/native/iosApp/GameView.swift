@@ -1,16 +1,21 @@
 import SwiftUI
 import shared
 
+private enum DeskSection: String, Hashable {
+    case map, plan
+}
+
 // Native campaign desk with map, state projection, action plan, and turn recap.
 struct GameView: View {
     @ObservedObject var session: GameSession
     @State private var selectedAbbr: String? = nil
+    @State private var deskSection: DeskSection = .map
 
     var body: some View {
         // `version` is read so the view re-renders after every mutation.
         let _ = session.version
         guard let g = session.currentGame() else {
-            return AnyView(Text("No campaign. Start one from Play."))
+            return AnyView(Text("No campaign. Start one from Home."))
         }
         let proj = session.projection()
         let contests = session.contestsById()
@@ -61,42 +66,63 @@ struct GameView: View {
                     }
                     .padding(16).background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
 
-                    GeoMapView(
-                        contestsById: contests,
-                        abbrToStateId: abbrToId,
-                        selectedAbbr: selectedAbbr,
-                        onSelect: { selectedAbbr = $0 }
-                    )
-                    .frame(height: 260)
-                    HStack {
-                        Text("Tap a state to inspect it and target your plan.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Spacer()
-                        Menu {
-                            ForEach(states.sorted(by: { $0.name < $1.name }), id: \.id) { state in
-                                Button(state.name) { selectedAbbr = state.abbr.uppercased() }
-                            }
-                        } label: {
-                            Label("Find state", systemImage: "magnifyingglass")
-                                .font(.caption.bold())
-                        }
-                        .tint(CampaignStyle.gold)
+                    Picker("Campaign desk", selection: $deskSection) {
+                        Text("Electoral map").tag(DeskSection.map)
+                        Text("Week plan").tag(DeskSection.plan)
                     }
-                    if let id = selId, let state = states.first(where: { $0.id == id }),
-                       let contest = contests[id] {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("\(state.name) · \(Int(state.electoralVotes)) EV").font(.headline)
-                            Text(String(format: "Democratic projection %.1f%%", contest.demShare * 100))
-                                .font(.subheadline)
-                            Text("Select another state to retarget your plan.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                        .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 14))
-                    }
+                    .pickerStyle(.segmented)
 
-                    ActionPlannerView(session: session, selectedStateId: selId)
+                    if deskSection == .map {
+                        GeoMapView(
+                            contestsById: contests,
+                            abbrToStateId: abbrToId,
+                            selectedAbbr: selectedAbbr,
+                            onSelect: { selectedAbbr = $0 }
+                        )
+                        .frame(height: 260)
+                        HStack {
+                            legendItem("Dem lead", color: CampaignStyle.democrat)
+                            Spacer()
+                            legendItem("Toss-up", color: .gray)
+                            Spacer()
+                            legendItem("GOP lead", color: CampaignStyle.republican)
+                        }
+                        .font(.caption)
+                        HStack {
+                            Text("Tap a state to inspect it.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            Menu {
+                                ForEach(states.sorted(by: { $0.name < $1.name }), id: \.id) { state in
+                                    Button(state.name) { selectedAbbr = state.abbr.uppercased() }
+                                }
+                            } label: {
+                                Label("Find state", systemImage: "magnifyingglass")
+                                    .font(.caption.bold())
+                            }
+                            .tint(CampaignStyle.gold)
+                        }
+                        if let id = selId, let state = states.first(where: { $0.id == id }),
+                           let contest = contests[id] {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\(state.name) · \(Int(state.electoralVotes)) EV").font(.headline)
+                                Text(String(format: "Democratic projection %.1f%%", contest.demShare * 100))
+                                    .font(.subheadline)
+                                Button("Plan in \(state.name)  →") { deskSection = .plan }
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(CampaignStyle.gold)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                        }
+                    } else {
+                        if let id = selId, let state = states.first(where: { $0.id == id }) {
+                            Text("Planning for \(state.name). Change the target below if needed.")
+                                .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                        }
+                        ActionPlannerView(session: session, selectedStateId: selId)
+                    }
                 }
                 .padding()
               }
@@ -105,12 +131,19 @@ struct GameView: View {
                       .font(.headline).frame(maxWidth: .infinity).padding(14)
               }
               .buttonStyle(.plain).foregroundStyle(.black)
-              .background(.orange, in: RoundedRectangle(cornerRadius: 14))
+              .background(CampaignStyle.gold, in: RoundedRectangle(cornerRadius: 14))
               .padding(.horizontal, 16).padding(.vertical, 8)
               .background(Color(red: 17/255, green: 27/255, blue: 38/255))
             }
             .background(Color(red: 10/255, green: 15/255, blue: 20/255))
             .preferredColorScheme(.dark)
+            .onAppear {
+                #if targetEnvironment(simulator)
+                if ProcessInfo.processInfo.arguments.contains("--mov-capture-plan") {
+                    deskSection = .plan
+                }
+                #endif
+            }
             .alert("Week \(Int(g.turn())) recap", isPresented: $session.showRecap) {
                 Button("OK") { session.dismissRecap() }
             } message: {
@@ -122,6 +155,13 @@ struct GameView: View {
                 }
             }
         )
+    }
+
+    private func legendItem(_ title: String, color: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(title).foregroundStyle(CampaignStyle.muted)
+        }
     }
 
     // Presents the pending-event sheet; hidden while the recap is up so the
@@ -314,6 +354,11 @@ struct ActionPlannerView: View {
         .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
         .onChange(of: selectedStateId) { next in
             if let next = next, states.contains(where: { $0.id == next }) { target = next }
+        }
+        .onAppear {
+            if let selectedStateId, states.contains(where: { $0.id == selectedStateId }) {
+                target = selectedStateId
+            }
         }
     }
 }
