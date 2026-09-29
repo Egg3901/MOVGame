@@ -43,11 +43,11 @@ try:
             console.flush()
             print((output / 'launch-console.log').read_text())
             raise SystemExit(f'FAIL: app exited during startup after {second + 1}s')
-    listing = run('xcrun', 'simctl', 'spawn', device, 'launchctl', 'list')
-    entries = [line for line in listing.splitlines() if bundle in line]
-    if not any(line.split()[0].isdigit() for line in entries):
-        raise SystemExit('FAIL: app has no running process after launch')
     run('xcrun', 'simctl', 'io', device, 'screenshot', str(output / 'launch.png'))
+    if process.poll() is not None:
+        console.flush()
+        print((output / 'launch-console.log').read_text())
+        raise SystemExit('FAIL: app exited before the screenshot was captured')
     print('PASS: app stayed running for 30 seconds; launch screenshot captured')
 finally:
     process.terminate()
