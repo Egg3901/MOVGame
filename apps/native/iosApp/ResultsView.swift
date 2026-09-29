@@ -27,7 +27,13 @@ struct ResultsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 9) {
-                        Text("ELECTION NIGHT").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
+                        HStack(spacing: 8) {
+                            Image("MOVMark")
+                                .resizable()
+                                .frame(width: 28, height: 28)
+                                .accessibilityHidden(true)
+                            Text("ELECTION NIGHT").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
+                        }
                         Text(g.resultWinnerSerial() == g.playerSerial() ? "Victory" : "The race is over")
                             .font(.largeTitle.bold())
                         Text("\(g.resultWinnerName()) wins the presidency").font(.title3)
