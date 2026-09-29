@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that a simulator screenshot contains the dark MOV UI and amber controls."""
+"""Check that a simulator screenshot contains the dark MOV UI and an accent."""
 import pathlib
 import struct
 import sys
@@ -33,7 +33,7 @@ def screen_coverage(path: pathlib.Path):
     row_size = width * channels
     previous = bytearray(row_size)
     position = 0
-    dark = amber = samples = 0
+    dark = amber = coral = samples = 0
     x_step = max(1, width // 40)
     y_step = max(1, height // 50)
     for y in range(height):
@@ -69,11 +69,13 @@ def screen_coverage(path: pathlib.Path):
                     dark += 1
                 if red > 180 and 110 < green < 225 and blue < 120:
                     amber += 1
+                if red > 180 and 75 < green <= 130 and 55 < blue < 155:
+                    coral += 1
         previous = row
-    return dark / samples, amber
+    return dark / samples, amber, coral
 
 
 if __name__ == '__main__':
-    fraction, amber = screen_coverage(pathlib.Path(sys.argv[1]))
-    print(f'dark={fraction:.2f} amber_samples={amber}')
-    sys.exit(0 if fraction >= 0.35 and amber >= 3 else 1)
+    fraction, amber, coral = screen_coverage(pathlib.Path(sys.argv[1]))
+    print(f'dark={fraction:.2f} amber_samples={amber} coral_samples={coral}')
+    sys.exit(0 if fraction >= 0.35 and (amber >= 3 or coral >= 3) else 1)
