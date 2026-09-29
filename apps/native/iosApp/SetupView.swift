@@ -19,7 +19,7 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 12) {
                     Image("MOVMark")
                         .resizable()
@@ -33,12 +33,12 @@ struct HomeView: View {
                     Image("cover-country-us")
                         .resizable()
                         .scaledToFill()
-                        .frame(width: geometry.size.width, height: 180)
+                        .frame(width: geometry.size.width, height: 132)
                         .clipped()
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                         .accessibilityLabel("United States Capitol")
                 }
-                .frame(height: 180)
+                .frame(height: 132)
                 HStack(spacing: 0) {
                     CampaignStyle.democrat
                     CampaignStyle.republican
@@ -46,9 +46,9 @@ struct HomeView: View {
                 .frame(height: 4)
                 .clipShape(Capsule())
                 Text("THE ROAD TO 270").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
-                Text("Margin of\nVictory").font(.system(size: 54, weight: .black, design: .serif)).fixedSize(horizontal: false, vertical: true)
+                Text("Margin of\nVictory").font(.system(size: 46, weight: .black, design: .serif)).fixedSize(horizontal: false, vertical: true)
                 Text("Every state has a story. Every decision moves the map.")
-                    .font(.title3).foregroundStyle(CampaignStyle.muted)
+                    .font(.subheadline).foregroundStyle(CampaignStyle.muted)
                 if session.hasGame {
                     Button { session.resumeGame() } label: {
                         VStack(alignment: .leading, spacing: 7) {
@@ -61,29 +61,29 @@ struct HomeView: View {
                     }
                 }
                 Button { session.playScreen = .setup } label: {
-                    Text("Start a new campaign  →").font(.headline).frame(maxWidth: .infinity).padding(18)
+                    Text("Start a new campaign  →").font(.headline).frame(maxWidth: .infinity).padding(16)
                 }
                 .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
                 .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))
                 Button { showingDaily = true } label: {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text("DAILY CHALLENGE · \(daily?.date ?? "TODAY")")
                             .font(.caption.bold()).tracking(1.2).foregroundStyle(CampaignStyle.gold)
                         Text(daily.map { "\($0.flag) \($0.label)" } ?? "Today's shared election")
-                            .font(.headline).foregroundStyle(.white)
+                            .font(.subheadline.bold()).foregroundStyle(.white)
                         Text(daily.map { "Play as \($0.role.uppercased()) · same race and seed for everyone" }
                              ?? "Open the live challenge and leaderboard")
-                            .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                            .font(.caption).foregroundStyle(CampaignStyle.muted)
                         Text("Play today's challenge  ↗")
                             .font(.subheadline.bold()).foregroundStyle(CampaignStyle.coral)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(14)
                     .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 16))
                 }
                 .buttonStyle(.plain)
                 Text("17 U.S. presidential campaigns · 1960–2024").font(.caption).foregroundStyle(CampaignStyle.muted)
             }
-            .padding(22)
+            .padding(18)
         }
         .task {
             guard let url = URL(string: "https://sim.ahousedividedgame.com/api/daily") else { return }
@@ -132,10 +132,11 @@ struct SetupView: View {
     private var selectedCampaignNumber: Int { (campaigns.firstIndex(where: { $0.id == scenarioId }) ?? 0) + 1 }
     private var mates: [MateChoice] { session.mates(scenarioId: scenarioId, playerSerial: player) }
     private var selectedMate: MateChoice? { mates.first(where: { $0.id == mateId }) ?? mates.first(where: { $0.historical }) ?? mates.first }
+    private var canAdvance: Bool { (step != 0 || !player.isEmpty) && (step != 3 || selectedMate != nil) }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 12) {
                 Button("← Campaign menu") { session.playScreen = .home }
                     .font(.subheadline.bold()).foregroundStyle(CampaignStyle.muted)
                 HStack(spacing: 10) {
@@ -144,9 +145,12 @@ struct SetupView: View {
                         .frame(width: 36, height: 36)
                         .accessibilityHidden(true)
                     Text("NEW CAMPAIGN").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
+                    Spacer()
+                    Text("\(step + 1)/4").font(.caption.bold()).foregroundStyle(CampaignStyle.muted)
                 }
-                Text("Choose your path").font(.largeTitle.bold())
-                Text("Build the ticket. Assemble the team. Rewrite the map.").foregroundStyle(CampaignStyle.muted)
+                Text("Choose your path").font(.title.bold())
+                Text(["Pick an election and side.", "Build the ticket.", "Assemble your team.", "Set the rules before you begin."][step])
+                    .foregroundStyle(CampaignStyle.muted)
                 HStack(spacing: 7) {
                     ForEach(0..<4, id: \.self) { index in
                         VStack(spacing: 4) {
@@ -157,8 +161,6 @@ struct SetupView: View {
                         }
                     }
                 }
-                Text("STEP \(step + 1) OF 4").font(.caption.bold()).tracking(1.5).foregroundStyle(CampaignStyle.gold)
-
                 if step == 0 { section("01  THE ELECTION") {
                     HStack {
                         Button { changeElection(by: -1) } label: {
@@ -168,13 +170,13 @@ struct SetupView: View {
                         Spacer()
                         Menu {
                             ForEach(campaigns, id: \.id) { item in
-                                Button("\(item.year) · \(item.demName) vs. \(item.repName)") {
+                                Button("\(String(item.year)) · \(item.demName) vs. \(item.repName)") {
                                     scenarioId = item.id
                                     mateId = ""
                                 }
                             }
                         } label: {
-                            Text("\(campaign.year)  ·  \(selectedCampaignNumber) of \(campaigns.count)  ⌄")
+                            Text("\(String(campaign.year))  ·  \(selectedCampaignNumber) of \(campaigns.count)  ⌄")
                                 .font(.headline).foregroundStyle(CampaignStyle.gold)
                         }
                         Spacer()
@@ -310,8 +312,9 @@ struct SetupView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(CampaignStyle.background)
-                .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))
-                .disabled((step == 0 && player.isEmpty) || (step == 3 && selectedMate == nil))
+                .background(canAdvance ? CampaignStyle.coral : CampaignStyle.coral.opacity(0.45),
+                            in: RoundedRectangle(cornerRadius: 14))
+                .disabled(!canAdvance)
             }
             .padding(.horizontal, 20).padding(.vertical, 10)
             .background(CampaignStyle.background)
