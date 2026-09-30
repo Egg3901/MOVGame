@@ -109,6 +109,7 @@ try:
             ('campaign', '--mov-capture-game', 20),
             ('plan', '--mov-capture-plan', 20),
             ('ask', '--mov-capture-ask', 20),
+            ('ask-login', '--mov-capture-ask-login', 20),
         ]:
             subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
             with (output / f'{name}-console.log').open('w') as preview_console:
@@ -122,7 +123,13 @@ try:
                             preview_console.flush()
                             print((output / f'{name}-console.log').read_text())
                             raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
-                    capture_ready(name, preview)
+                    if name == 'ask-login':
+                        if 'MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH' not in (output / f'{name}-console.log').read_text():
+                            raise SystemExit('FAIL: Ask sign-in did not reach auth inside the app webview')
+                        run('xcrun', 'simctl', 'io', device, 'screenshot', str(output / f'{name}.png'))
+                        print('PASS: Ask sign-in reached auth inside the app webview', flush=True)
+                    else:
+                        capture_ready(name, preview)
                 finally:
                     preview.terminate()
                     preview.wait(timeout=5)
