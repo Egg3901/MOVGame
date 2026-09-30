@@ -36,6 +36,10 @@ import com.lakesidegames.electioneer.engine.AdMode
 import com.lakesidegames.electioneer.engine.GameState
 import com.lakesidegames.electioneer.engine.IssueId
 import com.lakesidegames.electioneer.engine.plannedActionRows
+import com.lakesidegames.electioneer.engine.plannedBonuses
+import com.lakesidegames.electioneer.engine.PlanBonus
+import com.lakesidegames.electioneer.engine.PLAN_BONUSES
+import com.lakesidegames.electioneer.engine.projectPlannedElection
 
 private val ACTIONS = listOf(
     ActionType.ADVERTISE to "Advertising", ActionType.RALLY to "Rally",
@@ -73,6 +77,11 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
             Text("WEEK PLAN", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             Text("Choose an action, set the target, then add it to a day.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Planned ads $${"%.1f".format(plannedSpend / 1_000_000)}M · Available $${"%.1f".format(availableCash / 1_000_000)}M", style = MaterialTheme.typography.bodySmall)
+            PlanBonusHints(plannedBonuses(game))
+            if (game.queuedActions.isNotEmpty()) {
+                Text("Plan estimate: ${projectPlannedElection(game).ev.getValue(game.playerCandidate.serial)} EV. Rival moves and events can change the result.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            }
             ACTIONS.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     pair.forEach { (action, label) ->
@@ -157,5 +166,18 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun PlanBonusHints(active: List<PlanBonus>) {
+    var expanded by remember { mutableStateOf(false) }
+    active.forEach { bonus ->
+        Text("${bonus.name} +${bonus.percent}%", color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.bodySmall)
+    }
+    TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide plan bonuses" else "How to combine moves") }
+    if (expanded) PLAN_BONUSES.forEach { bonus ->
+        Text("${bonus.recipe} · +${bonus.percent}%\n${bonus.blurb}", style = MaterialTheme.typography.bodySmall)
     }
 }

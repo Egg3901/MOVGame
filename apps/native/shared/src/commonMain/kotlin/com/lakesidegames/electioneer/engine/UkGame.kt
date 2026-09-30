@@ -70,7 +70,7 @@ data class UkAction(
     val issueId: String? = null,
     // £M for broadcast.
     val spend: Double? = null,
-    // 1..7 planner slot (engine applies in queue order).
+    // 1..7 planner slot, applied in stable day order.
     val day: Int? = null,
 )
 
@@ -303,13 +303,15 @@ private fun topRivalIn(region: StateContest, party: PartyId): PartyId? {
         .firstOrNull()
 }
 
-private fun applyUkAction(g: UkGameState, a: UkAction, rng: Rng) {
+private fun applyUkAction(g: UkGameState, a: UkAction, rng: Rng,
+                               planMultiplier: Double = 1.0, planBonuses: List<PlanBonus> = emptyList()) {
     val res = g.resources.getValue(a.party)
     if (res.actions < 1) return
     val leader = g.leaders.getValue(a.party)
     val skill = 0.85 + leader.charisma / 400
     val compSkill = 0.85 + leader.competence / 400
     val region = findRegion(g, a.regionId)
+    val causeCount = g.causes.size
     fun spend(need: Double): Boolean {
         if (res.funds < need) return false
         res.funds -= need
@@ -333,7 +335,7 @@ private fun applyUkAction(g: UkGameState, a: UkAction, rng: Rng) {
             if (region == null) return
             if (!spend(1.0)) return
             res.actions -= 1
-            addAppeal(g, region, a.party, "${leader.name} GOTV drive in ${region.abbr}", 0.06 * (0.85 + leader.energy / 300))
+            addAppeal(g, region, a.party, "${leader.name} GOTV drive in ${region.abbr}", 0.06 * (0.85 + leader.energy / 300) * planMultiplier)
         }
         UkActionType.RALLY -> {
             if (region == null) return
@@ -354,10 +356,10 @@ private fun applyUkAction(g: UkGameState, a: UkAction, rng: Rng) {
             res.actions -= 1
             val mode = a.mode ?: UkAdMode.POSITIVE
             val targets = if (region != null) listOf(region) else standsIn(g, a.party)
-            val power = 0.02 * sqrt(cost / 1.5) * (0.85 + leader.machine / 300)
+            val power = 0.02 * sqrt(cost / 1.5) * (0.85 + leader.machine / 300) * planMultiplier
             val per = if (region != null) power else power * 0.8
             if (mode == UkAdMode.ISSUE && a.issueId != null) {
-                g.salience[a.issueId] = clamp((g.salience[a.issueId] ?: 0.4) + 0.05, 0.0, 1.0)
+                g.salience[a.issueId] = clamp((g.salience[a.issueId] ?: 0.4) + 0.05 * planMultiplier, 0.0, 1.0)
                 for (t in targets) addAppeal(g, t, a.party, "${leader.name} issue broadcast", per * 0.7)
             } else if (mode == UkAdMode.CONTRAST) {
                 val scope = if (region != null) listOf(region) else targets
@@ -391,8 +393,8 @@ private fun applyUkAction(g: UkGameState, a: UkAction, rng: Rng) {
         }
         UkActionType.ISSUE_PIVOT -> {
             res.actions -= 1
-            if (a.issueId != null) g.salience[a.issueId] = clamp((g.salience[a.issueId] ?: 0.4) + 0.08, 0.0, 1.0)
-            for (t in standsIn(g, a.party)) addAppeal(g, t, a.party, "${leader.name} pivots the campaign", 0.008 * skill)
+            if (a.issueId != null) g.salience[a.issueId] = clamp((g.salience[a.issueId] ?: 0.4) + 0.08 * planMultiplier, 0.0, 1.0)
+            for (t in standsIn(g, a.party)) addAppeal(g, t, a.party, "${leader.name} pivots the campaign", 0.008 * skill * planMultiplier)
         }
         UkActionType.FUNDRAISE -> {
             res.actions -= 1
@@ -400,6 +402,9 @@ private fun applyUkAction(g: UkGameState, a: UkAction, rng: Rng) {
             res.funds += haul
             g.causes.add(CauseEntry(turn = g.turn, cause = "${leader.name} fundraising (+£${toFixed1(haul)}M)", marginDelta = 0.0))
         }
+    }
+    if (g.causes.size > causeCount) {
+        for (bonus in planBonuses) g.causes.add(bonus.cause(g.turn, a.regionId))
     }
 }
 
@@ -624,7 +629,9 @@ fun ukAdvanceTurn(g: UkGameState, opts: UkAdvanceOptions = UkAdvanceOptions()): 
     val turn = next.turn
 
     // 1. Player's queued actions.
-    for (a in next.queuedActions) applyUkAction(next, a, rng)
+    resolvePlan(next.queuedActions, { it.planMove() }, { next.causes.size }) { action, mult, bonuses ->
+        applyUkAction(next, action, rng, mult, bonuses)
+    }
     next.queuedActions = emptyList()
 
     // 2. AI for every other active major party.
@@ -690,7 +697,9 @@ fun projectUkPreview(g: UkGameState): UkResult {
     if (g.queuedActions.isEmpty()) return computeUkResult(g)
     val clone = g.deepCopyUk()
     val rng = Rng.createRng(clone.rngState)
-    for (a in clone.queuedActions) applyUkAction(clone, a, rng)
+    resolvePlan(clone.queuedActions, { it.planMove() }, { clone.causes.size }) { action, mult, bonuses ->
+        applyUkAction(clone, action, rng, mult, bonuses)
+    }
     for (region in clone.regions) {
         for (bloc in region.blocs) bloc.support = blocPartyShares(bloc)
     }

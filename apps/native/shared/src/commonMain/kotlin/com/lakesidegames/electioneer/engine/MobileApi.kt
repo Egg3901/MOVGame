@@ -48,6 +48,8 @@ class MobileGame private constructor(
 
         fun difficulties(): List<String> = listOf("easy", "normal", "hard")
 
+        fun planBonusRecipes(): List<PlanBonus> = PLAN_BONUSES
+
         fun campaigns(): List<CampaignChoice> = SCENARIO_IDS.map { id ->
             val s = SCENARIOS.getValue(id)
             CampaignChoice(s.id, s.year, s.label, s.tagline, s.dem.shortName, s.rep.shortName)
@@ -138,6 +140,10 @@ class MobileGame private constructor(
 
     fun queuedCount(): Int = game.queuedActions.size
 
+    fun planBonuses(): List<PlanBonus> = plannedBonuses(game)
+
+    fun previewPlayerEv(): Int = projectPlannedElection(game).ev.getValue(game.playerCandidate.serial)
+
     fun plannedActions(): List<PlannedActionRow> = plannedActionRows(game)
 
     fun playerIssuePosition(issueSerial: String): Double =
@@ -182,14 +188,12 @@ class MobileGame private constructor(
     fun previewMarginPoints(typeSerial: String, stateId: String, day: Int,
                             adModeSerial: String?, spendMillions: Double?, issueSerial: String?,
                             newPosition: Double?): Double {
-        val copy = loadGame(saveGame(game, seedStr))?.state ?: return Double.NaN
+        val copy = game.deepCopy()
         val type = ActionType.entries.firstOrNull { it.serial == typeSerial } ?: return Double.NaN
         val mode = AdMode.entries.firstOrNull { it.serial == adModeSerial }
         val issue = IssueId.entries.firstOrNull { it.serial == issueSerial }
         if (!queuePlannedAction(copy, type, stateId, day, mode, spendMillions, issue, newPosition)) return Double.NaN
-        val action = copy.queuedActions.last()
-        applyAction(copy, action, Rng.createRng("$seedStr:preview:${copy.turn}:$stateId:$day:$typeSerial"))
-        val contest = projectElection(copy).contests.firstOrNull { it.stateId == stateId } ?: return Double.NaN
+        val contest = projectPlannedElection(copy).contests.firstOrNull { it.stateId == stateId } ?: return Double.NaN
         return (contest.demShare - 0.5) * 200
     }
 

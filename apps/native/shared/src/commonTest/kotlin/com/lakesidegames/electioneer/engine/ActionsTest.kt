@@ -178,10 +178,10 @@ class ActionsTest {
         applyAction(g, act(ActionType.SURROGATE, dem, "PA"), rng)
         applyAction(g, act(ActionType.GROUND_GAME, dem, "PA"), rng)
         applyAction(g, act(ActionType.OPPO_RESEARCH, dem, "PA"), rng)
-        // Slots consumed, nothing else happened.
+        // Unaffordable moves preserve slots, matching the current web engine.
         assertEquals(100.0, g.resources.getValue("dem").cash)
         assertTrue(g.causes.isEmpty())
-        assertEquals(4, g.resources.getValue("dem").actions)
+        assertEquals(7, g.resources.getValue("dem").actions)
 
         g.resources.getValue("dem").cash = 10_000_000.0
         g.resources.getValue("dem").actions = 7
@@ -198,7 +198,7 @@ class ActionsTest {
             act(ActionType.ISSUE_PIVOT, dem, issueId = IssueId.ECONOMY, newPosition = 0.505),
             rng,
         )
-        // Unknown state: slot consumed, no effect.
+        // Unknown state: no effect and no slot consumed.
         applyAction(g, act(ActionType.RALLY, dem, "ZZ"), rng)
 
         val st = g.states[0]
@@ -209,7 +209,7 @@ class ActionsTest {
         )
         val demRes = g.resources.getValue("dem")
         assertEquals(8000000.0, demRes.cash)
-        assertEquals(2, demRes.actions)
+        assertEquals(4, demRes.actions)
         assertEquals(6.0, demRes.mediaNarrative)
         assertEquals(68.0, g.candidates.getValue("dem").traits.debatePrep)
         assertEquals(0.5, g.candidates.getValue("dem").issuePositions.getValue("economy"))
