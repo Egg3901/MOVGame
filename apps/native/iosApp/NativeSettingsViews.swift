@@ -124,6 +124,11 @@ final class NativeKeyboardController: UIHostingController<ContentView> {
     private let session: GameSession
     init(session: GameSession) { self.session = session; super.init(rootView: ContentView(session: session)) }
     @MainActor required dynamic init?(coder: NSCoder) { fatalError("Use init(session:)") }
+    override var canBecomeFirstResponder: Bool { true }
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if !typing(view) { becomeFirstResponder() }
+    }
     private func typing(_ view: UIView) -> Bool {
         if view.isFirstResponder && (view is UITextField || view is UITextView || view is UISearchBar) { return true }
         return view.subviews.contains { typing($0) }
