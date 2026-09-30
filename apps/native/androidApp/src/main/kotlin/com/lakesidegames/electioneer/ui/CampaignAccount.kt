@@ -172,11 +172,11 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
         _notice.value = "Campaign saved to the cloud."
         readCloudList()
     }
-    fun downloadSave(id: String, onLoaded: (String, String, String, String, Long) -> Unit) = operation {
+    fun downloadSave(id: String, onLoaded: (String, String, String, String, Long, String?) -> Unit) = operation {
         require(com.lakesidegames.electioneer.engine.NativeSaveLibrary.validId(id))
         val owner = _user.value?.id ?: error("Sign in to sync saves.")
         val response = call("/api/saves/$id")
-        onLoaded(id, response.getString("name"), response.getJSONObject("state").toString(), owner, response.getLong("updatedAt"))
+        onLoaded(id, response.getString("name"), response.getJSONObject("state").toString(), owner, response.getLong("updatedAt"), response.optJSONObject("replay")?.toString())
         _notice.value = "Downloaded. Any different local copy was kept as a backup."
     }
     fun deleteCloudSave(id: String) = operation {

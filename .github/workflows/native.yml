@@ -39,6 +39,8 @@ jobs:
         run: npx tsx apps/native/scripts/export-save-vector.ts --check
       - name: Check interactive debate answers match web
         run: npx tsx apps/native/scripts/export-debate-vectors.ts --check
+      - name: Check native replay logs and reports match web
+        run: npx tsx apps/native/scripts/export-replay-vectors.ts --check
       - name: Verify desktop uses this checkout
         run: node apps/native/scripts/fetch-web.mjs steam
   android:

@@ -69,7 +69,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         NavigationBarItem(
                             selected = screen == Screen.HOME || screen == Screen.SETUP || screen == Screen.LOADING ||
                                 screen == Screen.GAME ||
-                                screen == Screen.RESULTS || screen == Screen.LIBRARY || screen == Screen.WORLD_GAME || screen == Screen.ANALYSIS,
+                                screen == Screen.RESULTS || screen == Screen.LIBRARY || screen == Screen.WORLD_GAME || screen == Screen.ANALYSIS || screen == Screen.REPLAY,
                             onClick = { session.playTab() },
                             icon = {
                                 Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
@@ -110,6 +110,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         Screen.ACCOUNT -> AccountScreen(session)
                         Screen.SAVES -> CampaignSavesScreen(session)
                         Screen.ANALYSIS -> AnalysisScreen(session)
+                        Screen.REPLAY -> AnalysisScreen(session, timeline = true)
                         Screen.LIBRARY -> CampaignLibraryScreen(session)
                         Screen.WORLD_GAME -> WorldCampaignScreen(session)
                     }

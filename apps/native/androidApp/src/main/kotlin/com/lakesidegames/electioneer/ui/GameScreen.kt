@@ -59,6 +59,7 @@ fun GameScreen(session: GameSession) {
       Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
         Text("CAMPAIGN DESK", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
         Text(session.campaigns().firstOrNull { it.id == g.scenarioId }?.label ?: "The election", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        if (session.canViewReplay()) TextButton(onClick = { session.go(Screen.REPLAY) }) { Text("Campaign replay and report") }
         TextButton(onClick = { session.go(Screen.ANALYSIS) }) { Text("Campaign analysis") }
         TextButton(onClick = session::undo, enabled = session.canUndo()) { Text("Undo") }
         Spacer(Modifier.height(10.dp))

@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { createRng } from "../rng";
 import { createUkGame, ukAdvanceTurn, resolveUkPlayerEvent } from "../ukGame";
-import { planMultipartyAi, mpFocusedActions, MP_DIFFICULTY } from "../multipartyAi";
+import { planMultipartyAi, mpFocusedActions, mpTargets, MP_DIFFICULTY } from "../multipartyAi";
 import { nationalMpPoll } from "../multipartyPolls";
+import { COUNTRIES } from "@content/countries";
+import { createCountryGame } from "../countryGame";
 import { UK_EVENTS } from "@content/uk/events";
 
 describe("multiparty AI + polls + player events", () => {
@@ -16,6 +18,12 @@ describe("multiparty AI + polls + player events", () => {
     );
     expect(actions.length).toBe(res.actions);
     expect(actions.some((a) => a.type === "rally" || a.type === "canvass" || a.type === "ground_game")).toBe(true);
+  });
+
+  it("preserves content order for Germany's mathematically tied targets", () => {
+    const game = createCountryGame(COUNTRIES.DE, { election: "2025", seed: "replay-DE", playerParty: "lnk" });
+    const targets = mpTargets({ regions: game.regions, turn: 0, totalTurns: 6, funds: 10, actions: 7 }, "cdu", 7);
+    expect(targets.slice(0, 3).map((target) => target.region.id)).toEqual(["NORTH", "NE", "NRW"]);
   });
 
   it("easy AI sometimes scattershots (deterministic with seed)", () => {

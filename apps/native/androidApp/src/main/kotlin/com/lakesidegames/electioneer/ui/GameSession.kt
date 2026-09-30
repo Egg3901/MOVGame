@@ -22,6 +22,8 @@ import com.lakesidegames.electioneer.engine.choiceAvailable
 import com.lakesidegames.electioneer.engine.createGame
 import com.lakesidegames.electioneer.engine.projectElection
 import com.lakesidegames.electioneer.engine.answerPlayerEvent
+import com.lakesidegames.electioneer.engine.NativeReplay
+import com.lakesidegames.electioneer.engine.NativeReplayTracker
 import com.lakesidegames.electioneer.engine.NativeAnalysis
 import com.lakesidegames.electioneer.engine.NativeUndoHistory
 import com.lakesidegames.electioneer.engine.loadGame
@@ -55,20 +57,33 @@ import java.time.ZoneOffset
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffset.UTC).plusDays(offsetDays).toString()
 
 class GameSession : ViewModel() {
+    private val replay = NativeReplayTracker()
+    fun canViewReplay(): Boolean = replay.canView(_campaign.value?.isOver() ?: (_game.value?.phase == GamePhase.RESULT))
+    fun replayDocument(turn: String?) = if (canViewReplay()) replay.document(turn) else null
+    private fun beginReplay() { currentSnapshot()?.let { replay.start(it, if (isDaily()) "daily" else "casual") } }
+    fun endWorldWeek(): Boolean {
+        val campaign = _campaign.value ?: return false
+        val previous = campaign.saveSnapshot()
+        if (!campaign.endWeek()) return false
+        replay.record(previous, campaign.saveSnapshot())
+        campaignChanged()
+        return true
+    }
     private val undoHistory = NativeUndoHistory()
     fun canUndo(): Boolean = _campaign.value?.canUndo() ?: (_game.value?.queuedActions?.isNotEmpty() == true || undoHistory.available())
     fun undo() {
-        _campaign.value?.let { if (it.undo()) campaignChanged(); return }
+        _campaign.value?.let { if (it.undo()) { replay.rewind(it.saveSnapshot()); campaignChanged() }; return }
         val game = _game.value ?: return
         if (game.queuedActions.isNotEmpty()) { removeAction(game.queuedActions.lastIndex); return }
         val previous = undoHistory.take()?.let(::loadGame) ?: return
         _game.value = previous.state
+        replay.rewind(saveGame(previous.state, previous.seed, previous.difficulty))
         _selected.value = null
         _recap.value = null
         _eventResult.value = null
@@ -124,11 +139,11 @@ class GameSession : ViewModel() {
     fun analysis(regionId: String?) = _campaign.value?.analysis(regionId) ?: _game.value?.let { NativeAnalysis.us(it, regionId) }
     fun currentSnapshot(): String? = _campaign.value?.saveSnapshot()
         ?: _game.value?.let { saveGame(it, turnSeed, campaignDifficulty) }
-    fun exportCampaign(): String? = currentSnapshot()?.let(NativeSaveTransfer::export)
+    fun exportCampaign(): String? = currentSnapshot()?.let { NativeReplay.fileExport(it, replay.json()) }
     fun saveNamed(name: String, id: String = UUID.randomUUID().toString()): Boolean {
         val snapshot = currentSnapshot() ?: return false
         val saved = saveLibrary.save(id, name, snapshot, System.currentTimeMillis())
-        if (saved) { persistLibrary(); _saveNotice.value = "Saved on this device." }
+        if (saved) { saveLibrary.setReplay(id, replay.json()); persistLibrary(); _saveNotice.value = "Saved on this device." }
         return saved
     }
     fun renameSave(id: String, name: String) {
@@ -136,15 +151,21 @@ class GameSession : ViewModel() {
         if (saveLibrary.save(id, name, entry.snapshot, System.currentTimeMillis())) persistLibrary()
     }
     fun deleteLocalSave(id: String) { saveLibrary.remove(id); persistLibrary() }
-    fun loadNamed(id: String) = importCampaign(saveLibrary.get(id)?.snapshot ?: "")
-    fun importCampaign(json: String): Boolean {
+    fun loadNamed(id: String): Boolean {
+        val entry = saveLibrary.get(id) ?: return false
+        return importCampaign(entry.snapshot, entry.replay)
+    }
+    fun importCampaign(json: String, replayJson: String? = NativeReplay.fileReplay(json)): Boolean {
         val document = NativeSaveTransfer.inspect(json)
         if (document == null) { _saveNotice.value = "This file is not a supported campaign save."; return false }
         undoHistory.clear()
         currentSnapshot()?.takeIf { it != document.snapshot }?.let {
-            saveLibrary.save(UUID.randomUUID().toString(), "Before loading another campaign", it, System.currentTimeMillis())
+            val backupId = UUID.randomUUID().toString()
+            saveLibrary.save(backupId, "Before loading another campaign", it, System.currentTimeMillis())
+            saveLibrary.setReplay(backupId, replay.json())
             persistLibrary()
         }
+        replay.restore(replayJson, document.snapshot)
         _eventResult.value = null; _recap.value = null; _pendingDialog.value = null; _selected.value = null
         if (document.engine == "world") {
             _campaign.value = MobileCampaign.restore(document.snapshot)
@@ -167,11 +188,12 @@ class GameSession : ViewModel() {
         val entry = saveLibrary.get(id) ?: return
         val copyId = UUID.randomUUID().toString()
         if (saveLibrary.save(copyId, "${entry.name} (copy)", entry.snapshot, System.currentTimeMillis())) {
-            persistLibrary(); uploadSave(copyId)
+            saveLibrary.setReplay(copyId, entry.replay); persistLibrary(); uploadSave(copyId)
         }
     }
-    fun downloadSave(id: String) = account.downloadSave(id) { key, name, json, owner, version ->
+    fun downloadSave(id: String) = account.downloadSave(id) { key, name, json, owner, version, replayJson ->
         check(saveLibrary.receiveCloud(key, name, json, owner, version, UUID.randomUUID().toString())) { "This cloud save is not supported by this native client." }
+        saveLibrary.setReplay(key, replayJson)
         persistLibrary()
     }
 
@@ -186,6 +208,7 @@ class GameSession : ViewModel() {
             val campaign = prefs.getString("world_campaign_v1", null)?.let(MobileCampaign::restore)
             if (campaign != null) {
                 _campaign.value = campaign
+                replay.restore(prefs.getString("world_replay_v1", null), campaign.saveSnapshot())
                 return
             }
         }
@@ -193,6 +216,7 @@ class GameSession : ViewModel() {
         turnSeed = saved.seed
         campaignDifficulty = saved.difficulty
         _game.value = saved.state
+        replay.restore(prefs.getString("us_replay_v1", null), saveGame(saved.state, saved.seed, saved.difficulty))
         _screen.value = Screen.HOME
         refresh()
         promptNextEvent(saved.state)
@@ -200,7 +224,7 @@ class GameSession : ViewModel() {
 
     private fun persist() {
         val game = _game.value ?: return
-        savePrefs?.edit()?.putString(saveKey, saveGame(game, turnSeed, campaignDifficulty))?.putString("active_campaign", "us")?.apply()
+        savePrefs?.edit()?.putString(saveKey, saveGame(game, turnSeed, campaignDifficulty))?.putString("active_campaign", "us")?.putString("us_replay_v1", replay.json())?.apply()
         val earned = NativeResults.achievements(game, campaignDifficulty).map { it.id }
         if (earned.isNotEmpty()) {
             val previous = savePrefs?.getStringSet("achievement_ids", emptySet()).orEmpty()
@@ -223,6 +247,7 @@ class GameSession : ViewModel() {
             }
             _campaign.value = started
             _game.value = null
+            beginReplay()
             campaignChanged()
             _screen.value = Screen.WORLD_GAME
         }
@@ -232,7 +257,7 @@ class GameSession : ViewModel() {
         _campaignVersion.value += 1
         val campaign = _campaign.value ?: return
         savePrefs?.edit()?.putString("world_campaign_v1", campaign.saveSnapshot())
-            ?.putString("active_campaign", "world")?.apply()
+            ?.putString("active_campaign", "world")?.putString("world_replay_v1", replay.json())?.apply()
         recordDaily()
     }
 
@@ -355,6 +380,7 @@ class GameSession : ViewModel() {
             ),
         ) }
         _game.value = beginGame(g)
+        beginReplay()
         _selected.value = null
         _pendingDialog.value = null
         _eventResult.value = null
@@ -421,9 +447,11 @@ class GameSession : ViewModel() {
     fun endTurn() {
         val g = _game.value ?: return
         if (g.phase == GamePhase.RESULT) return
-        undoHistory.record(saveGame(g, turnSeed, campaignDifficulty))
+        val previous = saveGame(g, turnSeed, campaignDifficulty)
+        undoHistory.record(previous)
         val next = advanceCampaignWeek(g, campaignDifficulty)
         _game.value = next
+        replay.record(previous, saveGame(next, turnSeed, campaignDifficulty))
         refresh()
         persist()
         if (next.phase == GamePhase.RESULT) {

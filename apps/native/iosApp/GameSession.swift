@@ -19,6 +19,21 @@ enum PlayScreen: Equatable {
 
 @MainActor
 final class GameSession: ObservableObject {
+    private let replay = NativeReplayTracker()
+    func canViewReplay() -> Bool { replay.canView(finished: campaign?.isOver() ?? game?.isOver() ?? false) }
+    func replayDocument(turn: String?) -> NativeAnalysisDocument? { canViewReplay() ? replay.document(selectedTurn: turn) : nil }
+    private func beginReplay() {
+        guard let snapshot = currentSnapshot() else { return }
+        replay.start(snapshot: snapshot, mode: isDaily() ? "daily" : "casual")
+    }
+    @discardableResult func endWorldWeek() -> Bool {
+        guard let campaign else { return false }
+        let previous = campaign.saveSnapshot()
+        guard campaign.endWeek() else { return false }
+        replay.record(previous: previous, next: campaign.saveSnapshot())
+        touch()
+        return true
+    }
     private static let saveKey = "mov_campaign_v1"
     @Published var playScreen: PlayScreen = .home
     @Published var setupScenarioId: String? = nil
@@ -72,7 +87,7 @@ final class GameSession: ObservableObject {
     func currentSnapshot() -> String? { campaign?.saveSnapshot() ?? game?.saveSnapshot() }
     func exportCampaign() -> String? {
         guard let snapshot = currentSnapshot() else { return nil }
-        return NativeSaveTransfer.companion.export(snapshot: snapshot)
+        return NativeReplay.shared.fileExport(snapshot: snapshot, replay: replay.json())
     }
     private func persistLibrary() {
         UserDefaults.standard.set(saveLibrary.json(), forKey: "mov_named_saves_v1")
@@ -81,7 +96,7 @@ final class GameSession: ObservableObject {
     @discardableResult func saveNamed(name: String, id: String = UUID().uuidString) -> Bool {
         guard let snapshot = currentSnapshot() else { return false }
         let saved = saveLibrary.save(id: id, name: name, snapshot: snapshot, updatedAt: Int64(Date().timeIntervalSince1970 * 1000))
-        if saved { persistLibrary(); saveNotice = "Saved on this device." }
+        if saved { saveLibrary.setReplay(id: id, json: replay.json()); persistLibrary(); saveNotice = "Saved on this device." }
         return saved
     }
     func renameSave(id: String, name: String) {
@@ -91,17 +106,20 @@ final class GameSession: ObservableObject {
     func deleteLocalSave(id: String) { saveLibrary.remove(id: id); persistLibrary() }
     @discardableResult func loadNamed(id: String) -> Bool {
         guard let entry = saveLibrary.get(id: id) else { return false }
-        return importCampaign(json: entry.snapshot)
+        return importCampaign(json: entry.snapshot, replayJSON: entry.replay)
     }
-    @discardableResult func importCampaign(json: String) -> Bool {
+    @discardableResult func importCampaign(json: String, replayJSON: String? = nil) -> Bool {
         guard let document = NativeSaveTransfer.companion.inspect(json: json) else {
             saveNotice = "This file is not a supported campaign save."; return false
         }
         if let previous = currentSnapshot(), previous != document.snapshot {
-            _ = saveLibrary.save(id: UUID().uuidString, name: "Before loading another campaign", snapshot: previous,
+            let backupID = UUID().uuidString
+            _ = saveLibrary.save(id: backupID, name: "Before loading another campaign", snapshot: previous,
                 updatedAt: Int64(Date().timeIntervalSince1970 * 1000))
+            saveLibrary.setReplay(id: backupID, json: replay.json())
             persistLibrary()
         }
+        replay.restore(json: replayJSON ?? NativeReplay.shared.fileReplay(json: json), snapshot: document.snapshot)
         eventId = nil; eventResult = nil; showRecap = false; recapLines = []
         if document.engine == "world" {
             campaign = MobileCampaign.companion.restore(snapshot: document.snapshot)
@@ -126,7 +144,7 @@ final class GameSession: ObservableObject {
         let copyId = UUID().uuidString
         if saveLibrary.save(id: copyId, name: "\(entry.name) (copy)", snapshot: entry.snapshot,
             updatedAt: Int64(Date().timeIntervalSince1970 * 1000)) {
-            persistLibrary(); await uploadSave(id: copyId)
+            saveLibrary.setReplay(id: copyId, json: entry.replay); persistLibrary(); await uploadSave(id: copyId)
         }
     }
     func downloadSave(id: String) async {
@@ -135,6 +153,7 @@ final class GameSession: ObservableObject {
             version: remote.updatedAt, backupId: UUID().uuidString) else {
             saveNotice = "This cloud save is not supported by this native client."; return
         }
+        saveLibrary.setReplay(id: remote.id, json: remote.replay)
         persistLibrary(); saveNotice = "Downloaded. Any different local copy was kept as a backup."
     }
 
@@ -146,11 +165,13 @@ final class GameSession: ObservableObject {
            let snapshot = UserDefaults.standard.string(forKey: "mov_world_campaign_v1"),
            let restored = MobileCampaign.companion.restore(snapshot: snapshot) {
             campaign = restored
+            replay.restore(json: UserDefaults.standard.string(forKey: "mov_world_replay_v1"), snapshot: snapshot)
             return
         }
         if let snapshot = UserDefaults.standard.string(forKey: Self.saveKey),
            let restored = MobileGame.companion.restore(snapshot: snapshot) {
             game = restored
+            replay.restore(json: UserDefaults.standard.string(forKey: "mov_us_replay_v1"), snapshot: snapshot)
             playScreen = .home
             eventId = restored.pendingEventIds().first
         }
@@ -175,7 +196,7 @@ final class GameSession: ObservableObject {
         } else if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
             playScreen = .setup
         } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") ||
-                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") || arguments.contains("--mov-capture-saves") || arguments.contains("--mov-capture-analysis") {
+                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") || arguments.contains("--mov-capture-saves") || arguments.contains("--mov-capture-analysis") || arguments.contains("--mov-capture-replay") {
             let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
                 ?? mates(scenarioId: "2024", playerSerial: "dem").first
             guard let mate else { return }
@@ -212,6 +233,7 @@ final class GameSession: ObservableObject {
                 self.showRecap = false
                 self.recapLines = []
                 self.playScreen = .worldGame
+                self.beginReplay()
                 self.touch()
             }
         }
@@ -249,12 +271,14 @@ final class GameSession: ObservableObject {
         if let campaign {
             UserDefaults.standard.set(campaign.saveSnapshot(), forKey: "mov_world_campaign_v1")
             UserDefaults.standard.set("world", forKey: "mov_active_campaign")
+            UserDefaults.standard.set(replay.json(), forKey: "mov_world_replay_v1")
             recordDaily()
             return
         }
         if let game = game {
             UserDefaults.standard.set(game.saveSnapshot(), forKey: Self.saveKey)
             UserDefaults.standard.set("us", forKey: "mov_active_campaign")
+            UserDefaults.standard.set(replay.json(), forKey: "mov_us_replay_v1")
             let previous = UserDefaults.standard.stringArray(forKey: "mov_achievement_ids") ?? []
             let earned = game.resultAchievements().map { $0.id }
             if !earned.isEmpty {
@@ -292,6 +316,16 @@ final class GameSession: ObservableObject {
                 self.eventId = nil
                 self.eventResult = nil
                 self.playScreen = started.isOver() ? .results : .game
+                self.beginReplay()
+                #if targetEnvironment(simulator)
+                if ProcessInfo.processInfo.arguments.contains("--mov-capture-replay") {
+                    for _ in 0..<3 {
+                        let previous = started.saveSnapshot()
+                        _ = started.endTurn()
+                        self.replay.record(previous: previous, next: started.saveSnapshot())
+                    }
+                }
+                #endif
                 self.touch()
                 #if targetEnvironment(simulator)
                 if ProcessInfo.processInfo.arguments.contains("--mov-capture-saves") { self.saveNamed(name: "Campaign checkpoint") }
@@ -350,7 +384,9 @@ final class GameSession: ObservableObject {
 
     func endTurn() {
         guard let g = game else { return }
+        let previous = g.saveSnapshot()
         let recap = g.endTurn()
+        if g.saveSnapshot() != previous { replay.record(previous: previous, next: g.saveSnapshot()) }
         var lines: [String] = []
         for item in recap {
             lines.append(item.detail.isEmpty ? item.label : "\(item.label): \(item.detail)")
@@ -371,6 +407,7 @@ final class GameSession: ObservableObject {
     func undo() {
         let changed = campaign?.undo() ?? game?.undo() ?? false
         guard changed else { return }
+        if let snapshot = currentSnapshot() { replay.rewind(snapshot: snapshot) }
         recapLines = []; showRecap = false; eventResult = nil; eventId = game?.pendingEventIds().first
         touch()
     }

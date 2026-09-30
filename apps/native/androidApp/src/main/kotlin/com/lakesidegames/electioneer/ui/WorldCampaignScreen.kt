@@ -213,6 +213,7 @@ fun WorldCampaignScreen(session: GameSession) {
             Text(regions.first { it.id == regionId }.name, style = MaterialTheme.typography.titleMedium)
             StandingRows(game.regionStandings(regionId), unit)
         } } }
+        if (session.canViewReplay()) item { TextButton(onClick = { session.go(Screen.REPLAY) }) { Text("Campaign replay and report") } }
         item { TextButton(onClick = { session.go(Screen.ANALYSIS) }) { Text("Campaign analysis") } }
         if (!game.isOver()) item { TextButton(onClick = session::undo, enabled = session.canUndo()) { Text("Undo week") } }
         if (!game.isOver()) {
@@ -252,7 +253,7 @@ fun WorldCampaignScreen(session: GameSession) {
                     TextButton(onClick = { game.removeAction(action.index); session.campaignChanged() }) { Text("Remove") }
                 }
             }
-            item { Button(onClick = { if (game.endWeek()) { session.campaignChanged(); showRecap = game.recap().isNotEmpty() } },
+            item { Button(onClick = { if (session.endWorldWeek()) { showRecap = game.recap().isNotEmpty() } },
                 enabled = !game.hasPendingEvent(), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("End week") } }
         } else {
             item { ScorePosting(session) }

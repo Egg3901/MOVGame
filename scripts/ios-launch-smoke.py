@@ -115,6 +115,7 @@ try:
             ('library', '--mov-capture-library', 8),
             ('daily', '--mov-capture-daily', 8),
             ('analysis', '--mov-capture-analysis', 30),
+            ('replay', '--mov-capture-replay', 30),
             ('saves', '--mov-capture-saves', 30),
             ('account', '--mov-capture-account', 8),
             ('world-uk', '--mov-capture-world-uk', 20),

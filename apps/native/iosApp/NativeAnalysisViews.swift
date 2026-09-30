@@ -3,18 +3,19 @@ import shared
 
 struct CampaignAnalysisView: View {
     @ObservedObject var session: GameSession
+    var timeline = false
     @State private var selectedRegion: String?
     @State private var expanded: Set<String> = ["polls"]
 
     var body: some View {
         ScrollView {
-            if let document = session.analysis(regionId: selectedRegion) {
+            if let document = timeline ? session.replayDocument(turn: selectedRegion) : session.analysis(regionId: selectedRegion) {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("CAMPAIGN ANALYSIS").font(.title2.bold()).foregroundStyle(CampaignStyle.gold)
+                    Text(timeline ? "CAMPAIGN REPLAY AND REPORT" : "CAMPAIGN ANALYSIS").font(.title2.bold()).foregroundStyle(CampaignStyle.gold)
                     ForEach(document.charts, id: \.id) { chart in
                         NativeTrendCard(chart: chart)
                     }
-                    Picker("State or region", selection: Binding(get: { selectedRegion ?? document.selectedRegion }, set: { selectedRegion = $0 })) {
+                    Picker(timeline ? "Campaign week" : "State or region", selection: Binding(get: { selectedRegion ?? document.selectedRegion }, set: { selectedRegion = $0 })) {
                         ForEach(document.regions, id: \.id) { region in Text(region.name).tag(region.id) }
                     }.pickerStyle(.menu)
                     ForEach(document.sections, id: \.id) { section in
@@ -35,6 +36,7 @@ struct CampaignAnalysisView: View {
                 }.padding(20)
             }
         }.background(CampaignStyle.background).preferredColorScheme(.dark)
+        .onAppear { if timeline { expanded = ["standings", "week-actions", "report"] } }
     }
 }
 

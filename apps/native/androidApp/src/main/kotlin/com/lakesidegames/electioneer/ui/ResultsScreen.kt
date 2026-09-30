@@ -110,6 +110,7 @@ fun ResultsScreen(session: GameSession) {
             Text("Vote share swing ${"%+.1f".format(region.shareSwing)} points", style = MaterialTheme.typography.bodySmall)
         } }
         Spacer(Modifier.height(18.dp))
+        if (session.canViewReplay()) TextButton(onClick = { session.go(Screen.REPLAY) }) { Text("Campaign replay and report") }
         Text("STATE RESULTS", modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
 

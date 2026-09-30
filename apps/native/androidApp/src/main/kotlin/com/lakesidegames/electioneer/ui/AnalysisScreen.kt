@@ -17,14 +17,14 @@ import androidx.compose.ui.unit.dp
 import com.lakesidegames.electioneer.engine.NativeTrendChart
 
 @Composable
-fun AnalysisScreen(session: GameSession) {
+fun AnalysisScreen(session: GameSession, timeline: Boolean = false) {
     var region by remember { mutableStateOf<String?>(null) }
-    var expanded by remember { mutableStateOf(setOf("polls")) }
-    val document = session.analysis(region) ?: return
+    var expanded by remember { mutableStateOf(if (timeline) setOf("standings", "week-actions", "report") else setOf("polls")) }
+    val document = (if (timeline) session.replayDocument(region) else session.analysis(region)) ?: return
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("CAMPAIGN ANALYSIS", style = MaterialTheme.typography.headlineSmall)
+        Text(if (timeline) "CAMPAIGN REPLAY AND REPORT" else "CAMPAIGN ANALYSIS", style = MaterialTheme.typography.headlineSmall)
         document.charts.forEach { chart -> TrendChart(chart) }
-        ChoicePicker("State or region", document.selectedRegion, document.regions.map { it.id to it.name }) { region = it }
+        ChoicePicker(if (timeline) "Campaign week" else "State or region", document.selectedRegion, document.regions.map { it.id to it.name }) { region = it }
         document.sections.forEach { section ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -12,6 +12,7 @@ struct DownloadedCampaign {
     let id: String
     let name: String
     let state: String
+    let replay: String?
     let updatedAt: Int64
 }
 private struct CloudSaveList: Decodable { let saves: [CloudSaveMeta]; let versionPreconditions: Bool? }
@@ -48,7 +49,8 @@ extension CampaignAccount {
                   let state = object["state"] as? [String: Any], let name = object["name"] as? String,
                   let updated = object["updatedAt"] as? NSNumber else { throw CocoaError(.fileReadCorruptFile) }
             let encoded = try JSONSerialization.data(withJSONObject: state)
-            return DownloadedCampaign(id: id, name: name, state: String(decoding: encoded, as: UTF8.self), updatedAt: updated.int64Value)
+            let replay = try (object["replay"] as? [String: Any]).map { String(decoding: try JSONSerialization.data(withJSONObject: $0), as: UTF8.self) }
+            return DownloadedCampaign(id: id, name: name, state: String(decoding: encoded, as: UTF8.self), replay: replay, updatedAt: updated.int64Value)
         } catch { message = error.localizedDescription; return nil }
     }
     func deleteCloudSave(id: String) async {

@@ -270,7 +270,7 @@ struct NativeWorldCampaign: View {
                             }.nativeCampaignCard()
                         }
                         Button {
-                            if game.endWeek() { session.touch(); showRecap = !game.recap().isEmpty }
+                            if session.endWorldWeek() { showRecap = !game.recap().isEmpty }
                         } label: { Text("End week").font(.headline).frame(maxWidth: .infinity).padding(16) }
                             .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
                             .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))

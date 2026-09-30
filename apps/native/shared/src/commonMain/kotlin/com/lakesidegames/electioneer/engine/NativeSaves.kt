@@ -72,7 +72,7 @@ class NativeSaveTransfer private constructor() {
 
 @Serializable
 data class NativeNamedSave(val id: String, val name: String, val snapshot: String, val updatedAt: Long,
-    val cloudOwner: String? = null, val cloudVersion: Long? = null) {
+    val cloudOwner: String? = null, val cloudVersion: Long? = null, val replay: String? = null) {
     val document: NativeSaveDocument? get() = NativeSaveTransfer.inspect(snapshot)
 }
 
@@ -97,9 +97,14 @@ class NativeSaveLibrary private constructor(private var saves: List<NativeNamedS
         val document = NativeSaveTransfer.inspect(snapshot) ?: return false
         val previous = get(id)
         val entry = NativeNamedSave(id, name.trim().take(80), document.snapshot, updatedAt,
-            previous?.cloudOwner, previous?.cloudVersion)
+            previous?.cloudOwner, previous?.cloudVersion, previous?.replay)
         saves = saves.filter { it.id != id } + entry
         return true
+    }
+    fun setReplay(id: String, json: String?) {
+        val entry = get(id) ?: return
+        val replay = json?.let { NativeReplay.json(NativeReplay.restore(it, entry.snapshot)) }
+        saves = saves.map { if (it.id == id) it.copy(replay = replay) else it }
     }
     fun markSynced(id: String, owner: String, version: Long) {
         saves = saves.map { if (it.id == id) it.copy(cloudOwner = owner, cloudVersion = version) else it }
@@ -113,6 +118,7 @@ class NativeSaveLibrary private constructor(private var saves: List<NativeNamedS
         return buildJsonObject {
             put("name", entry.name); put("turn", document.turn); put("playerCandidate", document.player)
             put("state", state); put("updatedAt", maxOf(now, entry.updatedAt))
+            put("replay", entry.replay?.let(EngineJson::parseToJsonElement) ?: JsonNull)
             put("expectedUpdatedAt", if (entry.cloudOwner == owner) entry.cloudVersion?.let(::JsonPrimitive) ?: JsonNull else JsonNull)
         }.toString()
     }
@@ -122,6 +128,7 @@ class NativeSaveLibrary private constructor(private var saves: List<NativeNamedS
         val previous = get(id)
         if (previous != null && previous.snapshot != document.snapshot) {
             save(backupId, "${previous.name} (local backup)", previous.snapshot, previous.updatedAt)
+            setReplay(backupId, previous.replay)
         }
         if (!save(id, name, document.snapshot, version)) return false
         markSynced(id, owner, version)

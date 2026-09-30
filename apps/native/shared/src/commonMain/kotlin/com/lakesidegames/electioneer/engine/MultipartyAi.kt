@@ -1,6 +1,7 @@
 package com.lakesidegames.electioneer.engine
 
 import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.math.max
 import kotlinx.serialization.Serializable
 
@@ -55,6 +56,9 @@ data class MpTarget(
     val coalitionBoost: Double,
 )
 
+// Preserve content order for mathematical ties across JS and native math runtimes.
+private fun targetRank(value: Double): Double = floor(value * 1e12 + 0.5)
+
 // Regions ranked by how close the party sits to the local top rival.
 fun mpTargets(view: MpView, party: PartyId, max: Int): List<MpTarget> {
     val standing = view.regions.filter { it.baselineShare?.get(party) != null }
@@ -76,7 +80,7 @@ fun mpTargets(view: MpView, party: PartyId, max: Int): List<MpTarget> {
     val winnable = rows.filter { it.margin > -0.2 }
     val pool = (if (winnable.isNotEmpty()) winnable else rows).toMutableList()
     // sortedWith is stable, matching Array.prototype.sort stability.
-    pool.sortWith(compareBy { abs(it.margin) })
+    pool.sortWith(compareBy { targetRank(abs(it.margin)) })
     return pool.take(max)
 }
 
@@ -166,7 +170,7 @@ private fun applyCoalitionBias(
 
     // Sort by (closeness + coalition boost); prefer boosted regions.
     val sorted = rescored.toMutableList()
-    sorted.sortWith(compareByDescending { -abs(it.margin) + it.coalitionBoost })
+    sorted.sortWith(compareByDescending { targetRank(-abs(it.margin) + it.coalitionBoost) })
     return sorted.take(foresight)
 }
 
