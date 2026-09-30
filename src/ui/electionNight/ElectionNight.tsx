@@ -7,18 +7,9 @@
 // (US / UK / country) via the normalized RevealProps shape (see adapters.ts).
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./electionNight.css";
-
-export interface RevealUnit {
-  id: string;
-  name: string;
-  abbr: string;
-  winnerId: string; // party id the tally credits this unit to
-  winnerColor: string;
-  winnerShort: string;
-  units: number; // EV or seats
-  margin: number; // winner's margin in points, for drama ordering
-  upset?: boolean; // flipped vs the scenario baseline
-}
+import { buildSchedule, unitAllocation, OTHERS_ID, type RevealUnit } from "@lib/electionReveal";
+export { buildSchedule, OTHERS_ID } from "@lib/electionReveal";
+export type { RevealUnit, ScheduleEntry } from "@lib/electionReveal";
 
 export interface RevealParty {
   id: string;
@@ -49,7 +40,7 @@ export interface RevealProps {
 }
 
 // Tally row id for the aggregated small parties in multiparty elections.
-export const OTHERS_ID = "__others";
+
 
 // Whether this environment can meaningfully play the reveal at all. jsdom /
 // non-browser renders have no matchMedia; the results screens skip straight
@@ -83,83 +74,6 @@ const prefersReduced = () =>
 // The whole reveal is precomputed as a flat timeline of entries with absolute
 // times (ms at 1x). The driver just steps an index through it; speed changes
 // scale the remaining gaps, "instant" jumps to the end.
-export interface ScheduleEntry {
-  at: number; // ms from t0 at 1x speed
-  kind: "wave" | "call" | "cliff" | "end";
-  unit?: RevealUnit;
-  wave?: number; // 1-based, on wave markers and wave calls
-  isCliff?: boolean; // call belongs to the too-close-to-call endgame
-  projectedId?: string; // set on the call whose tally crosses the threshold
-}
-
-const POLLS_BEAT = 1300; // "polls are closing…" hold
-const WAVE_BEAT = 400; // pause after each wave banner
-const CALL_STAGGER = 110; // between calls inside a wave
-const WAVE_GAP = 1800; // between waves (tally bars animate)
-const CLIFF_INTRO = 1700; // "too close to call" hold before the endgame
-const CLIFF_GAP_MIN = 1000; // first cliffhanger resolves fastest…
-const CLIFF_GAP_EXTRA = 1300; // …the tightest race waits the longest
-const PROJECTION_PAUSE = 2200; // dramatic beat after the projection call
-const END_HOLD = 1400; // hold on the final board before the CTA
-
-export function buildSchedule(
-  units: RevealUnit[],
-  threshold: number,
-): { entries: ScheduleEntry[]; waveCount: number; projectedId: string | null } {
-  const sorted = [...units].sort((a, b) => b.margin - a.margin);
-  const n = sorted.length;
-  // The closest ~8 races get individual "too close to call" drama at the end.
-  const cliffN = Math.min(8, Math.floor(n / 3));
-  const safe = sorted.slice(0, n - cliffN);
-  const cliff = sorted.slice(n - cliffN); // desc margin → tightest resolves LAST
-  const waveCount = Math.max(1, Math.min(6, Math.ceil(safe.length / 3)));
-  const perWave = Math.ceil(safe.length / waveCount);
-
-  const entries: ScheduleEntry[] = [];
-  const tally = new Map<string, number>();
-  let projectedId: string | null = null;
-  let t = POLLS_BEAT;
-
-  const pushCall = (u: RevealUnit, wave?: number, isCliff?: boolean) => {
-    const e: ScheduleEntry = { at: t, kind: "call", unit: u, wave, isCliff };
-    if (!projectedId) {
-      const v = (tally.get(u.winnerId) ?? 0) + u.units;
-      tally.set(u.winnerId, v);
-      if (v >= threshold) {
-        projectedId = u.winnerId;
-        e.projectedId = u.winnerId;
-        t += PROJECTION_PAUSE; // let the banner land
-      }
-    }
-    entries.push(e);
-  };
-
-  for (let w = 0; w < waveCount; w++) {
-    const slice = safe.slice(w * perWave, (w + 1) * perWave);
-    if (slice.length === 0) break;
-    entries.push({ at: t, kind: "wave", wave: w + 1 });
-    t += WAVE_BEAT;
-    for (const u of slice) {
-      pushCall(u, w + 1);
-      t += CALL_STAGGER;
-    }
-    t += WAVE_GAP;
-  }
-
-  if (cliff.length > 0) {
-    entries.push({ at: t, kind: "cliff" });
-    t += CLIFF_INTRO;
-    cliff.forEach((u, i) => {
-      t += CLIFF_GAP_MIN + (i / Math.max(1, cliff.length - 1)) * CLIFF_GAP_EXTRA;
-      pushCall(u, undefined, true);
-    });
-  }
-
-  t += END_HOLD;
-  entries.push({ at: t, kind: "end" });
-  return { entries, waveCount, projectedId };
-}
-
 type Speed = "1x" | "2x" | "instant";
 
 export function ElectionNight(props: RevealProps) {
@@ -220,7 +134,9 @@ export function ElectionNight(props: RevealProps) {
   const calledById = new Map<string, RevealUnit>();
   for (const c of calls) {
     const u = c.unit!;
-    tallies[u.winnerId] = (tallies[u.winnerId] ?? 0) + u.units;
+    for (const [party, seats] of Object.entries(unitAllocation(u))) {
+      tallies[party] = (tallies[party] ?? 0) + seats;
+    }
     calledUnits += u.units;
     calledById.set(u.id, u);
   }

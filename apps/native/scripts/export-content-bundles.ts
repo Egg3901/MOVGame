@@ -40,6 +40,7 @@ async function main() {
   const fr = await import(`${WEB_REPO}/src/content/countries/france.ts`);
   const de = await import(`${WEB_REPO}/src/content/countries/germany.ts`);
   const { SCENARIO_REGISTRY } = await import(`${WEB_REPO}/src/content/scenarioRegistry.ts`);
+  const { GRID, GRID_ROWS, GRID_COLS, SPLIT_UNITS } = await import(`${WEB_REPO}/src/content/mapLayout.ts`);
   const { UK_VIEWBOX, REGION_PATHS } = await import(`${WEB_REPO}/src/content/uk/regionPaths.ts`);
 
   const stripBundle = (b: any) => {
@@ -47,9 +48,16 @@ async function main() {
     return rest;
   };
 
+  const usTiles = [...GRID, ...SPLIT_UNITS.flatMap((group, row) => group.ids.map((id, col) => ({ id, row: GRID_ROWS + row, col })))];
+  const usMap = { viewBox: `0 0 ${GRID_COLS * 40} ${(GRID_ROWS + SPLIT_UNITS.length) * 40}`,
+    shapes: Object.fromEntries(usTiles.map(({ id, row, col }) => {
+      const x = col * 40 + 2, y = row * 40 + 2;
+      return [id, { d: `M${x} ${y} L${x + 36} ${y} L${x + 36} ${y + 36} L${x} ${y + 36} Z` }];
+    })) };
+
   const bundles: Record<string, unknown> = {
     "scenario-registry": SCENARIO_REGISTRY,
-    "maps": { UK: { viewBox: UK_VIEWBOX, shapes: REGION_PATHS },
+    "maps": { US: usMap, UK: { viewBox: UK_VIEWBOX, shapes: REGION_PATHS },
       CA: ca.CANADA.map, DE: de.GERMANY.map, FR: fr.FRANCE.map, AU: au.AUSTRALIA.map },
     "us-blocs": { blocs: Object.values(BLOCS) },
     "us-candidates": { candidates: CANDIDATES, opponentOf: OPPONENT_OF },

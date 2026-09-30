@@ -127,6 +127,7 @@ try:
             ('campaign', '--mov-capture-game', 20),
             ('plan', '--mov-capture-plan', 20),
             ('results', '--mov-capture-results', 20),
+            ('reveal', '--mov-capture-reveal', 20),
             ('ask', '--mov-capture-ask', 20),
             ('ask-login', '--mov-capture-ask-login', 20),
         ]:

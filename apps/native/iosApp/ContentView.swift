@@ -135,6 +135,9 @@ struct ContentView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $session.showReveal) {
+            if let night = session.electionNight { NativeElectionNightView(session: session, night: night) }
+        }
         .sheet(isPresented: $showingAsk) {
             NavigationStack {
                 AskWebView(webView: askBrowser.webView)

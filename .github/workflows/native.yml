@@ -41,6 +41,8 @@ jobs:
         run: npx tsx apps/native/scripts/export-debate-vectors.ts --check
       - name: Check native replay logs and reports match web
         run: npx tsx apps/native/scripts/export-replay-vectors.ts --check
+      - name: Check native election-night allocations and schedules
+        run: npx tsx apps/native/scripts/export-reveal-vectors.ts --check
       - name: Verify desktop uses this checkout
         run: node apps/native/scripts/fetch-web.mjs steam
   android:
