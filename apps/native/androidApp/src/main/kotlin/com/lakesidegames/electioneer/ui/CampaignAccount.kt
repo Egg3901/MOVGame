@@ -19,8 +19,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-data class AccountUser(val username: String, val email: String)
+data class AccountUser(val id: String, val username: String, val email: String)
 data class BoardEntry(val rank: Int, val username: String, val score: Int)
+data class CloudSaveMeta(val id: String, val name: String, val turn: Int, val updatedAt: Long)
 
 private class SessionToken(context: Context) {
     private val prefs = context.getSharedPreferences("mov_account", Context.MODE_PRIVATE)
@@ -63,6 +64,9 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
     val board: StateFlow<List<BoardEntry>> = _board
     private val _unlocked = MutableStateFlow<List<String>>(emptyList())
     val unlocked: StateFlow<List<String>> = _unlocked
+    private val _cloudSaves = MutableStateFlow<List<CloudSaveMeta>>(emptyList())
+    val cloudSaves: StateFlow<List<CloudSaveMeta>> = _cloudSaves
+    private var cloudVersionChecks = false
     private var boardGeneration = 0
 
     init { if (token != null) refresh() }
@@ -112,7 +116,7 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
 
     private fun readProfile(response: JSONObject) {
         val user = response.getJSONObject("user")
-        _user.value = AccountUser(user.getString("username"), user.getString("email"))
+        _user.value = AccountUser(user.getString("id"), user.getString("username"), user.getString("email"))
         response.optJSONObject("unlocked")?.optJSONArray("scenarioIds")?.let { ids ->
             _unlocked.value = (0 until ids.length()).map { ids.getString(it) }
         }
@@ -125,7 +129,7 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
         _notice.value = "Campaign code activated."
     }
     fun signOut() {
-        vault.clear(); token = null; _user.value = null; _unlocked.value = emptyList(); _notice.value = null
+        vault.clear(); token = null; _user.value = null; _unlocked.value = emptyList(); _cloudSaves.value = emptyList(); _notice.value = null
     }
 
     fun loadBoard(date: String, scenarioId: String? = null) {
@@ -147,5 +151,37 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
         val response = call(if (daily) "/api/daily" else "/api/leaderboard", "POST", JSONObject(payload))
         _notice.value = if (response.getBoolean("posted")) "Score posted. Rank #${response.getInt("rank")}."
             else "Kept your personal best (${response.getInt("personalBest")}). Rank #${response.getInt("rank")}."
+    }
+
+    private suspend fun readCloudList() {
+        val response = call("/api/saves")
+        cloudVersionChecks = response.optBoolean("versionPreconditions", false)
+        val entries = response.getJSONArray("saves")
+        _cloudSaves.value = (0 until entries.length()).map { i -> entries.getJSONObject(i).let {
+            CloudSaveMeta(it.getString("id"), it.getString("name"), it.getInt("turn"), it.getLong("updatedAt"))
+        } }
+    }
+    fun loadCloudSaves() = operation { readCloudList() }
+    fun uploadSave(id: String, payload: String, onSynced: (String, Long) -> Unit) = operation {
+        require(com.lakesidegames.electioneer.engine.NativeSaveLibrary.validId(id))
+        val owner = _user.value?.id ?: error("Sign in to sync saves.")
+        readCloudList()
+        check(cloudVersionChecks) { "Cloud save service needs an update. Your campaign is saved on this device." }
+        val response = call("/api/saves/$id", "PUT", JSONObject(payload))
+        onSynced(owner, response.getLong("updatedAt"))
+        _notice.value = "Campaign saved to the cloud."
+        readCloudList()
+    }
+    fun downloadSave(id: String, onLoaded: (String, String, String, String, Long) -> Unit) = operation {
+        require(com.lakesidegames.electioneer.engine.NativeSaveLibrary.validId(id))
+        val owner = _user.value?.id ?: error("Sign in to sync saves.")
+        val response = call("/api/saves/$id")
+        onLoaded(id, response.getString("name"), response.getJSONObject("state").toString(), owner, response.getLong("updatedAt"))
+        _notice.value = "Downloaded. Any different local copy was kept as a backup."
+    }
+    fun deleteCloudSave(id: String) = operation {
+        require(com.lakesidegames.electioneer.engine.NativeSaveLibrary.validId(id))
+        call("/api/saves/$id", "DELETE")
+        readCloudList()
     }
 }

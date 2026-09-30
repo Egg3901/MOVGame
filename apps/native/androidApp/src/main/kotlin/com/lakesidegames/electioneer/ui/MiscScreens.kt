@@ -134,6 +134,7 @@ fun AccountScreen(session: GameSession) {
             TextButton(onClick = { registering = !registering }, enabled = !busy) { Text(if (registering) "Already have an account? Sign in" else "New here? Create an account") }
         }
         notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        OutlinedButton(onClick = { session.go(Screen.SAVES) }) { Text("Manage saved campaigns") }
         Text("LEADERBOARDS", style = MaterialTheme.typography.titleSmall)
         ChoicePicker("Election", selectedBoard, listOf("daily" to "Today's daily challenge") + elections.map { it.scenarioId to "${it.flag} ${it.label}" }) { selectedBoard = it }
         if (board.isEmpty()) Text("No scores to show yet. Daily challenges also work offline.", style = MaterialTheme.typography.bodySmall)

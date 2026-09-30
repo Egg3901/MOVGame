@@ -27,7 +27,7 @@ const DIST = process.env.CAMPAIGN_DIST ?? join(HERE, "..", "dist");
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "256kb" }));
+app.use(express.json({ limit: "2304kb" }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "campaign-server" });

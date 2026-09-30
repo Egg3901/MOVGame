@@ -11,6 +11,8 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { createGame } from "../../src/engine/setup";
+import { advanceCampaignWeek } from "../../src/engine/campaignWeek";
 
 process.env.CAMPAIGN_DB_PATH = join(mkdtempSync(join(tmpdir(), "campaign-saves-test-")), "test.db");
 process.env.JWT_SECRET = "test-jwt-secret";
@@ -56,7 +58,7 @@ const sampleRecord = (over: Record<string, unknown> = {}) => ({
 beforeAll(async () => {
   dbMod.getDb();
   const app = express();
-  app.use(express.json({ limit: "256kb" }));
+  app.use(express.json({ limit: "2304kb" }));
   app.use("/api/saves", savesRouter);
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => {
@@ -87,6 +89,16 @@ describe("auth is required", () => {
 });
 
 describe("round-trip and per-user isolation", () => {
+  it("round-trips a finished campaign with its accumulated cause history", async () => {
+    const a = makeUser();
+    let game = createGame({seed: 42});
+    while (game.phase !== "result") game = advanceCampaignWeek(game, "normal");
+    expect(Buffer.byteLength(JSON.stringify(game))).toBeGreaterThan(200 * 1024);
+    expect((await req("PUT", "/api/saves/full", a.token,
+      sampleRecord({state: game, turn: game.turn, expectedUpdatedAt: null}))).status).toBe(200);
+    const got = await req("GET", "/api/saves/full", a.token);
+    expect(got.json.state).toEqual(game);
+  });
   it("puts, lists, gets, and deletes a save scoped to the owner", async () => {
     const a = makeUser();
     const b = makeUser();
@@ -162,5 +174,29 @@ describe("quotas", () => {
     // Updating an existing save at the cap is still allowed.
     const update = await req("PUT", "/api/saves/q0", a.token, sampleRecord({ name: "Updated" }));
     expect(update.status).toBe(200);
+  });
+});
+
+describe("version preconditions", () => {
+  it("rejects stale and create-only uploads without replacing either snapshot or replay", async () => {
+    const a = makeUser();
+    expect((await req("PUT", "/api/saves/versioned", a.token,
+      sampleRecord({expectedUpdatedAt: null, replay: {frames: [1]}}))).status).toBe(200);
+    const stale = await req("PUT", "/api/saves/versioned", a.token,
+      sampleRecord({updatedAt: 2000, expectedUpdatedAt: 900, state: {note: "stale"}, replay: null}));
+    expect(stale.status).toBe(409);
+    expect(stale.json.conflict).toBe(true);
+    expect((await req("PUT", "/api/saves/versioned", a.token,
+      sampleRecord({expectedUpdatedAt: null}))).status).toBe(409);
+    const untouched = await req("GET", "/api/saves/versioned", a.token);
+    expect(untouched.json.updatedAt).toBe(1000);
+    expect(untouched.json.state).toEqual({turn: 4, note: "hello"});
+    expect(untouched.json.replay).toEqual({frames: [1]});
+    expect((await req("PUT", "/api/saves/versioned", a.token,
+      sampleRecord({updatedAt: 2000, expectedUpdatedAt: 1000}))).status).toBe(200);
+    expect((await req("GET", "/api/saves/versioned", a.token)).json.updatedAt).toBe(2000);
+    expect((await req("PUT", "/api/saves/versioned", a.token,
+      sampleRecord({updatedAt: 1000, expectedUpdatedAt: 2000}))).status).toBe(200);
+    expect((await req("GET", "/api/saves/versioned", a.token)).json.updatedAt).toBe(2001);
   });
 });

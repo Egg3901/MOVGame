@@ -108,6 +108,7 @@ try:
             ('setup-2016', '--mov-capture-setup-2016', 8),
             ('library', '--mov-capture-library', 8),
             ('daily', '--mov-capture-daily', 8),
+            ('saves', '--mov-capture-saves', 30),
             ('account', '--mov-capture-account', 8),
             ('world-uk', '--mov-capture-world-uk', 20),
             ('world-ca', '--mov-capture-world-ca', 20),

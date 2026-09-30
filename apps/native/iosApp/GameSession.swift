@@ -65,7 +65,82 @@ final class GameSession: ObservableObject {
     private var didPrepareSimulatorCapture = false
     #endif
 
+    private var saveLibrary = NativeSaveLibrary.companion.empty()
+    @Published var namedSaves: [NativeNamedSave] = []
+    @Published var saveNotice: String?
+    func currentSnapshot() -> String? { campaign?.saveSnapshot() ?? game?.saveSnapshot() }
+    func exportCampaign() -> String? {
+        guard let snapshot = currentSnapshot() else { return nil }
+        return NativeSaveTransfer.companion.export(snapshot: snapshot)
+    }
+    private func persistLibrary() {
+        UserDefaults.standard.set(saveLibrary.json(), forKey: "mov_named_saves_v1")
+        namedSaves = saveLibrary.entries()
+    }
+    @discardableResult func saveNamed(name: String, id: String = UUID().uuidString) -> Bool {
+        guard let snapshot = currentSnapshot() else { return false }
+        let saved = saveLibrary.save(id: id, name: name, snapshot: snapshot, updatedAt: Int64(Date().timeIntervalSince1970 * 1000))
+        if saved { persistLibrary(); saveNotice = "Saved on this device." }
+        return saved
+    }
+    func renameSave(id: String, name: String) {
+        guard let entry = saveLibrary.get(id: id) else { return }
+        if saveLibrary.save(id: id, name: name, snapshot: entry.snapshot, updatedAt: Int64(Date().timeIntervalSince1970 * 1000)) { persistLibrary() }
+    }
+    func deleteLocalSave(id: String) { saveLibrary.remove(id: id); persistLibrary() }
+    @discardableResult func loadNamed(id: String) -> Bool {
+        guard let entry = saveLibrary.get(id: id) else { return false }
+        return importCampaign(json: entry.snapshot)
+    }
+    @discardableResult func importCampaign(json: String) -> Bool {
+        guard let document = NativeSaveTransfer.companion.inspect(json: json) else {
+            saveNotice = "This file is not a supported campaign save."; return false
+        }
+        if let previous = currentSnapshot(), previous != document.snapshot {
+            _ = saveLibrary.save(id: UUID().uuidString, name: "Before loading another campaign", snapshot: previous,
+                updatedAt: Int64(Date().timeIntervalSince1970 * 1000))
+            persistLibrary()
+        }
+        eventId = nil; eventResult = nil; showRecap = false; recapLines = []
+        if document.engine == "world" {
+            campaign = MobileCampaign.companion.restore(snapshot: document.snapshot)
+            game = nil; playScreen = .worldGame
+        } else {
+            game = MobileGame.companion.restore(snapshot: document.snapshot)
+            campaign = nil; eventId = game?.pendingEventIds().first
+            playScreen = game?.isOver() == true ? .results : .game
+        }
+        touch()
+        return true
+    }
+    func uploadSave(id: String) async {
+        guard let owner = account.user?.id, let payload = saveLibrary.uploadJson(id: id, owner: owner,
+            now: Int64(Date().timeIntervalSince1970 * 1000)) else { return }
+        if let version = await account.uploadSave(id: id, payload: payload) {
+            saveLibrary.markSynced(id: id, owner: owner, version: version); persistLibrary()
+        }
+    }
+    func uploadSaveAsNew(id: String) async {
+        guard let entry = saveLibrary.get(id: id) else { return }
+        let copyId = UUID().uuidString
+        if saveLibrary.save(id: copyId, name: "\(entry.name) (copy)", snapshot: entry.snapshot,
+            updatedAt: Int64(Date().timeIntervalSince1970 * 1000)) {
+            persistLibrary(); await uploadSave(id: copyId)
+        }
+    }
+    func downloadSave(id: String) async {
+        guard let owner = account.user?.id, let remote = await account.downloadSave(id: id) else { return }
+        guard saveLibrary.receiveCloud(id: remote.id, name: remote.name, json: remote.state, owner: owner,
+            version: remote.updatedAt, backupId: UUID().uuidString) else {
+            saveNotice = "This cloud save is not supported by this native client."; return
+        }
+        persistLibrary(); saveNotice = "Downloaded. Any different local copy was kept as a backup."
+    }
+
     init() {
+        if let json = UserDefaults.standard.string(forKey: "mov_named_saves_v1"),
+           let restored = NativeSaveLibrary.companion.restore(json: json) { saveLibrary = restored }
+        namedSaves = saveLibrary.entries()
         if UserDefaults.standard.string(forKey: "mov_active_campaign") == "world",
            let snapshot = UserDefaults.standard.string(forKey: "mov_world_campaign_v1"),
            let restored = MobileCampaign.companion.restore(snapshot: snapshot) {
@@ -99,7 +174,7 @@ final class GameSession: ObservableObject {
         } else if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
             playScreen = .setup
         } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") ||
-                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") {
+                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") || arguments.contains("--mov-capture-saves") {
             let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
                 ?? mates(scenarioId: "2024", playerSerial: "dem").first
             guard let mate else { return }
@@ -217,6 +292,9 @@ final class GameSession: ObservableObject {
                 self.eventResult = nil
                 self.playScreen = started.isOver() ? .results : .game
                 self.touch()
+                #if targetEnvironment(simulator)
+                if ProcessInfo.processInfo.arguments.contains("--mov-capture-saves") { self.saveNamed(name: "Campaign checkpoint") }
+                #endif
             }
         }
     }
