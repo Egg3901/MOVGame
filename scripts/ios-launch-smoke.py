@@ -3,6 +3,7 @@
 import json
 import os
 import pathlib
+import runpy
 import subprocess
 import sys
 import time
@@ -12,6 +13,7 @@ app = pathlib.Path(sys.argv[1]).resolve()
 output = pathlib.Path(sys.argv[2]).resolve()
 output.mkdir(parents=True, exist_ok=True)
 bundle = 'com.lakesidegames.electioneer'
+check_screen = runpy.run_path(str(pathlib.Path(__file__).with_name('ios-screen-ready.py')))['check_screen']
 
 
 def run(*args, timeout=120):
@@ -33,14 +35,11 @@ def capture_ready(name, process, attempts=3):
         try:
             subprocess.run(['sips', '-Z', '320', str(capture), '--out', str(probe)],
                            check=True, capture_output=True, timeout=30)
-            checked = subprocess.run(
-                [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')),
-                 str(probe), *(['--ask'] if name == 'ask' else [])],
-                text=True, capture_output=True, timeout=30)
+            ready, summary = check_screen(probe, 'ask' if name == 'ask' else 'game')
         finally:
             probe.unlink(missing_ok=True)
-        print(f'{name} capture {attempt + 1}: {checked.stdout.strip()}', flush=True)
-        if checked.returncode == 0:
+        print(f'{name} capture {attempt + 1}: {summary}', flush=True)
+        if ready:
             print(f'PASS: {name} app screen rendered', flush=True)
             return
     raise SystemExit(f'FAIL: {name} remained blank or showed the simulator home screen')
@@ -82,11 +81,9 @@ for attempt in range(24):
     try:
         subprocess.run(['sips', '-Z', '320', str(boot_image), '--out', str(probe)],
                        check=True, capture_output=True, timeout=30)
-        checked = subprocess.run(
-            [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')),
-             str(probe), '--boot'], text=True, capture_output=True, timeout=30)
-        print(f'boot capture {attempt + 1}: {checked.stdout.strip()}', flush=True)
-        if checked.returncode == 0:
+        ready, summary = check_screen(probe, 'boot')
+        print(f'boot capture {attempt + 1}: {summary}', flush=True)
+        if ready:
             print('PASS: simulator home screen is ready', flush=True)
             break
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
@@ -144,6 +141,11 @@ try:
                             raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
                     if name in ('ask-login', 'lakeside-login'):
                         marker = 'MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH' if name == 'ask-login' else 'MOV_LAKESIDE_SIGNIN_REACHED_AUTH'
+                        deadline = time.monotonic() + 90
+                        while marker not in (output / f'{name}-console.log').read_text() and time.monotonic() < deadline:
+                            if preview.poll() is not None:
+                                raise SystemExit(f'FAIL: app exited while waiting for {name} authentication')
+                            time.sleep(1)
                         if marker not in (output / f'{name}-console.log').read_text():
                             raise SystemExit(f'FAIL: {name} did not reach auth inside the app webview')
                         screenshot(device, output / f'{name}.png')
