@@ -22,6 +22,7 @@ import com.lakesidegames.electioneer.engine.choiceAvailable
 import com.lakesidegames.electioneer.engine.createGame
 import com.lakesidegames.electioneer.engine.projectElection
 import com.lakesidegames.electioneer.engine.answerPlayerEvent
+import com.lakesidegames.electioneer.engine.NativeElectionNight
 import com.lakesidegames.electioneer.engine.NativeReplay
 import com.lakesidegames.electioneer.engine.NativeReplayTracker
 import com.lakesidegames.electioneer.engine.NativeAnalysis
@@ -57,12 +58,26 @@ import java.time.ZoneOffset
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY, REVEAL }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffset.UTC).plusDays(offsetDays).toString()
 
 class GameSession : ViewModel() {
+    private val _electionNight = MutableStateFlow<NativeElectionNight?>(null)
+    val electionNight: StateFlow<NativeElectionNight?> = _electionNight
+    fun reducedMotion(): Boolean = savePrefs?.getBoolean("reduce_motion", false) ?: false
+    private fun presentReveal() {
+        val night = currentSnapshot()?.let(NativeElectionNight::create) ?: return
+        if (savePrefs?.getBoolean(night.data().storageKey, false) == true) return
+        _electionNight.value = night
+        _screen.value = Screen.REVEAL
+    }
+    fun finishReveal() {
+        _electionNight.value?.let { savePrefs?.edit()?.putBoolean(it.data().storageKey, true)?.apply() }
+        _electionNight.value = null
+        resumeGame()
+    }
     private val replay = NativeReplayTracker()
     fun canViewReplay(): Boolean = replay.canView(_campaign.value?.isOver() ?: (_game.value?.phase == GamePhase.RESULT))
     fun replayDocument(turn: String?) = if (canViewReplay()) replay.document(turn) else null
@@ -73,6 +88,7 @@ class GameSession : ViewModel() {
         if (!campaign.endWeek()) return false
         replay.record(previous, campaign.saveSnapshot())
         campaignChanged()
+        if (campaign.isOver()) presentReveal()
         return true
     }
     private val undoHistory = NativeUndoHistory()
@@ -218,6 +234,7 @@ class GameSession : ViewModel() {
         _game.value = saved.state
         replay.restore(prefs.getString("us_replay_v1", null), saveGame(saved.state, saved.seed, saved.difficulty))
         _screen.value = Screen.HOME
+        account.recordAchievementSnapshot(saveGame(saved.state, saved.seed, saved.difficulty))
         refresh()
         promptNextEvent(saved.state)
     }
@@ -230,6 +247,7 @@ class GameSession : ViewModel() {
             val previous = savePrefs?.getStringSet("achievement_ids", emptySet()).orEmpty()
             savePrefs?.edit()?.putStringSet("achievement_ids", previous + earned)?.apply()
         }
+        account.recordAchievementSnapshot(saveGame(game, turnSeed, campaignDifficulty))
         recordDaily()
     }
 
@@ -335,10 +353,12 @@ class GameSession : ViewModel() {
     fun resumeGame() {
         if (_campaign.value != null) {
             _screen.value = Screen.WORLD_GAME
+            if (_campaign.value?.isOver() == true) presentReveal()
             return
         }
         val g = _game.value ?: return
         _screen.value = if (g.phase == GamePhase.RESULT) Screen.RESULTS else Screen.GAME
+        if (g.phase == GamePhase.RESULT) presentReveal()
     }
 
     fun go(s: Screen) {
@@ -456,6 +476,7 @@ class GameSession : ViewModel() {
         persist()
         if (next.phase == GamePhase.RESULT) {
             _screen.value = Screen.RESULTS
+            presentReveal()
             return
         }
         _recap.value = next.lastRecap.map {

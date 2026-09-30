@@ -11,7 +11,8 @@ import { STATE_PATHS } from "@content/statePaths";
 import { REGION_PATHS, UK_VIEWBOX } from "@content/uk/regionPaths";
 import { partyColor as ukColor, partyShort as ukShort, sortBySeats as ukSortBySeats } from "../uk/parties";
 import { partyColor as coColor, partyShort as coShort, sortBySeats as coSortBySeats } from "../country/helpers";
-import { OTHERS_ID, type RevealMap, type RevealParty, type RevealProps, type RevealUnit } from "./ElectionNight";
+import { OTHERS_ID, type RevealUnit } from "@lib/electionReveal";
+import type { RevealMap, RevealParty, RevealProps } from "./ElectionNight";
 
 type RevealData = Omit<RevealProps, "onDone">;
 
@@ -108,6 +109,7 @@ function multipartyUnits(
       winnerColor: color(sr.winner),
       winnerShort: short(sr.winner),
       units: sr.totalSeats,
+      allocation: sr.seatsByParty,
       margin: regionMargin(sr),
       upset: regionUpset(sr, region),
     };

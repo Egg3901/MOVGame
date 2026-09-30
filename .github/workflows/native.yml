@@ -41,6 +41,8 @@ jobs:
         run: npx tsx apps/native/scripts/export-debate-vectors.ts --check
       - name: Check native replay logs and reports match web
         run: npx tsx apps/native/scripts/export-replay-vectors.ts --check
+      - name: Check native election-night allocations and schedules
+        run: npx tsx apps/native/scripts/export-reveal-vectors.ts --check
       - name: Verify desktop uses this checkout
         run: node apps/native/scripts/fetch-web.mjs steam
   android:
@@ -117,7 +119,7 @@ jobs:
     needs: ios
     if: ${{ always() && needs.ios.result != 'cancelled' }}
     runs-on: xcode-27
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
     steps:

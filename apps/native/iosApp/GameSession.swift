@@ -19,6 +19,18 @@ enum PlayScreen: Equatable {
 
 @MainActor
 final class GameSession: ObservableObject {
+    @Published var showReveal = false
+    private(set) var electionNight: NativeElectionNight?
+    private func presentReveal(force: Bool = false) {
+        guard let snapshot = currentSnapshot(), let night = NativeElectionNight.companion.create(snapshot: snapshot) else { return }
+        if !force && UserDefaults.standard.bool(forKey: night.data().storageKey) { return }
+        electionNight = night
+        showReveal = true
+    }
+    func finishReveal() {
+        if let night = electionNight { UserDefaults.standard.set(true, forKey: night.data().storageKey) }
+        showReveal = false
+    }
     private let replay = NativeReplayTracker()
     func canViewReplay() -> Bool { replay.canView(finished: campaign?.isOver() ?? game?.isOver() ?? false) }
     func replayDocument(turn: String?) -> NativeAnalysisDocument? { canViewReplay() ? replay.document(selectedTurn: turn) : nil }
@@ -32,6 +44,7 @@ final class GameSession: ObservableObject {
         guard campaign.endWeek() else { return false }
         replay.record(previous: previous, next: campaign.saveSnapshot())
         touch()
+        if campaign.isOver() { presentReveal() }
         return true
     }
     private static let saveKey = "mov_campaign_v1"
@@ -174,6 +187,7 @@ final class GameSession: ObservableObject {
             replay.restore(json: UserDefaults.standard.string(forKey: "mov_us_replay_v1"), snapshot: snapshot)
             playScreen = .home
             eventId = restored.pendingEventIds().first
+            account.recordAchievementSnapshot(snapshot)
         }
     }
 
@@ -196,7 +210,7 @@ final class GameSession: ObservableObject {
         } else if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
             playScreen = .setup
         } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") ||
-                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") || arguments.contains("--mov-capture-saves") || arguments.contains("--mov-capture-analysis") || arguments.contains("--mov-capture-replay") {
+                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") || arguments.contains("--mov-capture-reveal") || arguments.contains("--mov-capture-saves") || arguments.contains("--mov-capture-analysis") || arguments.contains("--mov-capture-replay") {
             let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
                 ?? mates(scenarioId: "2024", playerSerial: "dem").first
             guard let mate else { return }
@@ -256,10 +270,12 @@ final class GameSession: ObservableObject {
     func resumeGame() {
         if campaign != nil {
             playScreen = .worldGame
+            if campaign?.isOver() == true { presentReveal() }
             return
         }
         guard let game = game else { return }
         playScreen = game.isOver() ? .results : .game
+        if game.isOver() { presentReveal() }
     }
 
     func playTab() {
@@ -284,6 +300,7 @@ final class GameSession: ObservableObject {
             if !earned.isEmpty {
                 UserDefaults.standard.set(Array(Set(previous + earned)).sorted(), forKey: "mov_achievement_ids")
             }
+            account.recordAchievementSnapshot(game.saveSnapshot())
             recordDaily()
         }
     }
@@ -304,7 +321,7 @@ final class GameSession: ObservableObject {
                 totalTurns: Int32(totalTurns), seed: seed, whatIfState: whatIfState,
                 mirrorMatch: mirrorMatch, pandemic: pandemic)
             #if targetEnvironment(simulator)
-            if ProcessInfo.processInfo.arguments.contains("--mov-capture-results") {
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-results") || ProcessInfo.processInfo.arguments.contains("--mov-capture-reveal") {
                 for _ in 0..<Int(started.totalTurns()) { _ = started.endTurn() }
             }
             #endif
@@ -328,6 +345,7 @@ final class GameSession: ObservableObject {
                 #endif
                 self.touch()
                 #if targetEnvironment(simulator)
+                if ProcessInfo.processInfo.arguments.contains("--mov-capture-reveal") { self.presentReveal(force: true) }
                 if ProcessInfo.processInfo.arguments.contains("--mov-capture-saves") { self.saveNamed(name: "Campaign checkpoint") }
                 #endif
             }
@@ -394,6 +412,7 @@ final class GameSession: ObservableObject {
         touch()
         if g.isOver() {
             playScreen = .results
+            presentReveal()
             return
         }
         if !lines.isEmpty {

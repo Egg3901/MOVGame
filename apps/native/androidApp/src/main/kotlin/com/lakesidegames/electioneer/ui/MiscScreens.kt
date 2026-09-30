@@ -100,6 +100,12 @@ fun AccountScreen(session: GameSession) {
     val notice by account.notice.collectAsState()
     val unlocked by account.unlocked.collectAsState()
     val board by account.board.collectAsState()
+    val dailyRank by account.dailyRank.collectAsState()
+    val purchases by account.purchases.collectAsState()
+    val purchasesLoaded by account.purchasesLoaded.collectAsState()
+    val awards by account.awards.collectAsState()
+    var showingLakeside by remember { mutableStateOf(false) }
+    var showingAwards by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -108,15 +114,28 @@ fun AccountScreen(session: GameSession) {
     var selectedBoard by remember { mutableStateOf("daily") }
     val elections = remember { MobileCampaign.countries().flatMap { MobileCampaign.elections(it.id) } }
     LaunchedEffect(user) { if (user != null) password = "" }
-    LaunchedEffect(selectedBoard) { account.loadBoard(nativeUtcDay(), selectedBoard.takeIf { it != "daily" }) }
+    LaunchedEffect(selectedBoard, user?.id) { account.loadBoard(nativeUtcDay(), selectedBoard.takeIf { it != "daily" }) }
+    if (showingLakeside) LakesideLogin(onCode = { code -> showingLakeside = false; account.exchangeLakeside(code) }, onClose = { showingLakeside = false })
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("YOUR ACCOUNT", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
         if (user != null) {
             Text("Welcome, ${user!!.username}", style = MaterialTheme.typography.headlineSmall)
             Text(user!!.email)
+            Text(if (user!!.ahdLinked) "Lakeside Games account linked" else "Lakeside Games account not linked", style = MaterialTheme.typography.bodySmall)
+            if (!user!!.ahdLinked) OutlinedButton(onClick = { showingLakeside = true }, enabled = !busy) { Text("Sign in with Lakeside Games") }
             Row {
                 TextButton(onClick = account::refresh, enabled = !busy) { Text("Refresh account") }
                 TextButton(onClick = account::signOut, enabled = !busy) { Text("Sign out") }
+            }
+            Text("PURCHASES", style = MaterialTheme.typography.titleSmall)
+            if (!purchasesLoaded) Text(if (busy) "Loading purchase history…" else "Refresh your account to load purchase history.")
+            else if (purchases.isEmpty()) Text("No purchases yet. Campaigns are free to play during the open beta.", style = MaterialTheme.typography.bodySmall)
+            purchases.forEach { purchase ->
+                val amount = if (purchase.amountCents == 0) "Code" else runCatching {
+                    java.text.NumberFormat.getCurrencyInstance().apply { currency = java.util.Currency.getInstance(purchase.currency.uppercase()) }.format(purchase.amountCents / 100.0)
+                }.getOrElse { "${purchase.amountCents / 100.0} ${purchase.currency.uppercase()}" }
+                val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(purchase.createdAt))
+                Text("${purchase.name} · $amount · $date${if (purchase.refunded) " · Refunded" else ""}")
             }
             Text("${unlocked.size} campaigns activated on this account", style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(code, { code = it }, label = { Text("Activation code") }, modifier = Modifier.fillMaxWidth())
@@ -124,6 +143,8 @@ fun AccountScreen(session: GameSession) {
         } else {
             Text(if (registering) "Create an account" else "Sign in", style = MaterialTheme.typography.headlineSmall)
             Text("Use the same Margin of Victory account as the web game.", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = { showingLakeside = true }, enabled = !busy) { Text("Sign in with Lakeside Games") }
+            Text("Or use email", style = MaterialTheme.typography.bodySmall)
             if (registering) OutlinedTextField(username, { username = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(password, { password = it }, label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -135,8 +156,19 @@ fun AccountScreen(session: GameSession) {
         }
         notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         OutlinedButton(onClick = { session.go(Screen.SAVES) }) { Text("Manage saved campaigns") }
+        TextButton(onClick = { showingAwards = !showingAwards }) { Text("Achievements (${awards.size})") }
+        if (showingAwards) {
+            if (awards.isEmpty()) Text("Finish a U.S. campaign to earn achievements.")
+            awards.forEach { entry ->
+                Text("${entry.award.icon} ${entry.award.name} · ${entry.scenarioLabel}", style = MaterialTheme.typography.titleSmall)
+                Text(entry.award.blurb, style = MaterialTheme.typography.bodySmall)
+            }
+            if (user != null) TextButton(onClick = account::syncAchievements, enabled = !busy) { Text("Sync achievements") }
+            else Text("Achievements are saved on this device. Sign in to sync them.", style = MaterialTheme.typography.bodySmall)
+        }
         Text("LEADERBOARDS", style = MaterialTheme.typography.titleSmall)
         ChoicePicker("Election", selectedBoard, listOf("daily" to "Today's daily challenge") + elections.map { it.scenarioId to "${it.flag} ${it.label}" }) { selectedBoard = it }
+        dailyRank?.let { Text("Your daily rank: #${it.rank} · ${it.score}", color = MaterialTheme.colorScheme.primary) }
         if (board.isEmpty()) Text("No scores to show yet. Daily challenges also work offline.", style = MaterialTheme.typography.bodySmall)
         board.forEach { entry -> Text("#${entry.rank} ${entry.username} · ${entry.score}") }
         TextButton(onClick = { account.loadBoard(nativeUtcDay(), selectedBoard.takeIf { it != "daily" }) }) { Text("Refresh leaderboard") }

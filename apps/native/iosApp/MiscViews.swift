@@ -75,6 +75,7 @@ struct AccountView: View {
     @State private var registering = false
     @State private var code = ""
     @State private var selectedBoard = "daily"
+    @State private var showingLakeside = false
 
     init(session: GameSession) { self.session = session; self.account = session.account }
 
@@ -85,6 +86,10 @@ struct AccountView: View {
                 if let user = account.user {
                     Text("Welcome, \(user.username)").font(.title2.bold())
                     Text(user.email).foregroundStyle(CampaignStyle.muted)
+                    Text(user.ahdLinked == true ? "Lakeside Games account linked" : "Lakeside Games account not linked").font(.caption)
+                    if user.ahdLinked != true { Button("Sign in with Lakeside Games") { showingLakeside = true }.disabled(account.busy) }
+                    Button("Refresh account") { Task { await account.refresh() } }.disabled(account.busy)
+                    AccountPurchaseHistory(account: account)
                     Button("Sign out") { account.signOut() }.disabled(account.busy)
                         .foregroundStyle(CampaignStyle.coral)
                     Text("\(account.unlocked.count) campaigns activated on this account").font(.caption)
@@ -96,6 +101,8 @@ struct AccountView: View {
                         .font(.title2.bold())
                     Text("Use the same Margin of Victory account as the web game.")
                         .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                    Button("Sign in with Lakeside Games") { showingLakeside = true }.disabled(account.busy)
+                    Text("Or use email").font(.caption).foregroundStyle(CampaignStyle.muted)
                     if registering {
                         TextField("Username", text: $username)
                             .textContentType(.username)
@@ -135,6 +142,7 @@ struct AccountView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16).background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
                 NavigationLink("Manage saved campaigns") { CampaignSavesView(session: session) }
+                AccountAchievements(account: account)
                 Text("LEADERBOARDS").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
                 Picker("Election", selection: $selectedBoard) {
                     Text("Today's daily challenge").tag("daily")
@@ -142,6 +150,7 @@ struct AccountView: View {
                         Text("\(election.flag) \(election.label)").tag(election.scenarioId)
                     }
                 }.pickerStyle(.menu)
+                if let rank = account.dailyRank { Text("Your daily rank: #\(rank.rank) · \(rank.score)").font(.headline).foregroundStyle(CampaignStyle.gold) }
                 if account.board.isEmpty { Text("No scores to show yet. You can keep playing offline.").font(.caption) }
                 ForEach(account.board, id: \.rank) { entry in Text("#\(entry.rank) \(entry.username) · \(entry.score)").font(.subheadline) }
                 Button("Refresh leaderboard") { Task { await account.loadBoard(date: nativeUTCDay(), scenarioId: selectedBoard == "daily" ? nil : selectedBoard) } }
@@ -149,7 +158,18 @@ struct AccountView: View {
             .padding(20)
         }
         .textFieldStyle(.roundedBorder)
-        .task(id: selectedBoard) { await account.loadBoard(date: nativeUTCDay(), scenarioId: selectedBoard == "daily" ? nil : selectedBoard) }
+        .sheet(isPresented: $showingLakeside) {
+            NativeLakesideLoginView { code in
+                showingLakeside = false
+                Task { await account.exchangeLakeside(code: code) }
+            }
+        }
+        .onAppear {
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { showingLakeside = true }
+            #endif
+        }
+        .task(id: "\(selectedBoard):\(account.user?.id ?? "guest")") { await account.loadBoard(date: nativeUTCDay(), scenarioId: selectedBoard == "daily" ? nil : selectedBoard) }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
     }
 }
@@ -158,6 +178,7 @@ struct AccountUser: Decodable {
     let id: String
     let username: String
     let email: String
+    let ahdLinked: Bool?
 }
 
 private struct LoginResponse: Decodable {
@@ -171,7 +192,10 @@ private struct ProfileResponse: Decodable {
 }
 private struct AccountUnlocked: Decodable { let scenarioIds: [String] }
 struct BoardEntry: Decodable { let rank: Int; let username: String; let score: Int }
-private struct BoardResponse: Decodable { let entries: [BoardEntry] }
+struct PersonalDailyRank: Decodable { let rank: Int; let score: Int }
+private struct BoardResponse: Decodable { let entries: [BoardEntry]; let me: PersonalDailyRank? }
+struct AccountPurchase: Decodable { let packName: String?; let packId: String?; let amountCents: Int; let currency: String; let status: String; let createdAt: Double }
+private struct PurchasesResponse: Decodable { let purchases: [AccountPurchase] }
 private struct ScorePostResponse: Decodable { let rank: Int; let posted: Bool; let personalBest: Int }
 
 private struct APIError: Decodable {
@@ -186,12 +210,18 @@ final class CampaignAccount: ObservableObject {
     @Published var board: [BoardEntry] = []
     @Published var unlocked: [String] = []
     @Published var cloudSaves: [CloudSaveMeta] = []
+    @Published var dailyRank: PersonalDailyRank?
+    @Published var purchases: [AccountPurchase] = []
+    @Published var purchasesLoaded = false
+    @Published var awards: [NativeCollectedAward] = []
+    private let progress = NativeAccountProgress.companion.restore(json: UserDefaults.standard.string(forKey: "mov_account_achievements_v1"))
     private var boardGeneration = 0
 
     private let service = "net.lakesidegames.marginofvictory.account"
     private let account = "session-token"
 
     init() {
+        awards = progress.awards()
         if readToken() != nil { Task { await refresh() } }
     }
 
@@ -224,13 +254,15 @@ final class CampaignAccount: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else { throw AccountError("Could not reach account server") }
             if http.statusCode == 401 {
-                signOut()
+                if token == readToken() { signOut() }
                 return
             }
             guard (200..<300).contains(http.statusCode) else { throw AccountError(serverMessage(data)) }
             let profile = try JSONDecoder().decode(ProfileResponse.self, from: data)
+            guard token == readToken() else { return }
             user = profile.user
             unlocked = profile.unlocked?.scenarioIds ?? []
+            await readDetails()
         } catch {
             message = "Account could not be refreshed: \(error.localizedDescription)"
         }
@@ -242,6 +274,8 @@ final class CampaignAccount: ObservableObject {
         user = nil
         unlocked = []
         cloudSaves = []
+        purchases = []; purchasesLoaded = false; dailyRank = nil
+        boardGeneration += 1; board = []
         message = nil
     }
 
@@ -252,10 +286,12 @@ final class CampaignAccount: ObservableObject {
         request.httpBody = body
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let token = readToken() { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        let credential = readToken()
+        if let token = credential { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AccountError("Could not reach account server") }
-        if http.statusCode == 401 { signOut() }
+        guard credential == readToken() else { throw AccountError("Account changed during the request. Try again.") }
+        if http.statusCode == 401, credential != nil, path != "/api/lakeside/exchange" { signOut() }
         guard (200..<300).contains(http.statusCode) else { throw AccountError(serverMessage(data)) }
         return data
     }
@@ -275,11 +311,12 @@ final class CampaignAccount: ObservableObject {
     func loadBoard(date: String, scenarioId: String? = nil) async {
         boardGeneration += 1
         let generation = boardGeneration
-        board = []
+        board = []; dailyRank = nil
         do {
             let data = try await call(path: scenarioId.map { "/api/leaderboard?scenario=\($0)&limit=20" } ?? "/api/daily/board?date=\(date)")
             guard generation == boardGeneration else { return }
-            board = try JSONDecoder().decode(BoardResponse.self, from: data).entries
+            let response = try JSONDecoder().decode(BoardResponse.self, from: data)
+            board = response.entries; dailyRank = response.me
         } catch { if generation == boardGeneration { message = "Leaderboard unavailable. You can keep playing offline." } }
     }
 
@@ -292,6 +329,60 @@ final class CampaignAccount: ObservableObject {
             let posted = try JSONDecoder().decode(ScorePostResponse.self, from: data)
             message = posted.posted ? "Score posted. Rank #\(posted.rank)." : "Kept your personal best (\(posted.personalBest)). Rank #\(posted.rank)."
         } catch { message = error.localizedDescription }
+    }
+
+    func exchangeLakeside(code: String) async {
+        guard !busy else { return }
+        busy = true; message = nil
+        defer { busy = false }
+        do {
+            let body = try JSONSerialization.data(withJSONObject: ["code": code])
+            let data = try await call(path: "/api/lakeside/exchange", method: "POST", body: body)
+            let response = try JSONDecoder().decode(LoginResponse.self, from: data)
+            try saveToken(response.token)
+            user = response.user
+            await refresh()
+        } catch { message = error.localizedDescription }
+    }
+
+    private func persistProgress() {
+        UserDefaults.standard.set(progress.json(), forKey: "mov_account_achievements_v1")
+        awards = progress.awards()
+    }
+    func recordAchievementSnapshot(_ snapshot: String) {
+        guard progress.recordSnapshot(snapshot: snapshot) else { return }
+        persistProgress()
+        if user != nil && !busy { Task { await syncAchievements() } }
+    }
+    private func syncProgress() async throws {
+        guard let owner = user?.id else { return }
+        let data = try await call(path: "/api/achievements")
+        guard user?.id == owner else { throw AccountError("Account changed during achievement sync.") }
+        guard let json = String(data: data, encoding: .utf8) else { throw AccountError("Achievement response unreadable.") }
+        guard let uploads = progress.uploads(serverJson: json) else { throw AccountError("Achievement response unreadable.") }
+        persistProgress()
+        for upload in uploads {
+            guard user?.id == owner else { throw AccountError("Account changed during achievement sync.") }
+            _ = try await call(path: "/api/achievements", method: "POST", body: Data(upload.payload.utf8))
+        }
+    }
+    func syncAchievements() async {
+        guard !busy else { return }
+        busy = true; message = nil
+        defer { busy = false }
+        do { try await syncProgress(); message = "Achievements synced." }
+        catch { message = "Achievements are saved on this device. Refresh your account to retry sync." }
+    }
+    private func readDetails() async {
+        do {
+            let data = try await call(path: "/api/my-entitlements")
+            purchases = try JSONDecoder().decode(PurchasesResponse.self, from: data).purchases
+            purchasesLoaded = true
+        } catch { message = "Purchase history unavailable. Refresh your account to try again." }
+        if user != nil {
+            do { try await syncProgress() }
+            catch { message = "Achievements are saved on this device. Refresh your account to retry sync." }
+        }
     }
 
     private func request(path: String, fields: [String: String]) async throws -> Data {

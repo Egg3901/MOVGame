@@ -30,7 +30,7 @@ private data class MapShape(val d: String)
 @Serializable
 private data class MapGeometry(val viewBox: String, val shapes: Map<String, MapShape>)
 
-private val nativeMaps: Map<String, NativeMap> by lazy {
+internal val nativeMaps: Map<String, NativeMap> by lazy {
     EngineJson.decodeFromString<Map<String, MapGeometry>>(bundleText("maps")).mapValues { (_, map) ->
         val box = map.viewBox.split(' ').map(String::toDouble)
         require(box[0] == 0.0 && box[1] == 0.0)

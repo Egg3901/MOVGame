@@ -79,16 +79,22 @@ def screen_coverage(path: pathlib.Path):
     return dark / samples, amber, coral, blue_samples, white_samples
 
 
+def check_screen(path, mode='game'):
+    fraction, amber, coral, blue_samples, white_samples = screen_coverage(path)
+    summary = f'dark={fraction:.2f} amber_samples={amber} coral_samples={coral} blue_samples={blue_samples} white_samples={white_samples}'
+    if mode == 'boot':
+        # The black Apple boot splash is about 96% dark. Wait for SpringBoard.
+        ready = fraction < 0.90
+    elif mode == 'ask':
+        # Ask uses dense white text on dark panels, without MOV's colored accents.
+        ready = fraction >= 0.35 and white_samples >= 80
+    else:
+        ready = fraction >= 0.35 and (amber >= 3 or coral >= 3 or blue_samples >= 8)
+    return ready, summary
+
+
 if __name__ == '__main__':
-    fraction, amber, coral, blue_samples, white_samples = screen_coverage(pathlib.Path(sys.argv[1]))
-    print(f'dark={fraction:.2f} amber_samples={amber} coral_samples={coral} blue_samples={blue_samples} white_samples={white_samples}')
-    if '--boot' in sys.argv[2:]:
-        # The simulator's black Apple-logo boot splash is ~96% dark. Wait for
-        # SpringBoard before installing and launching the app.
-        sys.exit(0 if fraction < 0.90 else 1)
-    if '--ask' in sys.argv[2:]:
-        # Ask has a near-black page with white copy, rather than MOV's coral
-        # and amber accents. A dense text area distinguishes it from the game
-        # home screen and an empty black webview.
-        sys.exit(0 if fraction >= 0.35 and white_samples >= 80 else 1)
-    sys.exit(0 if fraction >= 0.35 and (amber >= 3 or coral >= 3 or blue_samples >= 8) else 1)
+    mode = 'boot' if '--boot' in sys.argv[2:] else 'ask' if '--ask' in sys.argv[2:] else 'game'
+    ready, summary = check_screen(pathlib.Path(sys.argv[1]), mode)
+    print(summary)
+    sys.exit(0 if ready else 1)

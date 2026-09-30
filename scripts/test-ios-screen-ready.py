@@ -7,7 +7,9 @@ import tempfile
 import unittest
 import zlib
 
-coverage = runpy.run_path(str(pathlib.Path(__file__).with_name('ios-screen-ready.py')))['screen_coverage']
+probe = runpy.run_path(str(pathlib.Path(__file__).with_name('ios-screen-ready.py')))
+coverage = probe['screen_coverage']
+check_screen = probe['check_screen']
 
 
 def png(background, marker=None):
@@ -34,6 +36,12 @@ class ScreenReadyTest(unittest.TestCase):
             path.write_bytes(image)
             return coverage(path)
 
+    def ready(self, image, mode='game'):
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / 'screen.png'
+            path.write_bytes(image)
+            return check_screen(path, mode)[0]
+
     def test_small_party_marker_at_left_of_standings_is_counted(self):
         dark, amber, coral, blue, _ = self.measure(png([10, 15, 20], [0, 130, 210]))
         self.assertGreaterEqual(dark, 0.35)
@@ -43,16 +51,22 @@ class ScreenReadyTest(unittest.TestCase):
         # Actual simulator capture: 160-pixel resizing erased the title accent
         # and chart dots. The 320-pixel probe preserves both without loosening
         # the readiness thresholds.
-        dark, amber, coral, blue, _ = coverage(pathlib.Path(__file__).parent / 'test-fixtures' / 'ios-analysis.png')
+        fixture = pathlib.Path(__file__).parent / 'test-fixtures' / 'ios-analysis.png'
+        self.assertTrue(check_screen(fixture)[0])
+        dark, amber, coral, blue, _ = coverage(fixture)
         self.assertGreaterEqual(dark, 0.35)
         self.assertTrue(amber >= 3 or coral >= 3 or blue >= 8)
 
     def test_blank_dark_screen_has_no_accent(self):
+        self.assertFalse(self.ready(png([10, 15, 20])))
+        self.assertFalse(self.ready(png([10, 15, 20]), 'ask'))
         dark, amber, coral, blue, _ = self.measure(png([10, 15, 20]))
         self.assertEqual(dark, 1)
         self.assertEqual((amber, coral, blue), (0, 0, 0))
 
     def test_blank_white_screen_is_rejected(self):
+        self.assertFalse(self.ready(png([255, 255, 255])))
+        self.assertFalse(self.ready(png([255, 255, 255]), 'ask'))
         dark, _, _, _, _ = self.measure(png([255, 255, 255]))
         self.assertEqual(dark, 0)
 
