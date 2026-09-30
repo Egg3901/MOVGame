@@ -9,6 +9,26 @@ private func nativePartyColor(_ hex: String) -> Color {
 
 private func nativeActionName(_ serial: String) -> String { serial.replacingOccurrences(of: "_", with: " ").capitalized }
 
+struct PlanBonusHints: View {
+    let active: [PlanBonus]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(active, id: \.id) { bonus in
+                Text("\(bonus.name) +\(bonus.percent)%").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
+            }
+            DisclosureGroup("How to combine moves") {
+                ForEach(MobileGame.companion.planBonusRecipes(), id: \.id) { bonus in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(bonus.recipe) · +\(bonus.percent)%").font(.caption.bold())
+                        Text(bonus.blurb).font(.caption).foregroundStyle(CampaignStyle.muted)
+                    }.padding(.vertical, 4)
+                }
+            }.font(.caption)
+        }
+    }
+}
+
 private struct NativeCountryMapView: View {
     let map: NativeMap
     let regions: [NativeRegion]
@@ -295,6 +315,7 @@ struct NativeWorldCampaign: View {
                 .font(.caption).foregroundStyle(CampaignStyle.muted)
             Text("Plan estimate: \(game.previewPlayerUnits()) \(game.unitName()) after your queued actions. Rival moves and events can change the result.")
                 .font(.caption).foregroundStyle(CampaignStyle.gold)
+            PlanBonusHints(active: game.planBonuses())
             Picker("Action", selection: $type) { ForEach(game.actionTypes(), id: \.self) { Text(nativeActionName($0)).tag($0) } }
             Picker("Target", selection: $regionId) {
                 Text("National").tag("")

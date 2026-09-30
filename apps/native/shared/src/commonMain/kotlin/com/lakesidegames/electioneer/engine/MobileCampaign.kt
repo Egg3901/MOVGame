@@ -204,6 +204,9 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
         else -> 0.0
     }
 
+    fun planBonuses(): List<PlanBonus> = activePlanBonuses(
+        uk?.queuedActions?.map { it.planMove() } ?: country!!.queuedActions.map { it.planMove() })
+
     fun plan(): List<NativePlan> {
         fun row(i: Int, type: String, region: String?, day: Int?, mode: String?, spend: Double?, issue: String?, rival: String?): NativePlan {
             val regionName = (uk?.regions ?: country!!.regions).firstOrNull { it.id == region }?.name ?: "National"

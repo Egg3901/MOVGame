@@ -99,7 +99,9 @@ fun rankTargets(game: GameState, ai: CandidateId, cfg: AiConfig): List<Target> {
         if (st == null || st.blocs.isEmpty()) continue
         val aiShare = aiShareOf(sr.demShare, ai)
         val dist = abs(sr.demShare - 0.5)
-        if (dist > band) continue
+        // V8 and JVM exp/log can differ by one ULP after calibration. A state
+        // on the intended band boundary must remain eligible on both clients.
+        if (dist - band > 1e-12) continue
         val closeness = 1 - dist * 2 // 1 = coin flip
         // Soft diminishing returns past ~$8M media cost.
         val costScale = max(0.35, min(1.4, 8 / max(1.0, st.mediaMarketCost)))

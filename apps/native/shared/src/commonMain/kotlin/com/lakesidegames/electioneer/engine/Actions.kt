@@ -343,12 +343,12 @@ private fun applyIssuePivot(game: GameState, action: CampaignAction, mult: Doubl
     }
 }
 
-fun applyAction(game: GameState, action: CampaignAction, rng: Rng, actionPower: Double = 1.0) {
-    // Every action costs exactly one slot from the weekly pool. Out of slots:
-    // the action can't run. Cash costs are charged on top inside the handlers.
+fun applyAction(game: GameState, action: CampaignAction, rng: Rng, actionPower: Double = 1.0,
+                planBonuses: List<PlanBonus> = emptyList()) {
+    // Invalid or unaffordable moves preserve their slot. A deliberate GOTV
+    // attempt without field offices still costs a slot and reports its failure.
     val res = game.resources.getValue(action.candidate.serial)
     if (res.actions < 1) return
-    res.actions -= 1
     val firstNewCause = game.causes.size
     // The player's campaigning is amplified by the difficulty handicap (1.0 for
     // the AI and on hard); it scales persuasion only, not cash/infra/prep.
@@ -365,9 +365,12 @@ fun applyAction(game: GameState, action: CampaignAction, rng: Rng, actionPower: 
         ActionType.POLICY_PREP -> applyPolicyPrep(game, action)
         ActionType.ISSUE_PIVOT -> applyIssuePivot(game, action, mult)
     }
+    if (game.causes.size == firstNewCause) return
     for (index in firstNewCause until game.causes.size) {
         game.causes[index] = game.causes[index].copy(actor = action.candidate)
     }
+    res.actions -= 1
+    for (bonus in planBonuses) game.causes.add(bonus.cause(game.turn, action.stateId, action.candidate))
 }
 
 fun clamp(x: Double, lo: Double, hi: Double): Double = max(lo, min(hi, x))

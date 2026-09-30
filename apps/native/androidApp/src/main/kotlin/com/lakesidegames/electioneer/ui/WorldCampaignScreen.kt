@@ -217,6 +217,7 @@ fun WorldCampaignScreen(session: GameSession) {
                 Text("${game.currency()}${number(game.funds())}M cash · ${game.slotsLeft()} moves left")
                 Text("Planned ${game.currency()}${number(game.plannedSpend())}M · Available ${game.currency()}${number(game.availableFunds())}M")
                 Text("Plan estimate: ${game.previewPlayerUnits()} $unit after your queued actions. Rival moves and events can change the result.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                PlanBonusHints(game.planBonuses())
                 ChoicePicker("Action", type, game.actionTypes().map { it to actionName(it) }) { type = it }
                 ChoicePicker("Target", regionId, listOf("" to "National") + regions.map { it.id to it.name }) { regionId = it }
                 if (regional && regionId.isEmpty()) Text("Choose a region for this action.", color = MaterialTheme.colorScheme.primary)
