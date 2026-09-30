@@ -58,7 +58,7 @@ def screen_coverage(path: pathlib.Path):
                 row[i] = (row[i] + predictor) & 255
             elif filter_type != 0:
                 raise ValueError(f'unsupported PNG filter {filter_type}')
-        # Probes are already resized to 160 pixels. Sampling them again can
+        # Probes are already resized to 320 pixels. Sampling them again can
         # miss small party markers near the left edge of multiparty standings.
         if height // 6 <= y < height * 5 // 6:
             for x in range(width // 16, width * 15 // 16):

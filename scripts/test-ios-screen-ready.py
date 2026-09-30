@@ -39,6 +39,14 @@ class ScreenReadyTest(unittest.TestCase):
         self.assertGreaterEqual(dark, 0.35)
         self.assertGreaterEqual(blue, 8)
 
+    def test_rendered_analysis_with_thin_chart_marks_is_counted(self):
+        # Actual simulator capture: 160-pixel resizing erased the title accent
+        # and chart dots. The 320-pixel probe preserves both without loosening
+        # the readiness thresholds.
+        dark, amber, coral, blue, _ = coverage(pathlib.Path(__file__).parent / 'test-fixtures' / 'ios-analysis.png')
+        self.assertGreaterEqual(dark, 0.35)
+        self.assertTrue(amber >= 3 or coral >= 3 or blue >= 8)
+
     def test_blank_dark_screen_has_no_accent(self):
         dark, amber, coral, blue, _ = self.measure(png([10, 15, 20]))
         self.assertEqual(dark, 1)
