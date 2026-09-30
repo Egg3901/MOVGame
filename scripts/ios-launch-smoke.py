@@ -55,6 +55,11 @@ phones = [dict(d, runtime=runtime)
 if not phones:
     raise SystemExit('No available iPhone simulator')
 device = phones[0]['udid']
+if os.environ.get('MOV_FRESH_SIMULATOR') == '1' and not requested:
+    template = phones[0]
+    device = run('xcrun', 'simctl', 'create', 'MOV launch smoke', template['deviceTypeIdentifier'], template['runtime'])
+    phones[0] = dict(udid=device, name='MOV launch smoke', state='Shutdown', runtime=template['runtime'],
+                     deviceTypeIdentifier=template['deviceTypeIdentifier'])
 print(json.dumps(phones[0]), flush=True)
 (output / 'simulator.json').write_text(json.dumps(phones[0], indent=2))
 if phones[0]['state'] != 'Booted':
