@@ -15,6 +15,8 @@ class NativeDaily private constructor() {
             "cdu" to "CDU/CSU", "spd" to "the SPD", "ens" to "Ensemble", "rn" to "the RN",
             "alp" to "Labor", "lnp" to "the Coalition")
 
+        fun roleName(role: String): String = names[role] ?: role.uppercase()
+
         fun assignment(dateUTC: String): NativeDailyAssignment {
             require(Regex("\\d{4}-\\d{2}-\\d{2}").matches(dateUTC))
             // Use the exported registry's order, exactly as web and server do.

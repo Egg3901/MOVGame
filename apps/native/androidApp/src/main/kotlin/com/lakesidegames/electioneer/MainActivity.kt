@@ -110,6 +110,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         Screen.REVEAL -> ElectionNightScreen(session)
                         Screen.STORE -> StoreScreen(session, activity)
                         Screen.ACCOUNT -> AccountScreen(session)
+                        Screen.BOARDS -> DailyBoardsScreen(session)
                         Screen.SAVES -> CampaignSavesScreen(session)
                         Screen.ANALYSIS -> AnalysisScreen(session)
                         Screen.REPLAY -> AnalysisScreen(session, timeline = true)

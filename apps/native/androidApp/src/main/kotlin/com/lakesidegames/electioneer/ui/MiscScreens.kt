@@ -99,11 +99,10 @@ fun AccountScreen(session: GameSession) {
     val busy by account.busy.collectAsState()
     val notice by account.notice.collectAsState()
     val unlocked by account.unlocked.collectAsState()
-    val board by account.board.collectAsState()
-    val dailyRank by account.dailyRank.collectAsState()
     val purchases by account.purchases.collectAsState()
     val purchasesLoaded by account.purchasesLoaded.collectAsState()
     val awards by account.awards.collectAsState()
+    val rankings by account.rankings.collectAsState()
     var showingLakeside by remember { mutableStateOf(false) }
     var showingAwards by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -111,10 +110,8 @@ fun AccountScreen(session: GameSession) {
     var username by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var registering by remember { mutableStateOf(false) }
-    var selectedBoard by remember { mutableStateOf("daily") }
     val elections = remember { MobileCampaign.countries().flatMap { MobileCampaign.elections(it.id) } }
     LaunchedEffect(user) { if (user != null) password = "" }
-    LaunchedEffect(selectedBoard, user?.id) { account.loadBoard(nativeUtcDay(), selectedBoard.takeIf { it != "daily" }) }
     if (showingLakeside) LakesideLogin(onCode = { code -> showingLakeside = false; account.exchangeLakeside(code) }, onClose = { showingLakeside = false })
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("YOUR ACCOUNT", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
@@ -166,18 +163,21 @@ fun AccountScreen(session: GameSession) {
             if (user != null) TextButton(onClick = account::syncAchievements, enabled = !busy) { Text("Sync achievements") }
             else Text("Achievements are saved on this device. Sign in to sync them.", style = MaterialTheme.typography.bodySmall)
         }
-        Text("LEADERBOARDS", style = MaterialTheme.typography.titleSmall)
-        ChoicePicker("Election", selectedBoard, listOf("daily" to "Today's daily challenge") + elections.map { it.scenarioId to "${it.flag} ${it.label}" }) { selectedBoard = it }
-        dailyRank?.let { Text("Your daily rank: #${it.rank} · ${it.score}", color = MaterialTheme.colorScheme.primary) }
-        if (board.isEmpty()) Text("No scores to show yet. Daily challenges also work offline.", style = MaterialTheme.typography.bodySmall)
-        board.forEach { entry -> Text("#${entry.rank} ${entry.username} · ${entry.score}") }
-        TextButton(onClick = { account.loadBoard(nativeUtcDay(), selectedBoard.takeIf { it != "daily" }) }) { Text("Refresh leaderboard") }
+        if (user != null && rankings.isNotEmpty()) {
+            Text("YOUR PERSONAL BESTS", style = MaterialTheme.typography.titleSmall)
+            rankings.forEach { ranking ->
+                val label = elections.firstOrNull { it.scenarioId == ranking.scenarioId }?.label ?: ranking.scenarioId
+                Text("$label · #${ranking.rank} · ${ranking.score} · ${ranking.difficulty}")
+            }
+        }
+        OutlinedButton(onClick = { session.go(Screen.BOARDS) }) { Text("Leaderboards and daily champions") }
         Text(session.savedCampaignLabel() ?: "No campaign on this device", style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
 internal fun ScorePosting(session: GameSession) {
+    ResultJourneyCard(session)
     val payload = session.scorePayload() ?: return
     val user by session.account.user.collectAsState()
     val busy by session.account.busy.collectAsState()

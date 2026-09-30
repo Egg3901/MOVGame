@@ -87,7 +87,7 @@ struct ContentView: View {
     @State private var menuDestination: MenuDestination? = nil
 
     private enum MenuDestination: String, Identifiable {
-        case store, account, credits, guide, saves, analysis, replay
+        case store, account, credits, guide, saves, analysis, replay, boards
         var id: String { rawValue }
     }
 
@@ -111,6 +111,7 @@ struct ContentView: View {
             Button(session.hasGame ? "Ask about this campaign" : "Ask about Margin of Victory") {
                 openAsk()
             }
+            Button("Leaderboards and daily champions") { menuDestination = .boards }
             Button("Account and saves") { menuDestination = .account }
             Button("Image credits") { menuDestination = .credits }
         }
@@ -120,6 +121,7 @@ struct ContentView: View {
                     switch destination {
                     case .store: StoreView(session: session)
                     case .account: AccountView(session: session)
+                    case .boards: AccountBoardsView(account: session.account)
                     case .saves: CampaignSavesView(session: session)
                     case .analysis: CampaignAnalysisView(session: session)
                     case .replay: CampaignAnalysisView(session: session, timeline: true)
@@ -127,7 +129,7 @@ struct ContentView: View {
                     case .guide: CampaignGuideView()
                     }
                 }
-                .navigationTitle(destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .replay ? "Campaign replay" : destination == .guide ? "How to play" : "Image credits")
+                .navigationTitle(destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .replay ? "Campaign replay" : destination == .boards ? "Leaderboards" : destination == .guide ? "How to play" : "Image credits")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { menuDestination = nil }
@@ -160,6 +162,7 @@ struct ContentView: View {
         .onAppear {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") || ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { menuDestination = .account }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-champions") { menuDestination = .boards }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-saves") { menuDestination = .saves }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-analysis") { menuDestination = .analysis }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-replay") { menuDestination = .replay }

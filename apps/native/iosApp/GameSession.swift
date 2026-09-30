@@ -98,6 +98,21 @@ final class GameSession: ObservableObject {
     @Published var saveNotice: String?
     func analysis(regionId: String?) -> NativeAnalysisDocument? { campaign?.analysis(regionId: regionId) ?? game?.analysis(regionId: regionId) }
     func currentSnapshot() -> String? { campaign?.saveSnapshot() ?? game?.saveSnapshot() }
+    func resultJourney() -> NativeResultJourney? {
+        guard let snapshot = currentSnapshot() else { return nil }
+        return NativeResultsJourney.companion.create(snapshot: snapshot, dateUTC: nativeUTCDay())
+    }
+    func playNextCampaign() {
+        guard let next = resultJourney()?.next else { return }
+        saveNamed(name: "Completed \(savedCampaignLabel)")
+        dailySetup = nil
+        let seed = String(Int64(Date().timeIntervalSince1970 * 1000))
+        if next.countryId == "US" {
+            newGame(scenarioId: next.electionId, playerSerial: next.partyId, mateId: next.mateId,
+                    staffIds: [], difficulty: next.difficulty, eventMode: next.eventMode, totalTurns: 9,
+                    seed: seed, whatIfState: "", mirrorMatch: false, pandemic: false)
+        } else { newCampaign(countryId: next.countryId, electionId: next.electionId, partyId: next.partyId, difficulty: next.difficulty, seed: seed) }
+    }
     func exportCampaign() -> String? {
         guard let snapshot = currentSnapshot() else { return nil }
         return NativeReplay.shared.fileExport(snapshot: snapshot, replay: replay.json())

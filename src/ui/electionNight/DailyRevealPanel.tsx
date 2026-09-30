@@ -11,6 +11,8 @@ import {
   dailyStreak,
 } from "@lib/daily";
 import { SCENARIOS_BY_ID } from "@content/scenarioRegistry";
+import { estimatePercentile } from "@lib/dailyStats";
+export { estimatePercentile } from "@lib/dailyStats";
 import { buildShareText, copyShare } from "@lib/shareCard";
 import { api, type DailyBoardEntry } from "@lib/api";
 import { useAuthStore } from "@store/authStore";
@@ -174,22 +176,4 @@ export function DailyRevealPanel({
       {note && <div className="muted small" style={{ marginTop: 6 }}>{note}</div>}
     </div>
   );
-}
-
-/** Top-N% estimate from the live board (or null when we have nothing to compare). */
-export function estimatePercentile(
-  score: number,
-  board: DailyBoardEntry[] | null,
-  myRank: number | null,
-): number | null {
-  if (myRank != null && board && board.length > 0) {
-    const pct = Math.max(1, Math.round((myRank / Math.max(board.length, myRank)) * 100));
-    return pct;
-  }
-  if (board && board.length > 0) {
-    const better = board.filter((e) => e.score > score).length;
-    const pct = Math.max(1, Math.round(((better + 1) / (board.length + 1)) * 100));
-    return pct;
-  }
-  return null;
 }

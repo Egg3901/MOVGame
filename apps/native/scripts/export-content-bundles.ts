@@ -40,6 +40,7 @@ async function main() {
   const fr = await import(`${WEB_REPO}/src/content/countries/france.ts`);
   const de = await import(`${WEB_REPO}/src/content/countries/germany.ts`);
   const { SCENARIO_REGISTRY } = await import(`${WEB_REPO}/src/content/scenarioRegistry.ts`);
+  const { US_NEXT_SCENARIO, UK_NEXT_SCENARIO, countryNextScenario } = await import(`${WEB_REPO}/src/content/nextScenario.ts`);
   const { GRID, GRID_ROWS, GRID_COLS, SPLIT_UNITS } = await import(`${WEB_REPO}/src/content/mapLayout.ts`);
   const { UK_VIEWBOX, REGION_PATHS } = await import(`${WEB_REPO}/src/content/uk/regionPaths.ts`);
 
@@ -57,6 +58,13 @@ async function main() {
 
   const bundles: Record<string, unknown> = {
     "scenario-registry": SCENARIO_REGISTRY,
+    "next-campaigns": Object.fromEntries(SCENARIO_REGISTRY.flatMap((meta: any) => {
+      const next = meta.country === "US" ? US_NEXT_SCENARIO[meta.nativeId]
+        : meta.country === "UK" ? UK_NEXT_SCENARIO[meta.nativeId] : countryNextScenario(meta.country, meta.nativeId);
+      const target = next && SCENARIO_REGISTRY.find((m: any) => m.country === meta.country && m.nativeId === next.id);
+      return target ? [[meta.scenarioId, { countryId: target.country, electionId: target.nativeId,
+        label: target.label, blurb: next.blurb }]] : [];
+    })),
     "maps": { US: usMap, UK: { viewBox: UK_VIEWBOX, shapes: REGION_PATHS },
       CA: ca.CANADA.map, DE: de.GERMANY.map, FR: fr.FRANCE.map, AU: au.AUSTRALIA.map },
     "us-blocs": { blocs: Object.values(BLOCS) },

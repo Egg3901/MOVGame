@@ -1,9 +1,12 @@
 {
-  "webHead": "c193d5222833c9ed5c90fad464c3dd7adcf99f1a",
-  "exportedAt": "2026-09-30T21:32:58.953Z",
+  "webHead": "700359bc8898d4e82a67e9b1769d7527e6649f80",
+  "exportedAt": "2026-09-30T22:46:54.560Z",
   "bundles": {
     "scenario-registry": {
       "bytes": 14268
+    },
+    "next-campaigns": {
+      "bytes": 5401
     },
     "maps": {
       "bytes": 222402

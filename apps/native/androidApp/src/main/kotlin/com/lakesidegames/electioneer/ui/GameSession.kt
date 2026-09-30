@@ -31,6 +31,7 @@ import com.lakesidegames.electioneer.engine.loadGame
 import com.lakesidegames.electioneer.engine.saveGame
 import com.lakesidegames.electioneer.engine.MobileGame
 import com.lakesidegames.electioneer.engine.MobileCampaign
+import com.lakesidegames.electioneer.engine.NativeResultsJourney
 import com.lakesidegames.electioneer.engine.NativeResults
 import com.lakesidegames.electioneer.engine.NativeDaily
 import com.lakesidegames.electioneer.engine.NativeDailyAssignment
@@ -58,7 +59,7 @@ import java.time.ZoneOffset
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY, REVEAL }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY, REVEAL, BOARDS }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffset.UTC).plusDays(offsetDays).toString()
@@ -155,6 +156,16 @@ class GameSession : ViewModel() {
     fun analysis(regionId: String?) = _campaign.value?.analysis(regionId) ?: _game.value?.let { NativeAnalysis.us(it, regionId) }
     fun currentSnapshot(): String? = _campaign.value?.saveSnapshot()
         ?: _game.value?.let { saveGame(it, turnSeed, campaignDifficulty) }
+    fun resultJourney() = currentSnapshot()?.let { NativeResultsJourney.create(it, nativeUtcDay()) }
+    fun playNextCampaign() {
+        val next = resultJourney()?.next ?: return
+        saveNamed("Completed ${savedCampaignLabel() ?: next.label}")
+        dailySetup = null
+        val seed = System.currentTimeMillis().toString()
+        if (next.countryId == "US") newGame(next.electionId, CandidateId.entries.first { it.serial == next.partyId }, next.mateId,
+            emptyList(), next.difficulty, EventMode.entries.first { it.serial == next.eventMode }, 9, seed, "", false, false)
+        else startCampaign(next.countryId, next.electionId, next.partyId, next.difficulty, seed)
+    }
     fun exportCampaign(): String? = currentSnapshot()?.let { NativeReplay.fileExport(it, replay.json()) }
     fun saveNamed(name: String, id: String = UUID.randomUUID().toString()): Boolean {
         val snapshot = currentSnapshot() ?: return false
