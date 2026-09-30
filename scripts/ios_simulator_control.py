@@ -1,7 +1,10 @@
 """Bounded simulator launch and screenshot commands, shared by smoke captures."""
 import pathlib
+import os
+import pty
 import re
 import subprocess
+import threading
 import time
 
 
@@ -34,8 +37,31 @@ def launch(device, bundle, console_path, arguments=(), acknowledgement_seconds=6
     console_path = pathlib.Path(console_path)
     for attempt in range(2):
         console = console_path.open('w')
-        process = subprocess.Popen(['xcrun', 'simctl', 'launch', '--console', device, bundle, *arguments],
-                                   stdout=console, stderr=subprocess.STDOUT)
+        master, terminal = pty.openpty()
+        try:
+            process = subprocess.Popen(['xcrun', 'simctl', 'launch', '--console', device, bundle, *arguments],
+                                       stdout=terminal, stderr=terminal)
+        except Exception:
+            os.close(master)
+            console.close()
+            raise
+        finally:
+            os.close(terminal)
+        # simctl buffers its PID acknowledgement when stdout is a file. A PTY
+        # keeps the console interactive; continuously tee it into the artifact.
+        def tee(descriptor=master, destination=console):
+            try:
+                while True:
+                    data = os.read(descriptor, 4096)
+                    if not data:
+                        break
+                    destination.write(data.decode(errors='replace'))
+                    destination.flush()
+            except (OSError, ValueError):
+                pass
+            finally:
+                os.close(descriptor)
+        threading.Thread(target=tee, daemon=True).start()
         for second in range(acknowledgement_seconds):
             if process.poll() is not None:
                 console.close()

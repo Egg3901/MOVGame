@@ -1,9 +1,10 @@
 import pathlib
+import os
 import subprocess
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
-from ios_simulator_control import launch, screenshot
+from ios_simulator_control import launch, screenshot, stop
 
 
 class SimulatorControlTest(unittest.TestCase):
@@ -13,12 +14,24 @@ class SimulatorControlTest(unittest.TestCase):
             process = Mock()
             process.poll.return_value = None
             def begin(*args, **kwargs):
-                kwargs['stdout'].write('com.example.app: 123\n')
-                kwargs['stdout'].flush()
+                os.write(kwargs['stdout'], b'com.example.app: 123\n')
                 return process
             with patch('ios_simulator_control.subprocess.Popen', side_effect=begin):
                 result, console = launch('device', 'com.example.app', path, acknowledgement_seconds=2)
                 self.assertIs(result, process)
+                console.close()
+
+    def test_pid_and_delayed_console_output_are_not_buffered(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = pathlib.Path(folder) / 'console.log'
+            original = subprocess.Popen
+            def begin(*args, **kwargs):
+                # No explicit flush: a plain output file buffers both lines.
+                return original(['python3', '-c', 'import time; print("com.example.app: 123"); time.sleep(0.2); print("AUTH_REACHED"); time.sleep(20)'], **kwargs)
+            with patch('ios_simulator_control.subprocess.Popen', side_effect=begin):
+                process, console = launch('device', 'com.example.app', path, acknowledgement_seconds=3)
+                self.assertIn('AUTH_REACHED', path.read_text())
+                stop(process)
                 console.close()
 
     def test_pending_launch_retries_once_and_fails_with_no_pid(self):
