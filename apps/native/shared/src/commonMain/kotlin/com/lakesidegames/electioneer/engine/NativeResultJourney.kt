@@ -1,5 +1,6 @@
 package com.lakesidegames.electioneer.engine
 
+import com.lakesidegames.electioneer.content.bundleText
 import kotlinx.serialization.Serializable
 import kotlin.math.floor
 
