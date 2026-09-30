@@ -19,9 +19,10 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
-        webView.isOpaque = false
-        webView.backgroundColor = .clear
-        webView.scrollView.backgroundColor = .clear
+        // Ask owns its light/dark theme. A transparent webview lets the dark
+        // native canvas show through a light Ask page, hiding its dark text.
+        webView.backgroundColor = .black
+        webView.scrollView.backgroundColor = .black
     }
 
     func open(_ url: URL, refresh: Bool = false) {
