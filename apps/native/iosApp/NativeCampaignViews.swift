@@ -84,6 +84,15 @@ struct NativeCampaignLibrary: View {
         countryId == "US" ? [] : MobileCampaign.companion.parties(countryId: countryId, electionId: selectedElectionId)
     }
 
+    init(session: GameSession) {
+        self.session = session
+        let daily = session.dailySetup
+        _countryId = State(initialValue: daily?.countryId ?? "US")
+        _electionId = State(initialValue: daily?.electionId ?? "2024")
+        _partyId = State(initialValue: daily?.role ?? "")
+        _seed = State(initialValue: daily?.seed ?? String(Int(Date().timeIntervalSince1970)))
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -137,6 +146,7 @@ struct NativeCampaignLibrary: View {
             .padding(20)
         }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
+        .onAppear { session.dailySetup = nil }
         .onChange(of: countryId) { _ in
             electionId = elections.first?.nativeId ?? "2024"
             partyId = parties.first?.id ?? ""
@@ -225,6 +235,7 @@ struct NativeWorldCampaign: View {
                         }.nativeCampaignCard()
                     }
                     if game.isOver() {
+                        ScorePosting(session: session)
                         if let summary = game.resultSummary() {
                             VStack(alignment: .leading, spacing: 7) {
                                 Text("CAMPAIGN SCORE \(summary.score) / 1000").font(.headline).foregroundStyle(CampaignStyle.gold)

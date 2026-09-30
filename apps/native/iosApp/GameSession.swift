@@ -4,15 +4,55 @@ import shared
 // Phase 4 session (#22): mirrors androidApp GameSession. The Swift side
 // talks only to the MobileGame facade (string serials in, plain reads out)
 // and bumps `version` after every mutation so views re-render.
+func nativeUTCDay(offsetDays: Int = 0) -> String {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd"
+    return formatter.string(from: Date(timeIntervalSinceNow: Double(offsetDays) * 86400))
+}
+
 enum PlayScreen: Equatable {
     case home, setup, loading, game, results, library, worldGame
 }
 
+@MainActor
 final class GameSession: ObservableObject {
     private static let saveKey = "mov_campaign_v1"
     @Published var playScreen: PlayScreen = .home
     @Published var setupScenarioId: String? = nil
     @Published var version = 0
+    @Published var dailySetup: NativeDailyAssignment?
+    let account = CampaignAccount()
+
+    func dailyAssignment() -> NativeDailyAssignment { NativeDaily.companion.assignment(dateUTC: nativeUTCDay()) }
+    func openDaily(restart: Bool = false) {
+        let today = dailyAssignment()
+        if !restart && (game?.isDaily(dateUTC: today.date) == true || campaign?.isDaily(dateUTC: today.date) == true) {
+            resumeGame()
+            return
+        }
+        dailySetup = today
+        setupScenarioId = today.electionId
+        playScreen = today.countryId == "US" ? .setup : .library
+    }
+    func scorePayload() -> String? { campaign?.scoreSubmission() ?? game?.scoreSubmission() }
+    func isDaily() -> Bool { campaign?.isDaily(dateUTC: nativeUTCDay()) ?? game?.isDaily(dateUTC: nativeUTCDay()) ?? false }
+    func dailyBest() -> Int? {
+        let key = "mov_daily_best_\(nativeUTCDay())"
+        return UserDefaults.standard.object(forKey: key) == nil ? nil : UserDefaults.standard.integer(forKey: key)
+    }
+    func dailyStreak() -> Int { UserDefaults.standard.integer(forKey: "mov_daily_streak") }
+    private func recordDaily() {
+        guard isDaily(), let summary = campaign?.resultSummary() ?? game?.resultSummary(), summary.score >= 0 else { return }
+        let date = nativeUTCDay()
+        let streak = NativeDaily.companion.nextStreak(dateUTC: date, yesterdayUTC: nativeUTCDay(offsetDays: -1),
+            lastPlayed: UserDefaults.standard.string(forKey: "mov_daily_last"), streak: Int32(dailyStreak()))
+        UserDefaults.standard.set(max(dailyBest() ?? 0, Int(summary.score)), forKey: "mov_daily_best_\(date)")
+        UserDefaults.standard.set(date, forKey: "mov_daily_last")
+        UserDefaults.standard.set(Int(streak), forKey: "mov_daily_streak")
+    }
 
     @Published var recapLines: [String] = []
     @Published var showRecap = false
@@ -47,7 +87,11 @@ final class GameSession: ObservableObject {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--mov-capture-library") {
             playScreen = .library
-        } else if let countryId = ["UK", "CA", "DE", "FR", "AU"].first(where: { arguments.contains("--mov-capture-world-\($0.lowercased())") }) {
+        } else if arguments.contains("--mov-capture-daily") {
+            openDaily(restart: true)
+        } else if let countryId = ["UK", "CA", "DE", "FR", "AU"].first(where: {
+            arguments.contains("--mov-capture-world-\($0.lowercased())") || ($0 == "DE" && arguments.contains("--mov-capture-world-results"))
+        }) {
             guard let election = MobileCampaign.companion.elections(countryId: countryId).first,
                   let party = MobileCampaign.companion.parties(countryId: countryId, electionId: election.nativeId).first else { return }
             newCampaign(countryId: countryId, electionId: election.nativeId, partyId: party.id,
@@ -55,7 +99,7 @@ final class GameSession: ObservableObject {
         } else if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
             playScreen = .setup
         } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") ||
-                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") {
+                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") {
             let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
                 ?? mates(scenarioId: "2024", playerSerial: "dem").first
             guard let mate else { return }
@@ -75,6 +119,15 @@ final class GameSession: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             let started = MobileCampaign.companion.start(countryId: countryId, electionId: electionId,
                 partyId: partyId, difficulty: difficulty, seed: seed)
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-world-results") {
+                while !started.isOver() {
+                    if started.hasPendingEvent(), let choice = started.eventChoices().first {
+                        _ = started.answerEvent(choiceId: choice.id)
+                    } else { _ = started.endWeek() }
+                }
+            }
+            #endif
             DispatchQueue.main.async {
                 self.campaign = started
                 self.game = nil
@@ -120,6 +173,7 @@ final class GameSession: ObservableObject {
         if let campaign {
             UserDefaults.standard.set(campaign.saveSnapshot(), forKey: "mov_world_campaign_v1")
             UserDefaults.standard.set("world", forKey: "mov_active_campaign")
+            recordDaily()
             return
         }
         if let game = game {
@@ -130,6 +184,7 @@ final class GameSession: ObservableObject {
             if !earned.isEmpty {
                 UserDefaults.standard.set(Array(Set(previous + earned)).sorted(), forKey: "mov_achievement_ids")
             }
+            recordDaily()
         }
     }
 
@@ -148,6 +203,11 @@ final class GameSession: ObservableObject {
                 staffIds: staffIds, difficulty: difficulty, eventModeSerial: eventMode,
                 totalTurns: Int32(totalTurns), seed: seed, whatIfState: whatIfState,
                 mirrorMatch: mirrorMatch, pandemic: pandemic)
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-results") {
+                for _ in 0..<Int(started.totalTurns()) { _ = started.endTurn() }
+            }
+            #endif
             DispatchQueue.main.async {
                 self.game = started
                 self.campaign = nil
@@ -155,7 +215,7 @@ final class GameSession: ObservableObject {
                 self.showRecap = false
                 self.eventId = nil
                 self.eventResult = nil
-                self.playScreen = .game
+                self.playScreen = started.isOver() ? .results : .game
                 self.touch()
             }
         }

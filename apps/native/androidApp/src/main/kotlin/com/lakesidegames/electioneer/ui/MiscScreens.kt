@@ -21,6 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.lakesidegames.electioneer.engine.MobileCampaign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -85,13 +93,68 @@ fun StoreScreen(session: GameSession, activity: Activity) {
 }
 
 @Composable
-fun AccountScreen() {
-    Shell(
-        eyebrow = "YOUR PROFILE",
-        title = "The campaign stays with you",
-        feature = "Saved on this device",
-        body = "Campaign progress is saved on this device. Sign in and cross-device sync are not available yet.",
-    )
+fun AccountScreen(session: GameSession) {
+    val account = session.account
+    val user by account.user.collectAsState()
+    val busy by account.busy.collectAsState()
+    val notice by account.notice.collectAsState()
+    val unlocked by account.unlocked.collectAsState()
+    val board by account.board.collectAsState()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var registering by remember { mutableStateOf(false) }
+    var selectedBoard by remember { mutableStateOf("daily") }
+    val elections = remember { MobileCampaign.countries().flatMap { MobileCampaign.elections(it.id) } }
+    LaunchedEffect(user) { if (user != null) password = "" }
+    LaunchedEffect(selectedBoard) { account.loadBoard(nativeUtcDay(), selectedBoard.takeIf { it != "daily" }) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("YOUR ACCOUNT", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+        if (user != null) {
+            Text("Welcome, ${user!!.username}", style = MaterialTheme.typography.headlineSmall)
+            Text(user!!.email)
+            Row {
+                TextButton(onClick = account::refresh, enabled = !busy) { Text("Refresh account") }
+                TextButton(onClick = account::signOut, enabled = !busy) { Text("Sign out") }
+            }
+            Text("${unlocked.size} campaigns activated on this account", style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(code, { code = it }, label = { Text("Activation code") }, modifier = Modifier.fillMaxWidth())
+            Button(onClick = { account.activate(code) }, enabled = !busy && code.isNotBlank()) { Text("Activate code") }
+        } else {
+            Text(if (registering) "Create an account" else "Sign in", style = MaterialTheme.typography.headlineSmall)
+            Text("Use the same Margin of Victory account as the web game.", style = MaterialTheme.typography.bodySmall)
+            if (registering) OutlinedTextField(username, { username = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(password, { password = it }, label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
+            Button(onClick = { account.authenticate(email, password, if (registering) username else null) },
+                enabled = !busy && email.isNotBlank() && password.isNotEmpty() && (!registering || username.isNotBlank())) {
+                Text(if (busy) "Please wait…" else if (registering) "Create account" else "Sign in")
+            }
+            TextButton(onClick = { registering = !registering }, enabled = !busy) { Text(if (registering) "Already have an account? Sign in" else "New here? Create an account") }
+        }
+        notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        Text("LEADERBOARDS", style = MaterialTheme.typography.titleSmall)
+        ChoicePicker("Election", selectedBoard, listOf("daily" to "Today's daily challenge") + elections.map { it.scenarioId to "${it.flag} ${it.label}" }) { selectedBoard = it }
+        if (board.isEmpty()) Text("No scores to show yet. Daily challenges also work offline.", style = MaterialTheme.typography.bodySmall)
+        board.forEach { entry -> Text("#${entry.rank} ${entry.username} · ${entry.score}") }
+        TextButton(onClick = { account.loadBoard(nativeUtcDay(), selectedBoard.takeIf { it != "daily" }) }) { Text("Refresh leaderboard") }
+        Text(session.savedCampaignLabel() ?: "No campaign on this device", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+internal fun ScorePosting(session: GameSession) {
+    val payload = session.scorePayload() ?: return
+    val user by session.account.user.collectAsState()
+    val busy by session.account.busy.collectAsState()
+    val notice by session.account.notice.collectAsState()
+    val daily = session.isDaily()
+    if (daily) Text("DAILY CHALLENGE · Best ${session.dailyBest() ?: 0} · ${session.dailyStreak()}-day streak", color = MaterialTheme.colorScheme.primary)
+    if (user == null) TextButton(onClick = { session.go(Screen.ACCOUNT) }) { Text("Sign in to post your score") }
+    else Button(onClick = { session.account.postScore(payload, daily) }, enabled = !busy) { Text(if (busy) "Posting…" else if (daily) "Post daily score" else "Post to leaderboard") }
+    notice?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    if (daily) TextButton(onClick = { session.openDaily(restart = true) }) { Text("Replay today's challenge") }
 }
 
 @Composable

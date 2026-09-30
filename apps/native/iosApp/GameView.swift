@@ -11,6 +11,7 @@ struct Battleground: Identifiable {
     var id: String { state.id }
 }
 
+@MainActor
 final class PlannerDraft: ObservableObject {
     @Published var type = "advertise"
     @Published var target = ""

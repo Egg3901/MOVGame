@@ -64,6 +64,7 @@ struct ResultsView: View {
                         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
                     }
+                    ScorePosting(session: session)
                     if !g.resultAchievements().isEmpty {
                         Text("ACHIEVEMENTS EARNED").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
                         ForEach(g.resultAchievements(), id: \.id) { award in

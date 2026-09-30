@@ -1,5 +1,4 @@
 import SwiftUI
-import SafariServices
 import shared
 
 enum CampaignStyle {
@@ -15,10 +14,9 @@ enum CampaignStyle {
 struct HomeView: View {
     @ObservedObject var session: GameSession
     let onAsk: () -> Void
-    @State private var daily: TodayChallenge?
-    @State private var showingDaily = false
 
     var body: some View {
+        let daily = session.dailyAssignment()
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 12) {
@@ -82,16 +80,15 @@ struct HomeView: View {
                     .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
-                Button { showingDaily = true } label: {
+                Button { session.openDaily() } label: {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("DAILY CHALLENGE · \(daily?.date ?? "TODAY")")
+                        Text("DAILY CHALLENGE · \(daily.date)")
                             .font(.caption.bold()).tracking(1.2).foregroundStyle(CampaignStyle.gold)
-                        Text(daily.map { "\($0.flag) \($0.label)" } ?? "Today's shared election")
+                        Text("\(daily.flag) \(daily.label)")
                             .font(.subheadline.bold()).foregroundStyle(.white)
-                        Text(daily.map { "Play as \($0.role.uppercased()) · same race and seed for everyone" }
-                             ?? "Open the live challenge and leaderboard")
+                        Text("Play as \(daily.roleName) · same race and seed for everyone")
                             .font(.caption).foregroundStyle(CampaignStyle.muted)
-                        Text("Play today's challenge  ↗")
+                        Text(session.dailyBest().map { "Played · Best \($0) · \(session.dailyStreak())-day streak" } ?? "Play today's challenge  →")
                             .font(.subheadline.bold()).foregroundStyle(CampaignStyle.coral)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(14)
@@ -102,32 +99,10 @@ struct HomeView: View {
             }
             .padding(18)
         }
-        .task {
-            guard let url = URL(string: "https://sim.ahousedividedgame.com/api/daily") else { return }
-            do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                daily = try JSONDecoder().decode(TodayChallenge.self, from: data)
-            } catch { daily = nil }
-        }
-        .sheet(isPresented: $showingDaily) {
-            DailyWebView(url: URL(string: "https://sim.ahousedividedgame.com/?daily=1")!)
-        }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
     }
 }
 
-private struct TodayChallenge: Decodable {
-    let date: String
-    let label: String
-    let flag: String
-    let role: String
-}
-
-private struct DailyWebView: UIViewControllerRepresentable {
-    let url: URL
-    func makeUIViewController(context: Context) -> SFSafariViewController { SFSafariViewController(url: url) }
-    func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
-}
 
 struct SetupView: View {
     @ObservedObject var session: GameSession
@@ -337,6 +312,12 @@ struct SetupView: View {
             .background(CampaignStyle.background)
         }
         .onAppear {
+            if let daily = session.dailySetup, daily.countryId == "US" {
+                scenarioId = daily.electionId
+                player = daily.role
+                seed = daily.seed
+                session.dailySetup = nil
+            }
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-setup-2016") {
                 scenarioId = "2016"

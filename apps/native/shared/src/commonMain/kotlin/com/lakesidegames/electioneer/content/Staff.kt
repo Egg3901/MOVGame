@@ -26,6 +26,7 @@ data class StaffDef(
     val salaryPerWeek: Double,
     val loyalty: Double,
     val effects: StaffEffectsDef,
+    val emoji: String = "",
 )
 
 @Serializable

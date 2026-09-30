@@ -124,6 +124,10 @@ class MobileGame private constructor(
     fun resultAchievements(): List<NativeAward> = NativeResults.achievements(game, difficulty)
     fun resultHistory(): List<NativeHistoricalRegion> = NativeResults.historicalUs(game)
 
+    fun scoreSubmission(): String? = NativeResults.submission(game, difficulty)
+
+    fun isDaily(dateUTC: String): Boolean = NativeDaily.matchesUs(dateUTC, game)
+
     fun askSnapshot(): String = askCampaignSnapshot(game, campaignLabel())
 
     fun turn(): Int = game.turn
@@ -205,7 +209,7 @@ class MobileGame private constructor(
 
     // Ends the week; returns the recap lines for display.
     fun endTurn(): List<TurnRecapItem> {
-        game = advanceTurn(game, game.queuedActions, seedStr, AdvanceOptions())
+        game = advanceCampaignWeek(game, difficulty)
         return game.lastRecap
     }
 

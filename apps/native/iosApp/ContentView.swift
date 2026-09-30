@@ -151,6 +151,7 @@ struct ContentView: View {
         }
         .onAppear {
             #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") { menuDestination = .account }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") ||
                 ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login") {
                 session.prepareSimulatorCaptureIfRequested()
