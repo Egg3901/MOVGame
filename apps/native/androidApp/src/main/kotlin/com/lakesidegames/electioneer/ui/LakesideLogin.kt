@@ -54,8 +54,6 @@ fun LakesideLogin(onCode: (String) -> Unit, onClose: () -> Unit) {
                     return false
                 }
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = navigate(request.url, request.isForMainFrame)
-                @Deprecated("Legacy Android navigation callback")
-                override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = navigate(Uri.parse(url), true)
             }
             loadUrl(flow.startUrl())
         }
