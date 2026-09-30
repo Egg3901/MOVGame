@@ -134,6 +134,7 @@ struct AccountView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16).background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                NavigationLink("Manage saved campaigns") { CampaignSavesView(session: session) }
                 Text("LEADERBOARDS").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
                 Picker("Election", selection: $selectedBoard) {
                     Text("Today's daily challenge").tag("daily")
@@ -154,6 +155,7 @@ struct AccountView: View {
 }
 
 struct AccountUser: Decodable {
+    let id: String
     let username: String
     let email: String
 }
@@ -183,6 +185,7 @@ final class CampaignAccount: ObservableObject {
     @Published var message: String?
     @Published var board: [BoardEntry] = []
     @Published var unlocked: [String] = []
+    @Published var cloudSaves: [CloudSaveMeta] = []
     private var boardGeneration = 0
 
     private let service = "net.lakesidegames.marginofvictory.account"
@@ -238,6 +241,7 @@ final class CampaignAccount: ObservableObject {
         SecItemDelete(query as CFDictionary)
         user = nil
         unlocked = []
+        cloudSaves = []
         message = nil
     }
 

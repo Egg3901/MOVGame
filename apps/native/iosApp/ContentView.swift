@@ -87,7 +87,7 @@ struct ContentView: View {
     @State private var menuDestination: MenuDestination? = nil
 
     private enum MenuDestination: String, Identifiable {
-        case store, account, credits, guide
+        case store, account, credits, guide, saves
         var id: String { rawValue }
     }
 
@@ -118,11 +118,12 @@ struct ContentView: View {
                     switch destination {
                     case .store: StoreView(session: session)
                     case .account: AccountView(session: session)
+                    case .saves: CampaignSavesView(session: session)
                     case .credits: ImageCreditsView()
                     case .guide: CampaignGuideView()
                     }
                 }
-                .navigationTitle(destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .guide ? "How to play" : "Image credits")
+                .navigationTitle(destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .guide ? "How to play" : "Image credits")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { menuDestination = nil }
@@ -152,6 +153,7 @@ struct ContentView: View {
         .onAppear {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") { menuDestination = .account }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-saves") { menuDestination = .saves }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") ||
                 ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login") {
                 session.prepareSimulatorCaptureIfRequested()

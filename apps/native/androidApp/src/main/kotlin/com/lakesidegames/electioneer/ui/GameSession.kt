@@ -28,6 +28,10 @@ import com.lakesidegames.electioneer.engine.MobileCampaign
 import com.lakesidegames.electioneer.engine.NativeResults
 import com.lakesidegames.electioneer.engine.NativeDaily
 import com.lakesidegames.electioneer.engine.NativeDailyAssignment
+import com.lakesidegames.electioneer.engine.NativeSaveLibrary
+import com.lakesidegames.electioneer.engine.NativeSaveTransfer
+import com.lakesidegames.electioneer.engine.NativeNamedSave
+import java.util.UUID
 import com.lakesidegames.electioneer.engine.EventMode
 import com.lakesidegames.electioneer.engine.GameModifiers
 import com.lakesidegames.electioneer.engine.AdMode
@@ -48,7 +52,7 @@ import java.time.ZoneOffset
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffset.UTC).plusDays(offsetDays).toString()
@@ -91,10 +95,73 @@ class GameSession : ViewModel() {
             ?.putString("daily_last", date)?.putInt("daily_streak", streak)?.apply()
     }
 
+    private var saveLibrary = NativeSaveLibrary.empty()
+    private val _namedSaves = MutableStateFlow<List<NativeNamedSave>>(emptyList())
+    val namedSaves: StateFlow<List<NativeNamedSave>> = _namedSaves
+    private val _saveNotice = MutableStateFlow<String?>(null)
+    val saveNotice: StateFlow<String?> = _saveNotice
+    private fun persistLibrary() {
+        savePrefs?.edit()?.putString("named_saves_v1", saveLibrary.json())?.apply()
+        _namedSaves.value = saveLibrary.entries()
+    }
+    fun currentSnapshot(): String? = _campaign.value?.saveSnapshot()
+        ?: _game.value?.let { saveGame(it, turnSeed, campaignDifficulty) }
+    fun exportCampaign(): String? = currentSnapshot()?.let(NativeSaveTransfer::export)
+    fun saveNamed(name: String, id: String = UUID.randomUUID().toString()): Boolean {
+        val snapshot = currentSnapshot() ?: return false
+        val saved = saveLibrary.save(id, name, snapshot, System.currentTimeMillis())
+        if (saved) { persistLibrary(); _saveNotice.value = "Saved on this device." }
+        return saved
+    }
+    fun renameSave(id: String, name: String) {
+        val entry = saveLibrary.get(id) ?: return
+        if (saveLibrary.save(id, name, entry.snapshot, System.currentTimeMillis())) persistLibrary()
+    }
+    fun deleteLocalSave(id: String) { saveLibrary.remove(id); persistLibrary() }
+    fun loadNamed(id: String) = importCampaign(saveLibrary.get(id)?.snapshot ?: "")
+    fun importCampaign(json: String): Boolean {
+        val document = NativeSaveTransfer.inspect(json)
+        if (document == null) { _saveNotice.value = "This file is not a supported campaign save."; return false }
+        currentSnapshot()?.takeIf { it != document.snapshot }?.let {
+            saveLibrary.save(UUID.randomUUID().toString(), "Before loading another campaign", it, System.currentTimeMillis())
+            persistLibrary()
+        }
+        _eventResult.value = null; _recap.value = null; _pendingDialog.value = null; _selected.value = null
+        if (document.engine == "world") {
+            _campaign.value = MobileCampaign.restore(document.snapshot)
+            _game.value = null; campaignChanged(); _screen.value = Screen.WORLD_GAME
+        } else {
+            val saved = loadGame(document.snapshot) ?: return false
+            _campaign.value = null; _game.value = saved.state
+            turnSeed = saved.seed; campaignDifficulty = saved.difficulty
+            refresh(); persist(); promptNextEvent(saved.state)
+            _screen.value = if (saved.state.phase == GamePhase.RESULT) Screen.RESULTS else Screen.GAME
+        }
+        return true
+    }
+    fun uploadSave(id: String) {
+        val owner = account.user.value?.id ?: return
+        val payload = saveLibrary.uploadJson(id, owner, System.currentTimeMillis()) ?: return
+        account.uploadSave(id, payload) { user, version -> saveLibrary.markSynced(id, user, version); persistLibrary() }
+    }
+    fun uploadSaveAsNew(id: String) {
+        val entry = saveLibrary.get(id) ?: return
+        val copyId = UUID.randomUUID().toString()
+        if (saveLibrary.save(copyId, "${entry.name} (copy)", entry.snapshot, System.currentTimeMillis())) {
+            persistLibrary(); uploadSave(copyId)
+        }
+    }
+    fun downloadSave(id: String) = account.downloadSave(id) { key, name, json, owner, version ->
+        check(saveLibrary.receiveCloud(key, name, json, owner, version, UUID.randomUUID().toString())) { "This cloud save is not supported by this native client." }
+        persistLibrary()
+    }
+
     fun attachStorage(context: Context) {
         if (savePrefs != null) return
         val prefs = context.applicationContext.getSharedPreferences("mov_native", Context.MODE_PRIVATE)
         savePrefs = prefs
+        saveLibrary = prefs.getString("named_saves_v1", null)?.let(NativeSaveLibrary::restore) ?: NativeSaveLibrary.empty()
+        _namedSaves.value = saveLibrary.entries()
         account = CampaignAccount(context.applicationContext, scope)
         if (prefs.getString("active_campaign", "us") == "world") {
             val campaign = prefs.getString("world_campaign_v1", null)?.let(MobileCampaign::restore)

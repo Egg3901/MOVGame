@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 "${{ github.workspace }}/scripts/verify-ios-metadata.py"
       - run: python3 "${{ github.workspace }}/scripts/test-ios-screen-ready.py"
+      - run: python3 "${{ github.workspace }}/scripts/test-ios-simulator-control.py"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -34,6 +35,8 @@ jobs:
         run: npx tsx apps/native/scripts/export-plan-vectors.ts --check
       - name: Check complete native campaign vectors match web
         run: npx tsx apps/native/scripts/export-campaign-vectors.ts --check
+      - name: Check web save interchange fixture
+        run: npx tsx apps/native/scripts/export-save-vector.ts --check
       - name: Verify desktop uses this checkout
         run: node apps/native/scripts/fetch-web.mjs steam
   android:
@@ -98,6 +101,7 @@ jobs:
       - name: Launch app on iPhone simulator
         env:
           MOV_CAPTURE_SCREENS: '1'
+          MOV_FRESH_SIMULATOR: '1'
         run: python3 ../../scripts/ios-launch-smoke.py "$RUNNER_TEMP/mov-derived/Build/Products/Release-iphonesimulator/MOVGameiOS.app" "$RUNNER_TEMP/mov-launch"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -107,6 +111,7 @@ jobs:
   ios27:
     name: iOS 27 iPhone 17 Pro Max launch
     needs: ios
+    if: ${{ always() && needs.ios.result != 'cancelled' }}
     runs-on: xcode-27
     timeout-minutes: 20
     env:

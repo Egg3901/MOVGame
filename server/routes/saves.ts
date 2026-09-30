@@ -15,7 +15,7 @@ import { requireAuth, type AuthedRequest } from "../auth.js";
 export const savesRouter = Router();
 
 export const MAX_SAVES = 20;
-export const MAX_RECORD_BYTES = 200 * 1024; // ~200KB of JSON per save record
+export const MAX_RECORD_BYTES = 2 * 1024 * 1024; // Full campaigns include accumulated cause history.
 
 function byteLen(s: string): number {
   return Buffer.byteLength(s, "utf8");
@@ -47,6 +47,7 @@ savesRouter.get("/", requireAuth, (req: AuthedRequest, res) => {
   ).all(req.auth!.userId) as (Omit<SaveRow, "state" | "replay"> & { has_replay: number })[];
 
   res.json({
+    versionPreconditions: true,
     saves: rows.map((r) => ({
       id: r.save_id,
       name: r.name,
@@ -88,6 +89,7 @@ savesRouter.put("/:id", requireAuth, (req: AuthedRequest, res) => {
     state?: unknown;
     replay?: unknown;
     updatedAt?: unknown;
+    expectedUpdatedAt?: unknown;
   };
 
   if (body.state === undefined || body.state === null) {
@@ -95,7 +97,7 @@ savesRouter.put("/:id", requireAuth, (req: AuthedRequest, res) => {
   }
   const name = typeof body.name === "string" && body.name.length > 0 ? body.name : "Save";
   const turn = Number.isFinite(Number(body.turn)) ? Math.trunc(Number(body.turn)) : 0;
-  const updatedAt = Number.isFinite(Number(body.updatedAt)) ? Math.trunc(Number(body.updatedAt)) : Date.now();
+  let updatedAt = Number.isFinite(Number(body.updatedAt)) ? Math.trunc(Number(body.updatedAt)) : Date.now();
   const stateJson = JSON.stringify(body.state);
   const playerJson = body.playerCandidate === undefined ? null : JSON.stringify(body.playerCandidate);
   // The snapshot write never carries the replay log (it has its own endpoint),
@@ -104,8 +106,24 @@ savesRouter.put("/:id", requireAuth, (req: AuthedRequest, res) => {
 
   const db = getDb();
   const existing = db.prepare(
-    "SELECT replay FROM cloud_saves WHERE user_id = ? AND save_id = ?",
-  ).get(userId, saveId) as { replay: string | null } | undefined;
+    "SELECT replay, updated_at FROM cloud_saves WHERE user_id = ? AND save_id = ?",
+  ).get(userId, saveId) as { replay: string | null; updated_at: number } | undefined;
+
+  // Native clients retain the version they loaded. Reject stale uploads so a
+  // second device cannot silently replace a newer campaign. Existing clients
+  // that omit the precondition keep their current write behavior.
+  if ("expectedUpdatedAt" in body) {
+    const expected = body.expectedUpdatedAt;
+    if (expected !== null && (typeof expected !== "number" || !Number.isSafeInteger(expected) || expected < 0)) {
+      return res.status(400).json({ error: "expectedUpdatedAt must be a timestamp or null" });
+    }
+    if ((existing?.updated_at ?? null) !== expected) {
+      return res.status(409).json({ error: "This cloud save changed on another device. Download it or upload your campaign as a new save.",
+        conflict: true, updatedAt: existing?.updated_at ?? null });
+    }
+  }
+
+  if ("expectedUpdatedAt" in body) updatedAt = Math.max(updatedAt, (existing?.updated_at ?? -1) + 1);
 
   const nextReplay = "replay" in body ? replayJson : existing?.replay ?? null;
   const size = byteLen(stateJson) + (nextReplay ? byteLen(nextReplay) : 0);
