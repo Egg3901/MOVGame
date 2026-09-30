@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 "${{ github.workspace }}/scripts/verify-ios-metadata.py"
       - run: python3 "${{ github.workspace }}/scripts/test-ios-screen-ready.py"
+      - run: python3 "${{ github.workspace }}/scripts/test-ios-simulator-control.py"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

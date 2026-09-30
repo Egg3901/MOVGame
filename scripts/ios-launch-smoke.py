@@ -6,6 +6,7 @@ import pathlib
 import subprocess
 import sys
 import time
+from ios_simulator_control import launch, screenshot, stop
 
 app = pathlib.Path(sys.argv[1]).resolve()
 output = pathlib.Path(sys.argv[2]).resolve()
@@ -19,16 +20,18 @@ def run(*args, timeout=120):
 
 
 def capture_ready(name, process, attempts=3):
-    screenshot = output / f'{name}.png'
+    capture = output / f'{name}.png'
     for attempt in range(attempts):
         if attempt:
             time.sleep(10)
         if process.poll() is not None:
             raise SystemExit(f'FAIL: app exited before {name} was rendered')
-        run('xcrun', 'simctl', 'io', device, 'screenshot', str(screenshot))
+        screenshot(device, capture)
+        if process.poll() is not None:
+            raise SystemExit(f'FAIL: app exited during {name} capture')
         probe = output / f'{name}-probe.png'
         try:
-            subprocess.run(['sips', '-Z', '160', str(screenshot), '--out', str(probe)],
+            subprocess.run(['sips', '-Z', '160', str(capture), '--out', str(probe)],
                            check=True, capture_output=True, timeout=30)
             checked = subprocess.run(
                 [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')),
@@ -89,9 +92,7 @@ for attempt in range(24):
 else:
     raise SystemExit('FAIL: simulator never left Apple boot screen; app was not launched')
 run('xcrun', 'simctl', 'install', device, str(app), timeout=300)
-console = (output / 'launch-console.log').open('w')
-process = subprocess.Popen(['xcrun', 'simctl', 'launch', '--console', device, bundle],
-                           stdout=console, stderr=subprocess.STDOUT)
+process, console = launch(device, bundle, output / 'launch-console.log')
 try:
     for second in range(30):
         time.sleep(1)
@@ -123,10 +124,8 @@ try:
             ('ask-login', '--mov-capture-ask-login', 20),
         ]:
             subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
-            with (output / f'{name}-console.log').open('w') as preview_console:
-                preview = subprocess.Popen(
-                    ['xcrun', 'simctl', 'launch', '--console', device, bundle, argument],
-                    stdout=preview_console, stderr=subprocess.STDOUT)
+            preview, preview_console = launch(device, bundle, output / f'{name}-console.log', [argument])
+            with preview_console:
                 try:
                     for second in range(seconds):
                         time.sleep(1)
@@ -137,13 +136,12 @@ try:
                     if name == 'ask-login':
                         if 'MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH' not in (output / f'{name}-console.log').read_text():
                             raise SystemExit('FAIL: Ask sign-in did not reach auth inside the app webview')
-                        run('xcrun', 'simctl', 'io', device, 'screenshot', str(output / f'{name}.png'))
+                        screenshot(device, output / f'{name}.png')
                         print('PASS: Ask sign-in reached auth inside the app webview', flush=True)
                     else:
                         capture_ready(name, preview)
                 finally:
-                    preview.terminate()
-                    preview.wait(timeout=5)
+                    stop(preview)
 finally:
     if process.poll() is None:
         process.terminate()
