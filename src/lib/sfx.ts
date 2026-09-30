@@ -49,10 +49,10 @@ function playTones(tones: Tone[]): void {
 }
 
 export const sfx = {
-  turnAdvance(): void { playTones(SOUND_CUES.turnAdvance); }
-  pollUp(): void { playTones(SOUND_CUES.pollUp); }
-  pollDown(): void { playTones(SOUND_CUES.pollDown); }
-  eventPopup(): void { playTones(SOUND_CUES.eventPopup); }
-  win(): void { playTones(SOUND_CUES.win); }
-  lose(): void { playTones(SOUND_CUES.lose); }
+  turnAdvance(): void { playTones(SOUND_CUES.turnAdvance); },
+  pollUp(): void { playTones(SOUND_CUES.pollUp); },
+  pollDown(): void { playTones(SOUND_CUES.pollDown); },
+  eventPopup(): void { playTones(SOUND_CUES.eventPopup); },
+  win(): void { playTones(SOUND_CUES.win); },
+  lose(): void { playTones(SOUND_CUES.lose); },
 };
