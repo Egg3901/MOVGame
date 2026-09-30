@@ -177,6 +177,10 @@ struct ContentView: View {
                     }
             }
         }
+        .onChange(of: session.shortcutSequence) { _ in
+            if session.shortcut == "?" { menuDestination = .settings }
+            if session.shortcut == UIKeyCommand.inputEscape { menuDestination = nil; showingMenu = false; showingAsk = false }
+        }
         .onAppear {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") || ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { menuDestination = .account }

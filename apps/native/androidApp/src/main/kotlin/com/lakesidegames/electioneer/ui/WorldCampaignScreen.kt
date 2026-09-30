@@ -165,6 +165,17 @@ fun WorldCampaignScreen(session: GameSession) {
     var notice by remember(game) { mutableStateOf<String?>(null) }
     var showHistory by remember(game) { mutableStateOf(false) }
     val unit = game.unitName()
+    var lastShortcut by remember { mutableIntStateOf(session.shortcutSequence) }
+    LaunchedEffect(session.shortcutSequence) {
+        if (lastShortcut == session.shortcutSequence) return@LaunchedEffect
+        lastShortcut = session.shortcutSequence
+        if (session.shortcut == "escape") { showRecap = false; regionId = "" }
+        if (!game.hasPendingEvent() && !game.isOver() && !showRecap) {
+            val index = session.shortcut.toIntOrNull()?.minus(1)
+            if (index != null && index in game.actionTypes().indices) type = game.actionTypes()[index]
+            if (session.shortcut in listOf("enter", " ") && game.plan().isNotEmpty() && session.endWorldWeek()) showRecap = game.recap().isNotEmpty()
+        }
+    }
     val regional = type in listOf("rally", "surrogate", "ground_game", "gotv", "canvass")
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {

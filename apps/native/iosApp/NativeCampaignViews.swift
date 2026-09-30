@@ -285,6 +285,14 @@ struct NativeWorldCampaign: View {
                 .padding(20)
             }
             .background(CampaignStyle.background).preferredColorScheme(.dark)
+            .onChange(of: session.shortcutSequence) { _ in
+                if session.shortcut == UIKeyCommand.inputEscape { showRecap = false; regionId = "" }
+                guard !game.hasPendingEvent() && !game.isOver() && !showRecap else { return }
+                if let number = Int(session.shortcut), number > 0 && number <= min(9, game.actionTypes().count) { type = game.actionTypes()[number - 1] }
+                if ["\r", " "].contains(session.shortcut) && !game.plan().isEmpty {
+                    if session.endWorldWeek() { showRecap = !game.recap().isEmpty }
+                }
+            }
             .onAppear { if issueId.isEmpty { issueId = game.issues().first?.id ?? "" } }
             .sheet(isPresented: $showRecap) {
                 NavigationStack {

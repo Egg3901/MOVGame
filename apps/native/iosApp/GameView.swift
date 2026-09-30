@@ -283,6 +283,17 @@ struct GameView: View {
                     selectedStateId = state.id
                 }
             }
+            .onChange(of: session.shortcutSequence) { _ in
+                if session.shortcut == UIKeyCommand.inputEscape {
+                    if session.showRecap { session.dismissRecap() } else { selectedStateId = nil }
+                }
+                guard session.eventId == nil && !session.showRecap else { return }
+                if let number = Int(session.shortcut), (1...9).contains(number) {
+                    let actions = ["advertise", "rally", "surrogate", "fundraise", "ground_game", "gotv", "oppo_research", "debate_prep", "policy_prep"]
+                    draft.type = actions[number - 1]; deskSection = .plan
+                }
+                if ["\r", " "].contains(session.shortcut) && !session.plannedActions().isEmpty { session.endTurn() }
+            }
             .alert("Week \(Int(g.turn())) recap", isPresented: $session.showRecap) {
                 Button("OK") { session.dismissRecap() }
             } message: {

@@ -59,6 +59,9 @@ final class GameSession: ObservableObject {
     @Published var dailySetup: NativeDailyAssignment?
     let account = CampaignAccount()
     let settings = NativePreferences()
+    @Published var shortcutSequence = 0
+    private(set) var shortcut = ""
+    func sendShortcut(_ key: String) { shortcut = key; shortcutSequence += 1 }
 
     func dailyAssignment() -> NativeDailyAssignment { NativeDaily.companion.assignment(dateUTC: nativeUTCDay()) }
     func openDaily(restart: Bool = false) {

@@ -6,7 +6,7 @@ struct MarginOfVictoryApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(session: session)
+            NativeKeyboardHost(session: session)
                 .onAppear {
                     #if targetEnvironment(simulator)
                     session.prepareSimulatorCaptureIfRequested()

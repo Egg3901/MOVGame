@@ -3,6 +3,8 @@ package com.lakesidegames.electioneer.ui
 import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.lakesidegames.electioneer.BuildConfig
 import com.lakesidegames.electioneer.billing.PlayBilling
@@ -112,6 +114,9 @@ class GameSession : ViewModel() {
         promptNextEvent(previous.state)
         emit()
     }
+    var shortcut by androidx.compose.runtime.mutableStateOf(""); private set
+    var shortcutSequence by androidx.compose.runtime.mutableIntStateOf(0); private set
+    fun sendShortcut(key: String) { shortcut = key; shortcutSequence++ }
     lateinit var settings: NativePreferences
         private set
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

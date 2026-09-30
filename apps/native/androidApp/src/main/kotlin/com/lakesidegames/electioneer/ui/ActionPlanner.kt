@@ -67,6 +67,13 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
     LaunchedEffect(selectedId) {
         if (selectedId != null && states.any { it.id == selectedId }) target = selectedId
     }
+    var lastShortcut by remember { mutableIntStateOf(session.shortcutSequence) }
+    LaunchedEffect(session.shortcutSequence) {
+        if (lastShortcut == session.shortcutSequence) return@LaunchedEffect
+        lastShortcut = session.shortcutSequence
+        val index = session.shortcut.toIntOrNull()?.minus(1)
+        if (session.pendingDialog.value == null && session.recap.value == null && index != null && index in ACTIONS.indices) type = ACTIONS[index].first
+    }
     val targetsState = type in setOf(ActionType.ADVERTISE, ActionType.RALLY, ActionType.SURROGATE, ActionType.GROUND_GAME, ActionType.GOTV, ActionType.FUNDRAISE)
     val dayCount = game.queuedActions.count { (it.day ?: 1) == day }
     val plannedSpend = game.queuedActions.sumOf { if (it.type == ActionType.ADVERTISE) it.spend ?: 0.0 else 0.0 }

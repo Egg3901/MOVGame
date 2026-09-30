@@ -25,14 +25,18 @@ class NativePreferences(private val context: Context) {
     var soundOn by mutableStateOf(prefs.getBoolean("sound_on", true)); private set
     var volume by mutableStateOf(prefs.getFloat("volume", 0.6f).let { if (it.isFinite()) it.coerceIn(0f, 1f) else 0.6f }); private set
     var reducedMotion by mutableStateOf(prefs.getBoolean("reduce_motion", false)); private set
+    var hotkeysOn by mutableStateOf(prefs.getBoolean("hotkeys_on", true)); private set
     var tutorialNonce by mutableIntStateOf(0); private set
+    private var replayRequested = false
+    fun takeTutorialReplay(): Boolean = replayRequested.also { replayRequested = false }
     private val players = mutableSetOf<MediaPlayer>()
     fun sound(value: Boolean) { soundOn = value; prefs.edit().putBoolean("sound_on", value).apply(); if (value) play("pollUp") }
     fun volume(value: Float) { volume = value.coerceIn(0f, 1f); prefs.edit().putFloat("volume", volume).apply() }
     fun motion(value: Boolean) { reducedMotion = value; prefs.edit().putBoolean("reduce_motion", value).apply() }
+    fun hotkeys(value: Boolean) { hotkeysOn = value; prefs.edit().putBoolean("hotkeys_on", value).apply() }
     fun tourDone(country: String) = prefs.getBoolean("tour_$country", false)
     fun finishTour(country: String) { prefs.edit().putBoolean("tour_$country", true).apply() }
-    fun replayTutorial() { prefs.edit().apply { listOf("US", "UK", "CA", "DE", "FR", "AU").forEach { remove("tour_$it") } }.apply(); tutorialNonce++ }
+    fun replayTutorial() { replayRequested = true; prefs.edit().apply { listOf("US", "UK", "CA", "DE", "FR", "AU").forEach { remove("tour_$it") } }.apply(); tutorialNonce++ }
     fun play(cue: String) {
         if (!soundOn || volume <= 0f) return
         val file = File(context.cacheDir, "mov-cue-$cue.wav")
@@ -67,6 +71,9 @@ fun NativeSettingsScreen(session: GameSession) {
         Text("Reduce motion")
         Switch(settings.reducedMotion, settings::motion)
         Text("Election night uses instant results when this or your device's animation setting is on.", style = MaterialTheme.typography.bodySmall)
+        Text("Hardware keyboard shortcuts")
+        Switch(settings.hotkeysOn, settings::hotkeys)
+        Text("Enter or Space ends the week when moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.", style = MaterialTheme.typography.bodySmall)
         Button(onClick = { settings.replayTutorial(); session.resumeGame() }, enabled = (session.game.value != null || session.campaign.value != null)) { Text("Replay tutorial") }
         OutlinedButton(onClick = { session.go(Screen.GUIDE) }) { Text("How to play") }
         TextButton(onClick = { uri.openUri("mailto:support@lakesidegames.net") }) { Text("Contact support") }
@@ -91,9 +98,9 @@ fun NativeGuideScreen() {
 @Composable
 fun NativeCampaignCoach(session: GameSession, country: String, goal: String, turn: Int, selected: String?, queued: Int) {
     val settings = session.settings
-    var step by remember(country) { mutableStateOf<Int?>(if (turn == 0 && !settings.tourDone(country)) 0 else null) }
+    var step by remember(country) { mutableStateOf<Int?>(if (settings.takeTutorialReplay() || (turn == 0 && !settings.tourDone(country))) 0 else null) }
     var startTurn by remember(country) { mutableIntStateOf(turn) }
-    LaunchedEffect(settings.tutorialNonce) { if (settings.tutorialNonce > 0) { step = 0; startTurn = turn } }
+    LaunchedEffect(settings.tutorialNonce) { if (settings.takeTutorialReplay()) { step = 0; startTurn = turn } }
     LaunchedEffect(selected) { if (step == 1 && selected != null) step = 2 }
     LaunchedEffect(queued) { if (step == 3 && queued > 0) step = 4 }
     LaunchedEffect(turn) { if (step == 4 && turn > startTurn) step = 5 }

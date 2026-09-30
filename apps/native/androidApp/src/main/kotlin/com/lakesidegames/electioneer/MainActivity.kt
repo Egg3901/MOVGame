@@ -49,10 +49,31 @@ import com.lakesidegames.electioneer.ui.DailyBoardsScreen
 import com.lakesidegames.electioneer.ui.WorldCampaignScreen
 
 class MainActivity : ComponentActivity() {
+    private lateinit var gameSession: GameSession
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (::gameSession.isInitialized && gameSession.settings.hotkeysOn &&
+            event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+            !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed &&
+            gameSession.screen.value in listOf(Screen.GAME, Screen.WORLD_GAME) &&
+            !(getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).isAcceptingText) {
+            val key = when (event.keyCode) {
+                android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> "enter"
+                android.view.KeyEvent.KEYCODE_SPACE -> " "
+                android.view.KeyEvent.KEYCODE_ESCAPE -> "escape"
+                else -> event.unicodeChar.toChar().toString()
+            }
+            if (key in listOf("enter", " ", "escape", "?", "1", "2", "3", "4", "5", "6", "7", "8", "9")) {
+                if (key == "?") gameSession.go(Screen.SETTINGS) else gameSession.sendShortcut(key)
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Stock ViewModelProvider: no viewmodel-compose artifact needed.
         val session = ViewModelProvider(this)[GameSession::class.java]
+        gameSession = session
         session.attachStorage(applicationContext)
         session.attachBilling(applicationContext)
         setContent { MarginOfVictoryApp(session, this) }
