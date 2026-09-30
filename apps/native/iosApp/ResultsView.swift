@@ -36,7 +36,7 @@ struct ResultsView: View {
                         }
                         Text(g.resultWinnerSerial() == g.playerSerial() ? "Victory" : "The race is over")
                             .font(.largeTitle.bold())
-                        Text("\(g.resultWinnerName()) wins the presidency").font(.title3)
+                        Text(g.resultWinnerSerial() == "tie" ? "Electoral College tied. No candidate reaches 270." : "\(g.resultWinnerName()) wins the presidency").font(.title3)
                         HStack {
                             Text("DEM \(Int(g.resultDemEv()))").foregroundStyle(CampaignStyle.democrat)
                             Spacer()
@@ -45,9 +45,43 @@ struct ResultsView: View {
                         .font(.title2.bold())
                         Text(String(format: "Democratic popular vote %.1f%%", g.resultDemPopularShare() * 100))
                             .font(.caption).foregroundStyle(.secondary)
+                        Text(String(format: "Republican popular vote %.1f%%", (1 - g.resultDemPopularShare()) * 100))
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(20)
                     .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
+                    if let summary = g.resultSummary() {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if summary.score >= 0 {
+                                Text("CAMPAIGN SCORE \(summary.score) / 1000").font(.headline).foregroundStyle(CampaignStyle.gold)
+                                Text("\(summary.difficulty.capitalized) difficulty · EV margin \(summary.unitMargin)")
+                            } else {
+                                Text("Score unavailable for this older save").font(.subheadline)
+                            }
+                            Text(String(format: "Popular vote margin %+.1f points", summary.popularMargin)).font(.subheadline)
+                            if !summary.standardLength { Text("Short and long campaigns are casual runs. Standard nine-week campaigns are comparable on the leaderboard.").font(.caption).foregroundStyle(CampaignStyle.muted) }
+                        }
+                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    if !g.resultAchievements().isEmpty {
+                        Text("ACHIEVEMENTS EARNED").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
+                        ForEach(g.resultAchievements(), id: \.id) { award in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(award.icon) \(award.name)").font(.subheadline.bold())
+                                Text(award.blurb).font(.caption).foregroundStyle(CampaignStyle.muted)
+                            }.padding(.vertical, 4)
+                        }
+                    }
+                    DisclosureGroup("Compare with history") {
+                        ForEach(g.resultHistory(), id: \.id) { region in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(region.name).font(.subheadline.bold())
+                                Text("\(region.units) EV now · \(region.historicalUnits) historically")
+                                Text(String(format: "Vote share swing %+.1f points", region.shareSwing))
+                            }.font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 4)
+                        }
+                    }.padding(.vertical, 10)
                     Text("STATE RESULTS").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold).padding(.top, 10)
 
                     ForEach(rows, id: \.stateId) { sr in

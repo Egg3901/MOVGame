@@ -11,6 +11,8 @@ class MiscTest {
 
     @Test
     fun scoresMatchTs() {
+        assertEquals(501, computeScoreFromFacts(ScoreFacts(0.0, 538, 0.05, "normal")))
+        assertEquals(499, computeScoreFromFacts(ScoreFacts(0.0, 538, -0.15, "normal")))
         assertEquals(
             653,
             computeScoreFromFacts(ScoreFacts(unitMargin = 36.0, chamberSize = 538, popularMargin = 4.5, difficulty = "normal")),

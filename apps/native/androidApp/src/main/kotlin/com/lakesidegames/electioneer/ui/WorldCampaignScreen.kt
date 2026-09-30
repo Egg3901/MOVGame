@@ -161,6 +161,7 @@ fun WorldCampaignScreen(session: GameSession) {
     var day by remember(game) { mutableIntStateOf(1) }
     var showRecap by remember(game) { mutableStateOf(false) }
     var notice by remember(game) { mutableStateOf<String?>(null) }
+    var showHistory by remember(game) { mutableStateOf(false) }
     val unit = game.unitName()
     val regional = type in listOf("rally", "surrogate", "ground_game", "gotv", "canvass")
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -215,6 +216,7 @@ fun WorldCampaignScreen(session: GameSession) {
                 Text("Plan your week", style = MaterialTheme.typography.titleLarge)
                 Text("${game.currency()}${number(game.funds())}M cash · ${game.slotsLeft()} moves left")
                 Text("Planned ${game.currency()}${number(game.plannedSpend())}M · Available ${game.currency()}${number(game.availableFunds())}M")
+                Text("Plan estimate: ${game.previewPlayerUnits()} $unit after your queued actions. Rival moves and events can change the result.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 ChoicePicker("Action", type, game.actionTypes().map { it to actionName(it) }) { type = it }
                 ChoicePicker("Target", regionId, listOf("" to "National") + regions.map { it.id to it.name }) { regionId = it }
                 if (regional && regionId.isEmpty()) Text("Choose a region for this action.", color = MaterialTheme.colorScheme.primary)
@@ -248,6 +250,17 @@ fun WorldCampaignScreen(session: GameSession) {
             item { Button(onClick = { if (game.endWeek()) { session.campaignChanged(); showRecap = game.recap().isNotEmpty() } },
                 enabled = !game.hasPendingEvent(), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("End week") } }
         } else {
+            item { game.resultSummary()?.let { summary -> Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("CAMPAIGN SCORE ${summary.score} / 1000", style = MaterialTheme.typography.titleMedium)
+                Text("${summary.difficulty.replaceFirstChar { it.uppercase() }} difficulty · $unit above majority: ${summary.unitMargin}")
+                Text("Vote margin vs. leading rival: ${"%+.1f".format(summary.popularMargin)} points")
+            } } } }
+            item { TextButton(onClick = { showHistory = !showHistory }) { Text(if (showHistory) "Hide historical comparison" else "Compare with history") } }
+            if (showHistory) items(game.historicalRegions()) { region -> Column(Modifier.fillMaxWidth()) {
+                Text(region.name, fontWeight = FontWeight.Bold)
+                Text("${region.units} $unit now · ${region.historicalUnits} historically", style = MaterialTheme.typography.bodySmall)
+                Text("Vote share swing ${"%+.1f".format(region.shareSwing)} points", style = MaterialTheme.typography.bodySmall)
+            } }
             item { Text("WHAT DECIDED IT", style = MaterialTheme.typography.labelLarge) }
             items(game.resultCauses()) { Text(it) }
             item { Button(onClick = { session.go(Screen.LIBRARY) }, modifier = Modifier.fillMaxWidth()) { Text("Choose another campaign") } }

@@ -26,6 +26,7 @@ import com.lakesidegames.electioneer.engine.loadGame
 import com.lakesidegames.electioneer.engine.saveGame
 import com.lakesidegames.electioneer.engine.MobileGame
 import com.lakesidegames.electioneer.engine.MobileCampaign
+import com.lakesidegames.electioneer.engine.NativeResults
 import com.lakesidegames.electioneer.engine.EventMode
 import com.lakesidegames.electioneer.engine.GameModifiers
 import com.lakesidegames.electioneer.engine.AdMode
@@ -70,6 +71,7 @@ class GameSession : ViewModel() {
         }
         val saved = prefs.getString(saveKey, null)?.let(::loadGame) ?: return
         turnSeed = saved.seed
+        campaignDifficulty = saved.difficulty
         _game.value = saved.state
         _screen.value = Screen.HOME
         refresh()
@@ -78,7 +80,12 @@ class GameSession : ViewModel() {
 
     private fun persist() {
         val game = _game.value ?: return
-        savePrefs?.edit()?.putString(saveKey, saveGame(game, turnSeed))?.putString("active_campaign", "us")?.apply()
+        savePrefs?.edit()?.putString(saveKey, saveGame(game, turnSeed, campaignDifficulty))?.putString("active_campaign", "us")?.apply()
+        val earned = NativeResults.achievements(game, campaignDifficulty).map { it.id }
+        if (earned.isNotEmpty()) {
+            val previous = savePrefs?.getStringSet("achievement_ids", emptySet()).orEmpty()
+            savePrefs?.edit()?.putStringSet("achievement_ids", previous + earned)?.apply()
+        }
     }
 
     private val _campaign = MutableStateFlow<MobileCampaign?>(null)
@@ -160,6 +167,8 @@ class GameSession : ViewModel() {
     }
 
     private var turnSeed: String = "1"
+    var campaignDifficulty: String? = null
+        private set
 
     fun candidates() = CANDIDATES
 
@@ -206,6 +215,7 @@ class GameSession : ViewModel() {
         _screen.value = Screen.LOADING
         _campaign.value = null
         turnSeed = seed
+        campaignDifficulty = difficulty
         scope.launch {
         val g = withContext(Dispatchers.Default) { createGame(
             NewGameOptions(
