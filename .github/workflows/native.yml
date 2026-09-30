@@ -120,7 +120,7 @@ jobs:
     needs: ios
     if: ${{ always() && needs.ios.result != 'cancelled' }}
     runs-on: xcode-27
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
     steps:

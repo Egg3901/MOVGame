@@ -5,6 +5,7 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
     let webView: WKWebView
     private var campaignURL: URL?
     #if targetEnvironment(simulator)
+    private var checkingSignInForSmokeTest = false
     private var openSignInForSmokeTest = ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login")
     #endif
     private let allowedHosts: Set<String> = [
@@ -66,8 +67,22 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
         if url.host == "auth.lakesidegames.net" {
             NSLog("MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH")
         } else if openSignInForSmokeTest, url.host == "ask.lakesidegames.net", url.path == "/" {
-            openSignInForSmokeTest = false
-            webView.evaluateJavaScript("document.querySelector('a[href^=\"/auth/login\"]')?.click()")
+            if !checkingSignInForSmokeTest {
+                checkingSignInForSmokeTest = true
+                clickSignInWhenReady(attempts: 30)
+            }
+        }
+    }
+    private func clickSignInWhenReady(attempts: Int) {
+        guard openSignInForSmokeTest, webView.url?.host == "ask.lakesidegames.net" else { return }
+        webView.evaluateJavaScript("(() => { const link = document.querySelector('a[href^=\"/auth/login\"]'); if (!link) return false; link.click(); return true; })()") { [weak self] result, _ in
+            guard let self else { return }
+            if result as? Bool == true {
+                self.openSignInForSmokeTest = false
+                NSLog("MOV_ASK_SIGNIN_LINK_CLICKED")
+            } else if attempts > 1 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.clickSignInWhenReady(attempts: attempts - 1) }
+            } else { NSLog("MOV_ASK_SIGNIN_LINK_NOT_READY") }
         }
     }
     #endif
