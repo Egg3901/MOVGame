@@ -1,3 +1,4 @@
+import { SOUND_CUES, type Tone } from "./sfxTones";
 import { useSettingsStore } from "@store/settingsStore";
 
 // Tiny WebAudio synth for UI cues. No binary audio assets: every sound here is
@@ -19,14 +20,6 @@ function getCtx(): AudioContext | null {
 /** Call once on the first user gesture to satisfy the browser autoplay policy. */
 export function armAudio(): void {
   getCtx();
-}
-
-interface Tone {
-  freq: number;
-  duration: number;
-  type?: OscillatorType;
-  delay?: number;
-  gain?: number;
 }
 
 function playTones(tones: Tone[]): void {
@@ -56,35 +49,10 @@ function playTones(tones: Tone[]): void {
 }
 
 export const sfx = {
-  /** Soft rising blip when a turn/week advances. */
-  turnAdvance(): void {
-    playTones([{ freq: 420, duration: 0.12, type: "triangle" }, { freq: 560, duration: 0.14, delay: 0.06, type: "triangle" }]);
-  },
-  /** Quick upward tick for a poll number moving in the player's favor. */
-  pollUp(): void {
-    playTones([{ freq: 660, duration: 0.09, type: "sine", gain: 0.15 }]);
-  },
-  /** Quick downward tick for a poll number moving against the player. */
-  pollDown(): void {
-    playTones([{ freq: 300, duration: 0.11, type: "sine", gain: 0.15 }]);
-  },
-  /** Alert tone when an event modal pops up needing a decision. */
-  eventPopup(): void {
-    playTones([{ freq: 520, duration: 0.1, type: "square", gain: 0.12 }, { freq: 520, duration: 0.1, delay: 0.14, type: "square", gain: 0.12 }]);
-  },
-  /** Triumphant sting for an election-night win. */
-  win(): void {
-    playTones([
-      { freq: 523.25, duration: 0.16, delay: 0, type: "triangle", gain: 0.22 },
-      { freq: 659.25, duration: 0.16, delay: 0.12, type: "triangle", gain: 0.22 },
-      { freq: 783.99, duration: 0.28, delay: 0.24, type: "triangle", gain: 0.24 },
-    ]);
-  },
-  /** Somber sting for an election-night loss. */
-  lose(): void {
-    playTones([
-      { freq: 392, duration: 0.2, delay: 0, type: "sawtooth", gain: 0.16 },
-      { freq: 329.63, duration: 0.3, delay: 0.16, type: "sawtooth", gain: 0.16 },
-    ]);
-  },
+  turnAdvance(): void { playTones(SOUND_CUES.turnAdvance); }
+  pollUp(): void { playTones(SOUND_CUES.pollUp); }
+  pollDown(): void { playTones(SOUND_CUES.pollDown); }
+  eventPopup(): void { playTones(SOUND_CUES.eventPopup); }
+  win(): void { playTones(SOUND_CUES.win); }
+  lose(): void { playTones(SOUND_CUES.lose); }
 };

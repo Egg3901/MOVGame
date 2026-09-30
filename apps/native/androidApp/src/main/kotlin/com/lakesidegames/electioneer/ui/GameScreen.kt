@@ -56,6 +56,7 @@ fun GameScreen(session: GameSession) {
     val selectedContest = projection?.contests?.firstOrNull { it.stateId == selectedId }
 
     Column(Modifier.fillMaxSize()) {
+      NativeCampaignCoach(session, "US", "Win 270 electoral votes in ${g.totalTurns} weeks.", g.turn, selectedId, g.queuedActions.size)
       Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
         Text("CAMPAIGN DESK", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
         Text(session.campaigns().firstOrNull { it.id == g.scenarioId }?.label ?: "The election", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)

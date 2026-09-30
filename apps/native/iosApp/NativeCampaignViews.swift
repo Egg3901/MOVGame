@@ -196,6 +196,7 @@ struct NativeWorldCampaign: View {
         if let game = session.campaign {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    NativeCampaignCoach(country: game.countryId(), goal: game.goalText(), turn: Int(game.turn()), selected: regionId.isEmpty ? nil : regionId, queued: game.plan().count, settings: session.settings)
                     Text(game.label()).font(.title2.bold())
                     Text(game.isOver() ? "ELECTION RESULT" : "WEEK \(game.turn() + 1) OF \(game.totalTurns())")
                         .font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)

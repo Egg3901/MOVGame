@@ -1,3 +1,4 @@
+import shared
 import SwiftUI
 import WebKit
 
@@ -102,7 +103,7 @@ struct ContentView: View {
     @State private var menuDestination: MenuDestination? = nil
 
     private enum MenuDestination: String, Identifiable {
-        case store, account, credits, guide, saves, analysis, replay, boards
+        case store, account, credits, guide, saves, analysis, replay, boards, settings
         var id: String { rawValue }
     }
 
@@ -122,6 +123,7 @@ struct ContentView: View {
             }
             Button("Start a new campaign") { session.playScreen = .library }
             Button("Campaign library") { session.playScreen = .library }
+            Button("Settings") { menuDestination = .settings }
             Button("How to play") { menuDestination = .guide }
             Button(session.hasGame ? "Ask about this campaign" : "Ask about Margin of Victory") {
                 openAsk()
@@ -142,9 +144,10 @@ struct ContentView: View {
                     case .replay: CampaignAnalysisView(session: session, timeline: true)
                     case .credits: ImageCreditsView()
                     case .guide: CampaignGuideView()
+                    case .settings: NativeSettingsView(settings: session.settings)
                     }
                 }
-                .navigationTitle(destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .replay ? "Campaign replay" : destination == .boards ? "Leaderboards" : destination == .guide ? "How to play" : "Image credits")
+                .navigationTitle(destination == .settings ? "Settings" : destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .replay ? "Campaign replay" : destination == .boards ? "Leaderboards" : destination == .guide ? "How to play" : "Image credits")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { menuDestination = nil }
@@ -177,6 +180,8 @@ struct ContentView: View {
         .onAppear {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") || ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { menuDestination = .account }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-settings") { menuDestination = .settings }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-guide") { menuDestination = .guide }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-champions") { menuDestination = .boards }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-saves") { menuDestination = .saves }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-analysis") { menuDestination = .analysis }
@@ -255,48 +260,18 @@ struct ContentView: View {
 }
 
 struct CampaignGuideView: View {
-    @Environment(\.dismiss) private var dismiss
-    @AppStorage("mov.hasSeenCampaignGuide") private var hasSeenCampaignGuide = false
-
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("THE ROAD TO 270").font(.caption.bold()).tracking(2).foregroundStyle(CampaignStyle.gold)
-                Text("Win the map, one week at a time.").font(.largeTitle.bold())
-                guideStep("1", "Find the close races", "Gray tiles with amber borders are toss-ups. Tap a state to inspect its electoral votes and projected margin. Blue and red shades show how secure each side is.")
-                guideStep("2", "Build your week", "Pick a target, choose a move, then adjust its settings. The margin estimate updates as you change ad spend. Each day holds up to three moves.")
-                guideStep("3", "See the consequences", "Add your moves before ending the week. Events and the opposing campaign can change the result, so revisit the map after each recap.")
-                Text("Reach 270 electoral votes by Election Day.")
-                    .font(.headline).foregroundStyle(CampaignStyle.gold)
-                Button("Start playing  →") { dismiss() }
-                    .font(.headline).frame(maxWidth: .infinity).padding(15)
-                    .foregroundStyle(CampaignStyle.background)
-                    .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 13))
-                Button("Replay the eight-step tour") {
-                    hasSeenCampaignGuide = false
-                    dismiss()
+            VStack(alignment: .leading, spacing: 16) {
+                Text("HOW TO PLAY").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
+                ForEach(Array(NativeHelp.companion.guide().enumerated()), id: \.offset) { _, lesson in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(lesson.title).font(.headline)
+                        Text(lesson.body).font(.subheadline)
+                    }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
                 }
-                .font(.subheadline.bold()).foregroundStyle(CampaignStyle.gold)
-            }
-            .padding(20)
-        }
-        .background(CampaignStyle.background).preferredColorScheme(.dark)
+            }.padding(20)
+        }.background(CampaignStyle.background).preferredColorScheme(.dark)
     }
-
-    private func guideStep(_ number: String, _ title: String, _ detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text(number).font(.headline.bold()).foregroundStyle(CampaignStyle.background)
-                .frame(width: 30, height: 30).background(CampaignStyle.gold, in: Circle())
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.headline)
-                Text(detail).font(.subheadline).foregroundStyle(CampaignStyle.muted)
-            }
-        }
-        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-        .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
-    }
-}
-
-#Preview {
-    ContentView(session: GameSession())
 }

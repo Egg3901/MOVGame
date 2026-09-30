@@ -40,11 +40,16 @@ final class GameSession: ObservableObject {
     }
     @discardableResult func endWorldWeek() -> Bool {
         guard let campaign else { return false }
+        let beforeUnits = campaign.standings().first { $0.partyId == campaign.playerParty() }?.units ?? 0
         let previous = campaign.saveSnapshot()
         guard campaign.endWeek() else { return false }
         replay.record(previous: previous, next: campaign.saveSnapshot())
         touch()
-        if campaign.isOver() { presentReveal() }
+        settings.play("turnAdvance")
+        let afterUnits = campaign.standings().first { $0.partyId == campaign.playerParty() }?.units ?? 0
+        if afterUnits != beforeUnits { settings.play(afterUnits > beforeUnits ? "pollUp" : "pollDown") }
+        if campaign.isOver() { settings.play(afterUnits >= campaign.majority() ? "win" : "lose"); presentReveal() }
+        else if campaign.hasPendingEvent() { settings.play("eventPopup") }
         return true
     }
     private static let saveKey = "mov_campaign_v1"
@@ -53,6 +58,7 @@ final class GameSession: ObservableObject {
     @Published var version = 0
     @Published var dailySetup: NativeDailyAssignment?
     let account = CampaignAccount()
+    let settings = NativePreferences()
 
     func dailyAssignment() -> NativeDailyAssignment { NativeDaily.companion.assignment(dateUTC: nativeUTCDay()) }
     func openDaily(restart: Bool = false) {
@@ -417,15 +423,21 @@ final class GameSession: ObservableObject {
 
     func endTurn() {
         guard let g = game else { return }
+        let beforeUnits = g.playerSerial() == "dem" ? projection().dem : projection().rep
         let previous = g.saveSnapshot()
         let recap = g.endTurn()
+        guard g.saveSnapshot() != previous else { return }
         if g.saveSnapshot() != previous { replay.record(previous: previous, next: g.saveSnapshot()) }
         var lines: [String] = []
         for item in recap {
             lines.append(item.detail.isEmpty ? item.label : "\(item.label): \(item.detail)")
         }
         touch()
+        settings.play("turnAdvance")
+        let afterUnits = g.playerSerial() == "dem" ? projection().dem : projection().rep
+        if afterUnits != beforeUnits { settings.play(afterUnits > beforeUnits ? "pollUp" : "pollDown") }
         if g.isOver() {
+            settings.play(g.resultWinnerSerial() == g.playerSerial() ? "win" : "lose")
             playScreen = .results
             presentReveal()
             return
@@ -453,7 +465,9 @@ final class GameSession: ObservableObject {
 
     private func promptNextEvent() {
         eventResult = nil
+        let previous = eventId
         eventId = game?.pendingEventIds().first
+        if previous == nil && eventId != nil { settings.play("eventPopup") }
     }
 
     func answerEvent(choiceId: String) {

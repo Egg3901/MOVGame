@@ -17,6 +17,7 @@ const WEB_REPO = path.resolve(HERE, "../../..");
 const OUT = path.resolve(HERE, "../shared/src/commonMain/resources/bundles");
 
 async function main() {
+  const { SOUND_CUES } = await import(`${WEB_REPO}/src/lib/sfxTones.ts`);
   const { BLOCS } = await import(`${WEB_REPO}/src/content/blocs.ts`);
   const { CANDIDATES, OPPONENT_OF } = await import(`${WEB_REPO}/src/content/candidates.ts`);
   const { STAFF_POOL } = await import(`${WEB_REPO}/src/content/staff.ts`);
@@ -57,6 +58,7 @@ async function main() {
     })) };
 
   const bundles: Record<string, unknown> = {
+    "sound-cues": SOUND_CUES,
     "scenario-registry": SCENARIO_REGISTRY,
     "next-campaigns": Object.fromEntries(SCENARIO_REGISTRY.flatMap((meta: any) => {
       const next = meta.country === "US" ? US_NEXT_SCENARIO[meta.nativeId]

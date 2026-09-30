@@ -115,6 +115,8 @@ try:
             ('replay', '--mov-capture-replay', 30),
             ('saves', '--mov-capture-saves', 30),
             ('account', '--mov-capture-account', 8),
+            ('settings', '--mov-capture-settings', 8),
+            ('guide', '--mov-capture-guide', 8),
             ('champions', '--mov-capture-champions', 20),
             ('lakeside-login', '--mov-capture-lakeside-login', 30),
             ('world-uk', '--mov-capture-world-uk', 20),

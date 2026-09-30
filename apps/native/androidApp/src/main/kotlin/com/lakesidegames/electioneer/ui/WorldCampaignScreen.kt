@@ -168,7 +168,8 @@ fun WorldCampaignScreen(session: GameSession) {
     val regional = type in listOf("rally", "surrogate", "ground_game", "gotv", "canvass")
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Text(game.label(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            NativeCampaignCoach(session, game.countryId(), game.goalText(), game.turn(), regionId.takeIf { it.isNotEmpty() }, game.plan().size)
+        Text(game.label(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(if (game.isOver()) "ELECTION RESULT" else "WEEK ${game.turn() + 1} OF ${game.totalTurns()}", color = MaterialTheme.colorScheme.primary)
             Text(game.goalText(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

@@ -1,0 +1,23 @@
+export interface Tone {
+  freq: number;
+  duration: number;
+  type?: OscillatorType;
+  delay?: number;
+  gain?: number;
+}
+
+export const SOUND_CUES: Record<string, Tone[]> = {
+  turnAdvance: [{ freq: 420, duration: 0.12, type: "triangle" }, { freq: 560, duration: 0.14, delay: 0.06, type: "triangle" }],
+  pollUp: [{ freq: 660, duration: 0.09, type: "sine", gain: 0.15 }],
+  pollDown: [{ freq: 300, duration: 0.11, type: "sine", gain: 0.15 }],
+  eventPopup: [{ freq: 520, duration: 0.1, type: "square", gain: 0.12 }, { freq: 520, duration: 0.1, delay: 0.14, type: "square", gain: 0.12 }],
+  win: [
+      { freq: 523.25, duration: 0.16, delay: 0, type: "triangle", gain: 0.22 },
+      { freq: 659.25, duration: 0.16, delay: 0.12, type: "triangle", gain: 0.22 },
+      { freq: 783.99, duration: 0.28, delay: 0.24, type: "triangle", gain: 0.24 },
+    ],
+  lose: [
+      { freq: 392, duration: 0.2, delay: 0, type: "sawtooth", gain: 0.16 },
+      { freq: 329.63, duration: 0.3, delay: 0.16, type: "sawtooth", gain: 0.16 },
+    ],
+};

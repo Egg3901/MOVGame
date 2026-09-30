@@ -3,6 +3,7 @@ package com.lakesidegames.electioneer
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import android.app.Activity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,9 @@ import com.lakesidegames.electioneer.ui.SetupScreen
 import com.lakesidegames.electioneer.ui.StoreScreen
 import com.lakesidegames.electioneer.ui.CampaignLibraryScreen
 import com.lakesidegames.electioneer.ui.ElectionNightScreen
+import com.lakesidegames.electioneer.ui.NativeSettingsScreen
+import com.lakesidegames.electioneer.ui.NativeGuideScreen
+import com.lakesidegames.electioneer.ui.NativeCampaignCoach
 import com.lakesidegames.electioneer.ui.DailyBoardsScreen
 import com.lakesidegames.electioneer.ui.WorldCampaignScreen
 
@@ -58,6 +62,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
     val screen by session.screen.collectAsState()
+    BackHandler(enabled = screen != Screen.HOME && screen != Screen.REVEAL) {
+        if (screen in listOf(Screen.SETTINGS, Screen.GUIDE, Screen.BOARDS, Screen.SAVES)) session.go(Screen.ACCOUNT)
+        else if (screen in listOf(Screen.ANALYSIS, Screen.REPLAY)) session.resumeGame()
+        else session.go(Screen.HOME)
+    }
     MaterialTheme(colorScheme = darkColorScheme(
         primary = Color(0xFFF5B942), onPrimary = Color(0xFF17202B),
         background = Color(0xFF0A0F14), surface = Color(0xFF111B26),
@@ -87,7 +96,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                             label = { Text("Store") },
                         )
                         NavigationBarItem(
-                            selected = screen == Screen.ACCOUNT || screen == Screen.SAVES,
+                            selected = screen in listOf(Screen.ACCOUNT, Screen.SAVES, Screen.BOARDS, Screen.SETTINGS, Screen.GUIDE),
                             onClick = { session.go(Screen.ACCOUNT) },
                             icon = {
                                 Icon(Icons.Filled.AccountCircle, contentDescription = "Account")
@@ -111,6 +120,8 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         Screen.REVEAL -> ElectionNightScreen(session)
                         Screen.STORE -> StoreScreen(session, activity)
                         Screen.ACCOUNT -> AccountScreen(session)
+                        Screen.SETTINGS -> NativeSettingsScreen(session)
+                        Screen.GUIDE -> NativeGuideScreen()
                         Screen.BOARDS -> DailyBoardsScreen(session)
                         Screen.SAVES -> CampaignSavesScreen(session)
                         Screen.ANALYSIS -> AnalysisScreen(session)
