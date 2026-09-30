@@ -39,9 +39,12 @@ fun StoreScreen(session: GameSession, activity: Activity) {
         Shell(
             eyebrow = "CAMPAIGN LIBRARY",
             title = "History is yours to play",
-            feature = "17 campaigns included",
-            body = "All 17 U.S. presidential campaigns are available in New Campaign today. There are no purchases in the app yet.",
+            feature = "Campaigns across six countries",
+            body = "Explore U.S., UK, Canadian, German, French, and Australian elections. There are no purchases in the app yet.",
         )
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Button(onClick = { session.go(Screen.LIBRARY) }, modifier = Modifier.padding(24.dp)) { Text("Choose an election") }
+        }
         return
     }
 

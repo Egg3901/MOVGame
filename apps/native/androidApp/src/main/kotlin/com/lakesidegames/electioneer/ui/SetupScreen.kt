@@ -35,17 +35,17 @@ fun HomeScreen(session: GameSession) {
                 }
             }
         }
-        Button(onClick = { session.go(Screen.SETUP) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+        Button(onClick = { session.go(Screen.LIBRARY) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
             Text("Start a new campaign")
         }
-        Text("17 U.S. presidential campaigns • 1960–2024", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Six countries. Historical campaigns and today's political battles.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 fun SetupScreen(session: GameSession) {
     val campaigns = remember { session.campaigns() }
-    var scenarioId by remember { mutableStateOf("2024") }
+    var scenarioId by remember { mutableStateOf(session.setupScenarioId) }
     var player by remember { mutableStateOf(CandidateId.DEM) }
     var mateId by remember { mutableStateOf("") }
     var staffIds by remember { mutableStateOf(setOf<String>()) }

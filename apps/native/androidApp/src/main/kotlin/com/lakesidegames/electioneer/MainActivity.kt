@@ -37,6 +37,8 @@ import com.lakesidegames.electioneer.ui.ResultsScreen
 import com.lakesidegames.electioneer.ui.Screen
 import com.lakesidegames.electioneer.ui.SetupScreen
 import com.lakesidegames.electioneer.ui.StoreScreen
+import com.lakesidegames.electioneer.ui.CampaignLibraryScreen
+import com.lakesidegames.electioneer.ui.WorldCampaignScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +67,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         NavigationBarItem(
                             selected = screen == Screen.HOME || screen == Screen.SETUP || screen == Screen.LOADING ||
                                 screen == Screen.GAME ||
-                                screen == Screen.RESULTS,
+                                screen == Screen.RESULTS || screen == Screen.LIBRARY || screen == Screen.WORLD_GAME,
                             onClick = { session.playTab() },
                             icon = {
                                 Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
@@ -104,6 +106,8 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         Screen.RESULTS -> ResultsScreen(session)
                         Screen.STORE -> StoreScreen(session, activity)
                         Screen.ACCOUNT -> AccountScreen()
+                        Screen.LIBRARY -> CampaignLibraryScreen(session)
+                        Screen.WORLD_GAME -> WorldCampaignScreen(session)
                     }
                 }
             }

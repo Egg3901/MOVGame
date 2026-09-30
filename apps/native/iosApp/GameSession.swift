@@ -5,7 +5,7 @@ import shared
 // talks only to the MobileGame facade (string serials in, plain reads out)
 // and bumps `version` after every mutation so views re-render.
 enum PlayScreen: Equatable {
-    case home, setup, loading, game, results
+    case home, setup, loading, game, results, library, worldGame
 }
 
 final class GameSession: ObservableObject {
@@ -20,11 +20,18 @@ final class GameSession: ObservableObject {
     @Published var eventResult: String? = nil
 
     private var game: MobileGame? = nil
+    private(set) var campaign: MobileCampaign? = nil
     #if targetEnvironment(simulator)
     private var didPrepareSimulatorCapture = false
     #endif
 
     init() {
+        if UserDefaults.standard.string(forKey: "mov_active_campaign") == "world",
+           let snapshot = UserDefaults.standard.string(forKey: "mov_world_campaign_v1"),
+           let restored = MobileCampaign.companion.restore(snapshot: snapshot) {
+            campaign = restored
+            return
+        }
         if let snapshot = UserDefaults.standard.string(forKey: Self.saveKey),
            let restored = MobileGame.companion.restore(snapshot: snapshot) {
             game = restored
@@ -38,7 +45,14 @@ final class GameSession: ObservableObject {
         guard !didPrepareSimulatorCapture else { return }
         didPrepareSimulatorCapture = true
         let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
+        if arguments.contains("--mov-capture-library") {
+            playScreen = .library
+        } else if let countryId = ["UK", "CA", "DE", "FR", "AU"].first(where: { arguments.contains("--mov-capture-world-\($0.lowercased())") }) {
+            guard let election = MobileCampaign.companion.elections(countryId: countryId).first,
+                  let party = MobileCampaign.companion.parties(countryId: countryId, electionId: election.nativeId).first else { return }
+            newCampaign(countryId: countryId, electionId: election.nativeId, partyId: party.id,
+                        difficulty: "normal", seed: "native-ui-capture")
+        } else if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
             playScreen = .setup
         } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") ||
                     arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") {
@@ -53,8 +67,26 @@ final class GameSession: ObservableObject {
     }
     #endif
 
-    var hasGame: Bool { game != nil }
-    var savedCampaignLabel: String { game?.campaignLabel() ?? "Your campaign" }
+    var hasGame: Bool { game != nil || campaign != nil }
+    var savedCampaignLabel: String { campaign?.label() ?? game?.campaignLabel() ?? "Your campaign" }
+
+    func newCampaign(countryId: String, electionId: String, partyId: String, difficulty: String, seed: String) {
+        playScreen = .loading
+        DispatchQueue.global(qos: .userInitiated).async {
+            let started = MobileCampaign.companion.start(countryId: countryId, electionId: electionId,
+                partyId: partyId, difficulty: difficulty, seed: seed)
+            DispatchQueue.main.async {
+                self.campaign = started
+                self.game = nil
+                self.eventId = nil
+                self.eventResult = nil
+                self.showRecap = false
+                self.recapLines = []
+                self.playScreen = .worldGame
+                self.touch()
+            }
+        }
+    }
 
     func askURL() -> URL {
         let base = "https://ask.lakesidegames.net/from-mov"
@@ -71,6 +103,10 @@ final class GameSession: ObservableObject {
     }
 
     func resumeGame() {
+        if campaign != nil {
+            playScreen = .worldGame
+            return
+        }
         guard let game = game else { return }
         playScreen = game.isOver() ? .results : .game
     }
@@ -81,8 +117,14 @@ final class GameSession: ObservableObject {
 
     func touch() {
         version += 1
+        if let campaign {
+            UserDefaults.standard.set(campaign.saveSnapshot(), forKey: "mov_world_campaign_v1")
+            UserDefaults.standard.set("world", forKey: "mov_active_campaign")
+            return
+        }
         if let game = game {
             UserDefaults.standard.set(game.saveSnapshot(), forKey: Self.saveKey)
+            UserDefaults.standard.set("us", forKey: "mov_active_campaign")
         }
     }
 
@@ -103,6 +145,7 @@ final class GameSession: ObservableObject {
                 mirrorMatch: mirrorMatch, pandemic: pandemic)
             DispatchQueue.main.async {
                 self.game = started
+                self.campaign = nil
                 self.recapLines = []
                 self.showRecap = false
                 self.eventId = nil
@@ -165,7 +208,7 @@ final class GameSession: ObservableObject {
         guard let g = game else { return }
         let recap = g.endTurn()
         var lines: [String] = []
-        for item in recap.prefix(6) {
+        for item in recap {
             lines.append(item.detail.isEmpty ? item.label : "\(item.label): \(item.detail)")
         }
         touch()

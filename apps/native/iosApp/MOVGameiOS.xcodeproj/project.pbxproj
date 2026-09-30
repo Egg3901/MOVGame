@@ -25,6 +25,7 @@
 		7A0000010000000000000002 = {
 			isa = PBXGroup;
 			children = (
+				7A0000010000000000000041,
 				7A0000010000000000000009,
 				7A000001000000000000000A,
 				7A000001000000000000000B,
@@ -73,6 +74,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A0000010000000000000042,
 				7A000001000000000000000C,
 				7A000001000000000000000D,
 				7A0000010000000000000023,
@@ -124,6 +126,17 @@
 			path = MOVGameiOS.app;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
+		7A0000010000000000000041 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = NativeCampaignViews.swift;
+			sourceTree = "<group>";
+		};
+		7A0000010000000000000042 = {
+			isa = PBXBuildFile;
+			fileRef = 7A0000010000000000000041;
+		};
+
 		7A0000010000000000000009 = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
