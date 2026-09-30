@@ -145,7 +145,7 @@ class ActionsTest {
             Triple("Rally in PA", "suburban_women", 0.037377313208023115),
             Triple("Surrogate visit to PA", "noncollege_white", -0.00974383603147308),
             Triple("Surrogate visit to PA", "suburban_women", -0.011143090980418218),
-            Triple("PA fundraiser (+\$22.1M)", null, 0.0),
+            Triple("Fundraising haul in PA (+\$22.1M)", null, 0.0),
             Triple("Fundraising haul (+\$17.5M)", null, 0.0),
             Triple("Built field offices in PA", null, 0.0),
             Triple("GOTV in PA fell flat (no field operation)", null, 0.0),
@@ -159,7 +159,7 @@ class ActionsTest {
             assertEquals(bloc, g.causes[i].blocId?.serial, "bloc $i")
             assertClose(delta, g.causes[i].marginDelta, "delta $i")
         }
-        assertEquals("PA", g.causes[9].stateId)
+        assertNull(g.causes[9].stateId)
         assertNull(g.causes[10].stateId)
 
         // Out-of-slots probe: untouched.
