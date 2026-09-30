@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 import shared
 
 struct CampaignAnalysisView: View {
@@ -13,21 +12,7 @@ struct CampaignAnalysisView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("CAMPAIGN ANALYSIS").font(.title2.bold()).foregroundStyle(CampaignStyle.gold)
                     ForEach(document.charts, id: \.id) { chart in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(chart.title).font(.headline)
-                            Chart {
-                                RuleMark(y: .value("Reference", chart.reference))
-                                    .foregroundStyle(CampaignStyle.muted).lineStyle(StrokeStyle(dash: [4]))
-                                    .annotation(position: .top, alignment: .trailing) { Text(chart.referenceLabel).font(.caption2) }
-                                ForEach(chart.series, id: \.label) { series in
-                                    ForEach(series.points, id: \.turn) { point in
-                                        LineMark(x: .value("Week", Int(point.turn)), y: .value(series.label, point.value), series: .value("Candidate", series.label))
-                                            .foregroundStyle(Color(hex: series.color)).symbol(.circle)
-                                    }
-                                }
-                            }.chartYScale(domain: chart.minimum...chart.maximum).frame(height: 180)
-                            Text(chart.series.map(\.label).joined(separator: " / ")).font(.caption).foregroundStyle(CampaignStyle.muted)
-                        }.padding(14).background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 12))
+                        NativeTrendCard(chart: chart)
                     }
                     Picker("State or region", selection: Binding(get: { selectedRegion ?? document.selectedRegion }, set: { selectedRegion = $0 })) {
                         ForEach(document.regions, id: \.id) { region in Text(region.name).tag(region.id) }
@@ -50,5 +35,49 @@ struct CampaignAnalysisView: View {
                 }.padding(20)
             }
         }.background(CampaignStyle.background).preferredColorScheme(.dark)
+    }
+}
+
+private struct NativeTrendCard: View {
+    let chart: NativeTrendChart
+
+    private var maxTurn: Double { max(1.0, Double(chart.series.flatMap(\.points).map(\.turn).max() ?? 1)) }
+    private var accessibleValues: String {
+        chart.series.map { series in
+            series.label + ": " + series.points.map { "Week \($0.turn): \(String(format: "%.1f", $0.value))" }.joined(separator: ", ")
+        }.joined(separator: ". ")
+    }
+    private func position(_ turn: Double, _ value: Double, _ size: CGSize) -> CGPoint {
+        CGPoint(x: 6 + (size.width - 12) * CGFloat(turn / maxTurn),
+                y: 6 + (size.height - 12) * CGFloat(1 - (value - chart.minimum) / (chart.maximum - chart.minimum)))
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(chart.title).font(.headline)
+            Text("\(Int(chart.minimum)) to \(Int(chart.maximum)) · \(chart.referenceLabel)").font(.caption).foregroundStyle(CampaignStyle.muted)
+            Canvas { context, size in
+                for index in 0...4 {
+                    let y = 6 + (size.height - 12) * CGFloat(index) / 4
+                    var line = Path()
+                    line.move(to: CGPoint(x: 6, y: y)); line.addLine(to: CGPoint(x: size.width - 6, y: y))
+                    context.stroke(line, with: .color(CampaignStyle.muted.opacity(0.25)), lineWidth: 1)
+                }
+                var reference = Path()
+                reference.move(to: position(0, chart.reference, size)); reference.addLine(to: position(maxTurn, chart.reference, size))
+                context.stroke(reference, with: .color(CampaignStyle.muted), lineWidth: 1)
+                for series in chart.series {
+                    var path = Path()
+                    let color = Color(hex: series.color)
+                    for (index, point) in series.points.enumerated() {
+                        let at = position(Double(point.turn), point.value, size)
+                        if index == 0 { path.move(to: at) } else { path.addLine(to: at) }
+                        context.fill(Path(ellipseIn: CGRect(x: at.x - 3, y: at.y - 3, width: 6, height: 6)), with: .color(color))
+                    }
+                    context.stroke(path, with: .color(color), lineWidth: 2)
+                }
+            }.frame(height: 180).accessibilityLabel(chart.title).accessibilityValue(accessibleValues)
+            Text("Start → Week \(Int(maxTurn)) · \(chart.series.map(\.label).joined(separator: " / "))")
+                .font(.caption).foregroundStyle(CampaignStyle.muted)
+        }.padding(14).background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 12))
     }
 }
