@@ -49,7 +49,7 @@ private val nativeMaps: Map<String, NativeMap> by lazy {
     }
 }
 
-private val nativeElections: List<NativeElection> by lazy {
+internal val nativeElections: List<NativeElection> by lazy {
     EngineJson.decodeFromString<List<NativeElection>>(bundleText("scenario-registry"))
 }
 
@@ -119,6 +119,23 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
     fun currency(): String = bundle()?.currency ?: "£"
     fun unitName(): String = bundle()?.unitNamePlural ?: "seats"
     fun funds(): Double = uk?.resources?.getValue(playerParty())?.funds ?: country!!.resources.getValue(playerParty()).funds
+
+    fun isDaily(dateUTC: String): Boolean = NativeDaily.matches(dateUTC,
+        nativeElections.first { it.country == countryId() && it.nativeId == electionId() }.scenarioId,
+        uk?.seed ?: country!!.seed, playerParty())
+
+    fun scoreSubmission(): String? {
+        val summary = resultSummary() ?: return null
+        val rows = standings()
+        val facts = multipartyScoreFacts(rows.associate { it.partyId to it.units }, rows.associate { it.partyId to it.voteShare },
+            playerParty(), majority(), totalUnits(), summary.difficulty)
+        return EngineJson.encodeToString(NativeScoreSubmission(
+            scenarioId = nativeElections.first { it.country == countryId() && it.nativeId == electionId() }.scenarioId,
+            difficulty = summary.difficulty, score = summary.score, facts = facts,
+            playerSide = playerParty(), seats = rows.associate { it.partyId to it.units },
+            voteShare = rows.associate { it.partyId to it.voteShare }, evMargin = summary.unitMargin,
+            popularVoteMargin = summary.popularMargin, turnsPlayed = turn()))
+    }
     fun momentum(): Double = uk?.resources?.getValue(playerParty())?.momentum ?: country!!.resources.getValue(playerParty()).momentum
     fun slotsLeft(): Int = ((uk?.resources?.getValue(playerParty())?.actions
         ?: country!!.resources.getValue(playerParty()).actions) - plan().size).coerceAtLeast(0)

@@ -192,8 +192,7 @@ private fun applyFundraise(game: GameState, action: CampaignAction, rng: Rng) {
     game.causes.add(
         CauseEntry(
             turn = game.turn,
-            stateId = st?.id,
-            cause = if (st != null) "${st.abbr} fundraiser (+\$${toFixed1(haul / 1_000_000)}M)"
+            cause = if (st != null) "Fundraising haul in ${st.abbr} (+\$${toFixed1(haul / 1_000_000)}M)"
             else "Fundraising haul (+\$${toFixed1(haul / 1_000_000)}M)",
             marginDelta = 0.0,
         ),

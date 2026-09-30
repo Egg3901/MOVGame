@@ -31,6 +31,6 @@ Desktop builds use `npm run desktop:build` or `npm run steam:build`. The desktop
 
 ## Release status
 
-The Android and iOS apps have native campaign menus, setup for all 17 U.S. scenarios, gameplay, results, and billing adapters. Local Android tests and APK builds pass; Codemagic compiles the iOS simulator app. Device testing, store products, purchase and refund exercises, privacy declarations, and signed release artifacts still need evidence before a store release. The SKU table is empty, so the apps currently sell no packs. See [release checklist](docs/release-checklist.md) for each gate.
+The Android and iOS apps have native campaigns for all 49 elections across six countries, calendar planning, scores, historical comparisons, daily challenges, account sign-in, shared leaderboards, and billing adapters. GitHub Actions checks the web and shared engines, builds Android, and launches the Release iOS app on iOS 26 and iOS 27. Device testing, store products, purchase and refund exercises, privacy declarations, and signed release artifacts still need evidence before a store release. The SKU table is empty, so the apps currently sell no packs. See [release checklist](docs/release-checklist.md) for each gate.
 
 The old Tauri Android and iOS configs remain as historical build artifacts; they are not mobile release targets.

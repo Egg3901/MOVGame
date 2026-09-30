@@ -32,6 +32,8 @@ jobs:
         run: npm run native:content -- --check
       - name: Check native plan vectors match web
         run: npx tsx apps/native/scripts/export-plan-vectors.ts --check
+      - name: Check complete native campaign vectors match web
+        run: npx tsx apps/native/scripts/export-campaign-vectors.ts --check
       - name: Verify desktop uses this checkout
         run: node apps/native/scripts/fetch-web.mjs steam
   android:
@@ -53,6 +55,11 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :shared:jvmTest :androidApp:assembleDebug --no-daemon --max-workers=2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mov-android-debug
+          path: apps/native/androidApp/build/outputs/apk/debug/*.apk
+          retention-days: 7
   ios:
     name: iOS simulator launch
     runs-on: macos-26

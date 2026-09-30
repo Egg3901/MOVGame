@@ -38,6 +38,13 @@ fun HomeScreen(session: GameSession) {
         Button(onClick = { session.go(Screen.LIBRARY) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
             Text("Start a new campaign")
         }
+        val daily = session.dailyAssignment()
+        Card(Modifier.fillMaxWidth().clickable { session.openDaily() }) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("DAILY CHALLENGE · ${daily.date}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+            Text("${daily.flag} ${daily.label}", style = MaterialTheme.typography.titleMedium)
+            Text("Play as ${daily.roleName} · same seed and events for everyone", style = MaterialTheme.typography.bodySmall)
+            Text(session.dailyBest()?.let { "Played · Best $it · ${session.dailyStreak()}-day streak" } ?: "Play today's challenge", color = MaterialTheme.colorScheme.primary)
+        } }
         Text("Six countries. Historical campaigns and today's political battles.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -46,13 +53,14 @@ fun HomeScreen(session: GameSession) {
 fun SetupScreen(session: GameSession) {
     val campaigns = remember { session.campaigns() }
     var scenarioId by remember { mutableStateOf(session.setupScenarioId) }
-    var player by remember { mutableStateOf(CandidateId.DEM) }
+    var player by remember { mutableStateOf(if (session.dailySetup?.role == "rep") CandidateId.REP else CandidateId.DEM) }
     var mateId by remember { mutableStateOf("") }
     var staffIds by remember { mutableStateOf(setOf<String>()) }
     var difficulty by remember { mutableStateOf("normal") }
     var mode by remember { mutableStateOf(EventMode.HISTORICAL) }
     var turns by remember { mutableIntStateOf(9) }
-    var seed by remember { mutableStateOf((System.currentTimeMillis() % 1_000_000).toString().padStart(6, '0')) }
+    var seed by remember { mutableStateOf(session.dailySetup?.seed ?: (System.currentTimeMillis() % 1_000_000).toString().padStart(6, '0')) }
+    LaunchedEffect(Unit) { session.dailySetup = null }
     var whatIfState by remember { mutableStateOf("") }
     var mirrorMatch by remember { mutableStateOf(false) }
     var pandemic by remember { mutableStateOf(false) }

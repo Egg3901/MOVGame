@@ -95,6 +95,7 @@ fun ResultsScreen(session: GameSession) {
                 if (!info.standardLength) Text("Short and long campaigns are casual runs. Standard nine-week campaigns are comparable on the leaderboard.", style = MaterialTheme.typography.bodySmall)
             } }
         }
+        ScorePosting(session)
         if (achievements.isNotEmpty()) {
             Text("ACHIEVEMENTS EARNED", Modifier.fillMaxWidth().padding(top = 16.dp), color = MaterialTheme.colorScheme.primary)
             achievements.forEach { award -> Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {

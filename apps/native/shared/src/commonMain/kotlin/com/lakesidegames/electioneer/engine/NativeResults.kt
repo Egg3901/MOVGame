@@ -1,6 +1,7 @@
 package com.lakesidegames.electioneer.engine
 import com.lakesidegames.electioneer.content.getScenario
 import com.lakesidegames.electioneer.content.STATE_SEEDS
+import kotlinx.serialization.encodeToString
 
 data class NativeAward(val id: String, val name: String, val blurb: String, val icon: String)
 data class NativeResultSummary(val score: Int, val difficulty: String, val unitMargin: Int,
@@ -9,6 +10,17 @@ data class NativeHistoricalRegion(val id: String, val name: String, val units: I
                                   val historicalUnits: Int, val shareSwing: Double)
 
 object NativeResults {
+    fun submission(game: GameState, difficulty: String?): String? {
+        val result = game.result ?: return null
+        val summary = us(game, difficulty) ?: return null
+        if (difficulty == null || !summary.standardLength) return null
+        val meta = nativeElections.firstOrNull { it.country == "US" && it.nativeId == game.scenarioId } ?: return null
+        val facts = usScoreFacts(result.electoralVotes, result.popularShare, game.playerCandidate, difficulty)
+        return EngineJson.encodeToString(NativeScoreSubmission(meta.scenarioId, difficulty, summary.score, facts,
+            game.playerCandidate.serial, electoralVotes = result.electoralVotes, popularShare = result.popularShare,
+            evMargin = summary.unitMargin, popularVoteMargin = summary.popularMargin, turnsPlayed = game.turn))
+    }
+
     fun us(game: GameState, difficulty: String?): NativeResultSummary? {
         val result = game.result ?: return null
         val facts = usScoreFacts(result.electoralVotes, result.popularShare, game.playerCandidate, difficulty ?: "normal")

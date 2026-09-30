@@ -10,14 +10,13 @@ import com.lakesidegames.electioneer.billing.StoreProduct
 import com.lakesidegames.electioneer.content.CANDIDATES
 import com.lakesidegames.electioneer.content.EVENTS_BY_ID
 import com.lakesidegames.electioneer.engine.ActionType
-import com.lakesidegames.electioneer.engine.AdvanceOptions
 import com.lakesidegames.electioneer.engine.CandidateId
 import com.lakesidegames.electioneer.engine.GamePhase
 import com.lakesidegames.electioneer.engine.GameState
 import com.lakesidegames.electioneer.engine.NewGameOptions
 import com.lakesidegames.electioneer.engine.PendingEvent
 import com.lakesidegames.electioneer.engine.Projection
-import com.lakesidegames.electioneer.engine.advanceTurn
+import com.lakesidegames.electioneer.engine.advanceCampaignWeek
 import com.lakesidegames.electioneer.engine.choiceAvailable
 import com.lakesidegames.electioneer.engine.createGame
 import com.lakesidegames.electioneer.engine.projectElection
@@ -27,6 +26,8 @@ import com.lakesidegames.electioneer.engine.saveGame
 import com.lakesidegames.electioneer.engine.MobileGame
 import com.lakesidegames.electioneer.engine.MobileCampaign
 import com.lakesidegames.electioneer.engine.NativeResults
+import com.lakesidegames.electioneer.engine.NativeDaily
+import com.lakesidegames.electioneer.engine.NativeDailyAssignment
 import com.lakesidegames.electioneer.engine.EventMode
 import com.lakesidegames.electioneer.engine.GameModifiers
 import com.lakesidegames.electioneer.engine.AdMode
@@ -42,12 +43,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
 enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
+internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffset.UTC).plusDays(offsetDays).toString()
 
 class GameSession : ViewModel() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -57,11 +61,41 @@ class GameSession : ViewModel() {
     }
     private var savePrefs: SharedPreferences? = null
     private val saveKey = "campaign_v1"
+    lateinit var account: CampaignAccount
+        private set
+    var dailySetup: NativeDailyAssignment? = null
+
+    fun dailyAssignment(): NativeDailyAssignment = NativeDaily.assignment(nativeUtcDay())
+    fun openDaily(restart: Boolean = false) {
+        val today = dailyAssignment()
+        if (!restart && (_game.value?.let { NativeDaily.matchesUs(today.date, it) } == true ||
+                _campaign.value?.isDaily(today.date) == true)) { resumeGame(); return }
+        dailySetup = today
+        setupScenarioId = today.electionId
+        _screen.value = if (today.countryId == "US") Screen.SETUP else Screen.LIBRARY
+    }
+    fun scorePayload(): String? = _campaign.value?.scoreSubmission()
+        ?: _game.value?.let { NativeResults.submission(it, campaignDifficulty) }
+    fun isDaily(): Boolean = _campaign.value?.isDaily(nativeUtcDay())
+        ?: (_game.value?.let { NativeDaily.matchesUs(nativeUtcDay(), it) } ?: false)
+    fun dailyBest(): Int? = savePrefs?.getInt("daily_best_${nativeUtcDay()}", -1)?.takeIf { it >= 0 }
+    fun dailyStreak(): Int = savePrefs?.getInt("daily_streak", 0) ?: 0
+
+    private fun recordDaily() {
+        if (!isDaily()) return
+        val summary = _campaign.value?.resultSummary() ?: _game.value?.let { NativeResults.us(it, campaignDifficulty) } ?: return
+        if (summary.score < 0) return
+        val date = nativeUtcDay()
+        val streak = NativeDaily.nextStreak(date, nativeUtcDay(-1), savePrefs?.getString("daily_last", null), dailyStreak())
+        savePrefs?.edit()?.putInt("daily_best_$date", maxOf(dailyBest() ?: 0, summary.score))
+            ?.putString("daily_last", date)?.putInt("daily_streak", streak)?.apply()
+    }
 
     fun attachStorage(context: Context) {
         if (savePrefs != null) return
         val prefs = context.applicationContext.getSharedPreferences("mov_native", Context.MODE_PRIVATE)
         savePrefs = prefs
+        account = CampaignAccount(context.applicationContext, scope)
         if (prefs.getString("active_campaign", "us") == "world") {
             val campaign = prefs.getString("world_campaign_v1", null)?.let(MobileCampaign::restore)
             if (campaign != null) {
@@ -86,6 +120,7 @@ class GameSession : ViewModel() {
             val previous = savePrefs?.getStringSet("achievement_ids", emptySet()).orEmpty()
             savePrefs?.edit()?.putStringSet("achievement_ids", previous + earned)?.apply()
         }
+        recordDaily()
     }
 
     private val _campaign = MutableStateFlow<MobileCampaign?>(null)
@@ -111,6 +146,7 @@ class GameSession : ViewModel() {
         val campaign = _campaign.value ?: return
         savePrefs?.edit()?.putString("world_campaign_v1", campaign.saveSnapshot())
             ?.putString("active_campaign", "world")?.apply()
+        recordDaily()
     }
 
     private val _screen = MutableStateFlow(Screen.HOME)
@@ -296,7 +332,7 @@ class GameSession : ViewModel() {
 
     fun endTurn() {
         val g = _game.value ?: return
-        val next = advanceTurn(g, g.queuedActions, turnSeed, AdvanceOptions())
+        val next = advanceCampaignWeek(g, campaignDifficulty)
         _game.value = next
         refresh()
         persist()

@@ -74,7 +74,7 @@ private fun NativeCountryMap(map: NativeMap, regions: List<NativeRegion>, select
 }
 
 @Composable
-private fun ChoicePicker(label: String, selected: String, choices: List<Pair<String, String>>, onSelect: (String) -> Unit) {
+internal fun ChoicePicker(label: String, selected: String, choices: List<Pair<String, String>>, onSelect: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Column {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -92,16 +92,18 @@ private fun ChoicePicker(label: String, selected: String, choices: List<Pair<Str
 @Composable
 fun CampaignLibraryScreen(session: GameSession) {
     val countries = remember { MobileCampaign.countries() }
-    var countryId by remember { mutableStateOf("US") }
+    val daily = remember { session.dailySetup }
+    var countryId by remember { mutableStateOf(daily?.countryId ?: "US") }
     val elections = remember(countryId) { MobileCampaign.elections(countryId) }
-    var electionId by remember(countryId) { mutableStateOf(elections.first().nativeId) }
+    var electionId by remember(countryId) { mutableStateOf(daily?.electionId?.takeIf { id -> elections.any { it.nativeId == id } } ?: elections.first().nativeId) }
     val election = elections.first { it.nativeId == electionId }
     val parties = remember(countryId, electionId) {
         if (countryId == "US") emptyList() else MobileCampaign.parties(countryId, electionId)
     }
-    var partyId by remember(countryId, electionId) { mutableStateOf(parties.firstOrNull()?.id ?: "") }
+    var partyId by remember(countryId, electionId) { mutableStateOf(daily?.role?.takeIf { id -> parties.any { it.id == id } } ?: parties.firstOrNull()?.id ?: "") }
     var difficulty by remember { mutableStateOf("normal") }
-    var seed by remember { mutableStateOf(System.currentTimeMillis().toString()) }
+    var seed by remember { mutableStateOf(daily?.seed ?: System.currentTimeMillis().toString()) }
+    LaunchedEffect(Unit) { session.dailySetup = null }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Text("CAMPAIGN LIBRARY", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
@@ -251,6 +253,7 @@ fun WorldCampaignScreen(session: GameSession) {
             item { Button(onClick = { if (game.endWeek()) { session.campaignChanged(); showRecap = game.recap().isNotEmpty() } },
                 enabled = !game.hasPendingEvent(), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("End week") } }
         } else {
+            item { ScorePosting(session) }
             item { game.resultSummary()?.let { summary -> Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("CAMPAIGN SCORE ${summary.score} / 1000", style = MaterialTheme.typography.titleMedium)
                 Text("${summary.difficulty.replaceFirstChar { it.uppercase() }} difficulty · $unit above majority: ${summary.unitMargin}")

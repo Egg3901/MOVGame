@@ -105,7 +105,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         Screen.GAME -> GameScreen(session)
                         Screen.RESULTS -> ResultsScreen(session)
                         Screen.STORE -> StoreScreen(session, activity)
-                        Screen.ACCOUNT -> AccountScreen()
+                        Screen.ACCOUNT -> AccountScreen(session)
                         Screen.LIBRARY -> CampaignLibraryScreen(session)
                         Screen.WORLD_GAME -> WorldCampaignScreen(session)
                     }
