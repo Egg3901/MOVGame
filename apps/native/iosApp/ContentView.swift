@@ -103,8 +103,8 @@ struct ContentView: View {
             if session.hasGame {
                 Button("Continue campaign") { session.resumeGame() }
             }
-            Button("Start a new campaign") { session.playScreen = .setup }
-            Button("Campaign library") { menuDestination = .store }
+            Button("Start a new campaign") { session.playScreen = .library }
+            Button("Campaign library") { session.playScreen = .library }
             Button("How to play") { menuDestination = .guide }
             Button(session.hasGame ? "Ask about this campaign" : "Ask about Margin of Victory") {
                 openAsk()
@@ -181,6 +181,10 @@ struct ContentView: View {
             GameView(session: session, onAsk: openAsk)
         case .results:
             ResultsView(session: session)
+        case .library:
+            NativeCampaignLibrary(session: session)
+        case .worldGame:
+            NativeWorldCampaign(session: session)
         }
     }
 
@@ -189,7 +193,7 @@ struct ContentView: View {
             navigationButton("Home", icon: "house.fill", selected: session.playScreen == .home) {
                 session.playScreen = .home
             }
-            navigationButton("Campaign", icon: "flag.fill", selected: session.playScreen == .game || session.playScreen == .results,
+            navigationButton("Campaign", icon: "flag.fill", selected: session.playScreen == .game || session.playScreen == .results || session.playScreen == .worldGame,
                              enabled: session.hasGame) {
                 session.resumeGame()
             }

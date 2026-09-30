@@ -25,6 +25,7 @@ import com.lakesidegames.electioneer.engine.resolveEvent
 import com.lakesidegames.electioneer.engine.loadGame
 import com.lakesidegames.electioneer.engine.saveGame
 import com.lakesidegames.electioneer.engine.MobileGame
+import com.lakesidegames.electioneer.engine.MobileCampaign
 import com.lakesidegames.electioneer.engine.EventMode
 import com.lakesidegames.electioneer.engine.GameModifiers
 import com.lakesidegames.electioneer.engine.AdMode
@@ -43,7 +44,7 @@ import kotlinx.coroutines.withContext
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 
@@ -60,6 +61,13 @@ class GameSession : ViewModel() {
         if (savePrefs != null) return
         val prefs = context.applicationContext.getSharedPreferences("mov_native", Context.MODE_PRIVATE)
         savePrefs = prefs
+        if (prefs.getString("active_campaign", "us") == "world") {
+            val campaign = prefs.getString("world_campaign_v1", null)?.let(MobileCampaign::restore)
+            if (campaign != null) {
+                _campaign.value = campaign
+                return
+            }
+        }
         val saved = prefs.getString(saveKey, null)?.let(::loadGame) ?: return
         turnSeed = saved.seed
         _game.value = saved.state
@@ -70,7 +78,32 @@ class GameSession : ViewModel() {
 
     private fun persist() {
         val game = _game.value ?: return
-        savePrefs?.edit()?.putString(saveKey, saveGame(game, turnSeed))?.apply()
+        savePrefs?.edit()?.putString(saveKey, saveGame(game, turnSeed))?.putString("active_campaign", "us")?.apply()
+    }
+
+    private val _campaign = MutableStateFlow<MobileCampaign?>(null)
+    val campaign: StateFlow<MobileCampaign?> = _campaign
+    private val _campaignVersion = MutableStateFlow(0)
+    val campaignVersion: StateFlow<Int> = _campaignVersion
+
+    fun startCampaign(countryId: String, electionId: String, party: String, difficulty: String, seed: String) {
+        _screen.value = Screen.LOADING
+        scope.launch {
+            val started = withContext(Dispatchers.Default) {
+                MobileCampaign.start(countryId, electionId, party, difficulty, seed)
+            }
+            _campaign.value = started
+            _game.value = null
+            campaignChanged()
+            _screen.value = Screen.WORLD_GAME
+        }
+    }
+
+    fun campaignChanged() {
+        _campaignVersion.value += 1
+        val campaign = _campaign.value ?: return
+        savePrefs?.edit()?.putString("world_campaign_v1", campaign.saveSnapshot())
+            ?.putString("active_campaign", "world")?.apply()
     }
 
     private val _screen = MutableStateFlow(Screen.HOME)
@@ -130,17 +163,23 @@ class GameSession : ViewModel() {
 
     fun candidates() = CANDIDATES
 
+    var setupScenarioId: String = "2024"
+
     fun campaigns() = MobileGame.campaigns()
     fun mates(scenario: String, player: CandidateId) = MobileGame.mates(scenario, player.serial)
     fun staffChoices() = MobileGame.staffChoices()
 
-    fun hasSave() = _game.value != null
-    fun savedCampaignLabel(): String? = _game.value?.let { game ->
+    fun hasSave() = _game.value != null || _campaign.value != null
+    fun savedCampaignLabel(): String? = _campaign.value?.label() ?: _game.value?.let { game ->
         val id = game.scenarioId ?: "2020"
         MobileGame.campaigns().firstOrNull { it.id == id }?.label
     }
 
     fun resumeGame() {
+        if (_campaign.value != null) {
+            _screen.value = Screen.WORLD_GAME
+            return
+        }
         val g = _game.value ?: return
         _screen.value = if (g.phase == GamePhase.RESULT) Screen.RESULTS else Screen.GAME
     }
@@ -165,6 +204,7 @@ class GameSession : ViewModel() {
         require(difficulty in DIFFICULTIES && totalTurns in listOf(5, 9, 14))
         require(whatIfState in listOf("", "TX", "FL", "OH", "PA", "MI", "WI", "GA", "AZ", "NC", "NY"))
         _screen.value = Screen.LOADING
+        _campaign.value = null
         turnSeed = seed
         scope.launch {
         val g = withContext(Dispatchers.Default) { createGame(
@@ -254,7 +294,7 @@ class GameSession : ViewModel() {
             _screen.value = Screen.RESULTS
             return
         }
-        _recap.value = next.lastRecap.take(6).map {
+        _recap.value = next.lastRecap.map {
             if (it.detail.isBlank()) it.label else "${it.label}: ${it.detail}"
         }
         promptNextEvent(next)

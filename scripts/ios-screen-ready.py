@@ -34,8 +34,6 @@ def screen_coverage(path: pathlib.Path):
     previous = bytearray(row_size)
     position = 0
     dark = amber = coral = blue_samples = white_samples = samples = 0
-    x_step = max(1, width // 40)
-    y_step = max(1, height // 50)
     for y in range(height):
         filter_type = raw[position]
         position += 1
@@ -60,8 +58,10 @@ def screen_coverage(path: pathlib.Path):
                 row[i] = (row[i] + predictor) & 255
             elif filter_type != 0:
                 raise ValueError(f'unsupported PNG filter {filter_type}')
-        if height // 6 <= y < height * 5 // 6 and y % y_step == 0:
-            for x in range(width // 8, width * 7 // 8, x_step):
+        # Probes are already resized to 160 pixels. Sampling them again can
+        # miss small party markers near the left edge of multiparty standings.
+        if height // 6 <= y < height * 5 // 6:
+            for x in range(width // 16, width * 15 // 16):
                 i = x * channels
                 red, green, blue = row[i:i + 3]
                 samples += 1

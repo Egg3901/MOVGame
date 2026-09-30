@@ -39,6 +39,8 @@ async function main() {
   const ca = await import(`${WEB_REPO}/src/content/countries/canada.ts`);
   const fr = await import(`${WEB_REPO}/src/content/countries/france.ts`);
   const de = await import(`${WEB_REPO}/src/content/countries/germany.ts`);
+  const { SCENARIO_REGISTRY } = await import(`${WEB_REPO}/src/content/scenarioRegistry.ts`);
+  const { UK_VIEWBOX, REGION_PATHS } = await import(`${WEB_REPO}/src/content/uk/regionPaths.ts`);
 
   const stripBundle = (b: any) => {
     const { compatible, governmentText, map, ...rest } = b;
@@ -46,6 +48,9 @@ async function main() {
   };
 
   const bundles: Record<string, unknown> = {
+    "scenario-registry": SCENARIO_REGISTRY,
+    "maps": { UK: { viewBox: UK_VIEWBOX, shapes: REGION_PATHS },
+      CA: ca.CANADA.map, DE: de.GERMANY.map, FR: fr.FRANCE.map, AU: au.AUSTRALIA.map },
     "us-blocs": { blocs: Object.values(BLOCS) },
     "us-candidates": { candidates: CANDIDATES, opponentOf: OPPONENT_OF },
     "us-staff": { pool: STAFF_POOL },

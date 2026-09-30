@@ -61,7 +61,7 @@ struct HomeView: View {
                         .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 18))
                     }
                 }
-                Button { session.playScreen = .setup } label: {
+                Button { session.playScreen = .library } label: {
                     Text("Start a new campaign  →").font(.headline).frame(maxWidth: .infinity).padding(16)
                 }
                 .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
@@ -98,7 +98,7 @@ struct HomeView: View {
                     .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 16))
                 }
                 .buttonStyle(.plain)
-                Text("17 U.S. presidential campaigns · 1960–2024").font(.caption).foregroundStyle(CampaignStyle.muted)
+                Text("Six countries. Historical campaigns and today's political battles.").font(.caption).foregroundStyle(CampaignStyle.muted)
             }
             .padding(18)
         }
