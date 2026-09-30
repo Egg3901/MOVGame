@@ -187,6 +187,7 @@ final class GameSession: ObservableObject {
             replay.restore(json: UserDefaults.standard.string(forKey: "mov_us_replay_v1"), snapshot: snapshot)
             playScreen = .home
             eventId = restored.pendingEventIds().first
+            account.recordAchievementSnapshot(snapshot)
         }
     }
 
@@ -299,6 +300,7 @@ final class GameSession: ObservableObject {
             if !earned.isEmpty {
                 UserDefaults.standard.set(Array(Set(previous + earned)).sorted(), forKey: "mov_achievement_ids")
             }
+            account.recordAchievementSnapshot(game.saveSnapshot())
             recordDaily()
         }
     }

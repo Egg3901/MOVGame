@@ -118,6 +118,7 @@ try:
             ('replay', '--mov-capture-replay', 30),
             ('saves', '--mov-capture-saves', 30),
             ('account', '--mov-capture-account', 8),
+            ('lakeside-login', '--mov-capture-lakeside-login', 30),
             ('world-uk', '--mov-capture-world-uk', 20),
             ('world-ca', '--mov-capture-world-ca', 20),
             ('world-de', '--mov-capture-world-de', 20),
@@ -141,11 +142,12 @@ try:
                             preview_console.flush()
                             print((output / f'{name}-console.log').read_text())
                             raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
-                    if name == 'ask-login':
-                        if 'MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH' not in (output / f'{name}-console.log').read_text():
-                            raise SystemExit('FAIL: Ask sign-in did not reach auth inside the app webview')
+                    if name in ('ask-login', 'lakeside-login'):
+                        marker = 'MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH' if name == 'ask-login' else 'MOV_LAKESIDE_SIGNIN_REACHED_AUTH'
+                        if marker not in (output / f'{name}-console.log').read_text():
+                            raise SystemExit(f'FAIL: {name} did not reach auth inside the app webview')
                         screenshot(device, output / f'{name}.png')
-                        print('PASS: Ask sign-in reached auth inside the app webview', flush=True)
+                        print(f'PASS: {name} reached auth inside the app webview', flush=True)
                     else:
                         capture_ready(name, preview)
                 finally:

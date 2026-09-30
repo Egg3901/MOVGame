@@ -234,6 +234,7 @@ class GameSession : ViewModel() {
         _game.value = saved.state
         replay.restore(prefs.getString("us_replay_v1", null), saveGame(saved.state, saved.seed, saved.difficulty))
         _screen.value = Screen.HOME
+        account.recordAchievementSnapshot(saveGame(saved.state, saved.seed, saved.difficulty))
         refresh()
         promptNextEvent(saved.state)
     }
@@ -246,6 +247,7 @@ class GameSession : ViewModel() {
             val previous = savePrefs?.getStringSet("achievement_ids", emptySet()).orEmpty()
             savePrefs?.edit()?.putStringSet("achievement_ids", previous + earned)?.apply()
         }
+        account.recordAchievementSnapshot(saveGame(game, turnSeed, campaignDifficulty))
         recordDaily()
     }
 

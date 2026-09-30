@@ -159,7 +159,7 @@ struct ContentView: View {
         }
         .onAppear {
             #if targetEnvironment(simulator)
-            if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") { menuDestination = .account }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") || ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { menuDestination = .account }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-saves") { menuDestination = .saves }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-analysis") { menuDestination = .analysis }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-replay") { menuDestination = .replay }
