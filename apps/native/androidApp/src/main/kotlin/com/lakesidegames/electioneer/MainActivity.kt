@@ -41,6 +41,7 @@ import com.lakesidegames.electioneer.ui.SetupScreen
 import com.lakesidegames.electioneer.ui.StoreScreen
 import com.lakesidegames.electioneer.ui.CampaignLibraryScreen
 import com.lakesidegames.electioneer.ui.ElectionNightScreen
+import com.lakesidegames.electioneer.ui.DailyBoardsScreen
 import com.lakesidegames.electioneer.ui.WorldCampaignScreen
 
 class MainActivity : ComponentActivity() {
