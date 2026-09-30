@@ -56,6 +56,12 @@ interface MpTarget {
   coalitionBoost: number;
 }
 
+// Preserve content order for mathematical ties across JS and native math runtimes.
+// Differences smaller than a trillionth must not change a campaign's AI plan.
+function targetRank(value: number): number {
+  return Math.round(value * 1e12);
+}
+
 // Regions ranked by how close the party sits to the local top rival.
 export function mpTargets(view: MpView, party: PartyId, max: number): MpTarget[] {
   const standing = view.regions.filter((r) => r.baselineShare?.[party] !== undefined);
@@ -79,7 +85,7 @@ export function mpTargets(view: MpView, party: PartyId, max: number): MpTarget[]
   // closest contests so small parties still campaign somewhere.
   const winnable = rows.filter((r) => r.margin > -0.2);
   const pool = winnable.length > 0 ? winnable : rows;
-  return pool.sort((a, b) => Math.abs(a.margin) - Math.abs(b.margin)).slice(0, max);
+  return pool.sort((a, b) => targetRank(Math.abs(a.margin)) - targetRank(Math.abs(b.margin))).slice(0, max);
 }
 
 function topRival(shareByParty: Record<string, number>, party: PartyId): PartyId | undefined {
@@ -182,7 +188,7 @@ function applyCoalitionBias(
   rescored.sort((a, b) => {
     const scoreA = -Math.abs(a.margin) + a.coalitionBoost;
     const scoreB = -Math.abs(b.margin) + b.coalitionBoost;
-    return scoreB - scoreA;
+    return targetRank(scoreB) - targetRank(scoreA);
   });
   return rescored.slice(0, foresight);
 }

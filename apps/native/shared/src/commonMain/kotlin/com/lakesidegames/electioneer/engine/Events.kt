@@ -9,6 +9,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
+import kotlin.math.floor
 
 // Events: scheduled beats, stochastic draws, debates, and AI resolution.
 // Port of src/engine/events.ts.
@@ -238,7 +239,7 @@ fun resolveDebate(
                 ?: event.choices.find { choiceAvailable(game, c, it) }
                 ?: event.choices.first()
         val luck = rng.next() * 16 - 8 // ±8 unscripted
-        scores[c.serial] = round(debatePerformanceScore(game, c, choice, luck)).toDouble()
+        scores[c.serial] = floor(debatePerformanceScore(game, c, choice, luck) + 0.5)
         choiceText[c.serial] = choice.text
         resultText[c.serial] = choice.resultText
         resolveEvent(game, event.id, choice.id, c) // applies scaled effects + clears pending

@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import com.lakesidegames.electioneer.ui.CampaignSavesScreen
+import com.lakesidegames.electioneer.ui.AnalysisScreen
 import com.lakesidegames.electioneer.ui.AccountScreen
 import com.lakesidegames.electioneer.ui.GameScreen
 import com.lakesidegames.electioneer.ui.GameSession
@@ -68,7 +69,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         NavigationBarItem(
                             selected = screen == Screen.HOME || screen == Screen.SETUP || screen == Screen.LOADING ||
                                 screen == Screen.GAME ||
-                                screen == Screen.RESULTS || screen == Screen.LIBRARY || screen == Screen.WORLD_GAME,
+                                screen == Screen.RESULTS || screen == Screen.LIBRARY || screen == Screen.WORLD_GAME || screen == Screen.ANALYSIS || screen == Screen.REPLAY,
                             onClick = { session.playTab() },
                             icon = {
                                 Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
@@ -108,6 +109,8 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         Screen.STORE -> StoreScreen(session, activity)
                         Screen.ACCOUNT -> AccountScreen(session)
                         Screen.SAVES -> CampaignSavesScreen(session)
+                        Screen.ANALYSIS -> AnalysisScreen(session)
+                        Screen.REPLAY -> AnalysisScreen(session, timeline = true)
                         Screen.LIBRARY -> CampaignLibraryScreen(session)
                         Screen.WORLD_GAME -> WorldCampaignScreen(session)
                     }

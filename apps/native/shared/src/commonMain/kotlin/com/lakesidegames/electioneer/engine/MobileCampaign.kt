@@ -60,6 +60,14 @@ private data class NativeCampaignSave(val version: Int = 1, val uk: UkGameState?
 // One native interface over the existing UK and country engines. Validation,
 // budget commitments, event gating and serialization are shared by both UIs.
 class MobileCampaign private constructor(private var uk: UkGameState?, private var country: CountryGameState?) {
+    private val undoHistory = NativeUndoHistory()
+    fun canUndo(): Boolean = undoHistory.available()
+    fun undo(): Boolean {
+        val previous = undoHistory.take()?.let { restore(it) } ?: return false
+        uk = previous.uk
+        country = previous.country
+        return true
+    }
     companion object {
         fun countries(): List<NativeCountry> = listOf(NativeCountry("US", "United States", "🇺🇸"),
             NativeCountry("UK", "United Kingdom", "🇬🇧")) +
@@ -205,6 +213,8 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
             .sortedByDescending { it.voteShare }
     }
 
+    fun analysis(regionId: String?): NativeAnalysisDocument = NativeAnalysis.world(uk, country, regionId)
+
     fun issues(): List<NativeIssue> {
         val salience = uk?.salience ?: country!!.salience
         return bundle()?.issues?.map { NativeIssue(it.id, it.name, it.blurb, salience[it.id] ?: 0.0) }
@@ -258,6 +268,7 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
 
     fun endWeek(): Boolean {
         if (isOver() || hasPendingEvent()) return false
+        undoHistory.record(saveSnapshot())
         uk = uk?.let { ukAdvanceTurn(it, UkAdvanceOptions(autoResolvePlayerEvents = false)) }
         country = country?.let { countryAdvanceTurn(it, bundle()!!, CountryAdvanceOptions(autoResolvePlayerEvents = false)) }
         return true

@@ -76,7 +76,7 @@ struct TileMapView: View {
     }
 }
 
-private extension Color {
+extension Color {
     init(hex: String) {
         let value = Int(hex.dropFirst(), radix: 16) ?? 0
         self.init(red: Double((value >> 16) & 255) / 255,

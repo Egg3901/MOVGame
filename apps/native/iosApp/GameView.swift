@@ -96,6 +96,7 @@ struct GameView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    Button("Undo", action: session.undo).disabled(!session.canUndo())
                     if deskSection == .map {
                     VStack(spacing: 7) {
                         HStack(alignment: .top) {

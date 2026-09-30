@@ -31,7 +31,7 @@ def capture_ready(name, process, attempts=3):
             raise SystemExit(f'FAIL: app exited during {name} capture')
         probe = output / f'{name}-probe.png'
         try:
-            subprocess.run(['sips', '-Z', '160', str(capture), '--out', str(probe)],
+            subprocess.run(['sips', '-Z', '320', str(capture), '--out', str(probe)],
                            check=True, capture_output=True, timeout=30)
             checked = subprocess.run(
                 [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')),
@@ -80,7 +80,7 @@ for attempt in range(24):
             continue
     probe = output / 'boot-probe.png'
     try:
-        subprocess.run(['sips', '-Z', '160', str(boot_image), '--out', str(probe)],
+        subprocess.run(['sips', '-Z', '320', str(boot_image), '--out', str(probe)],
                        check=True, capture_output=True, timeout=30)
         checked = subprocess.run(
             [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')),
@@ -114,6 +114,8 @@ try:
             ('setup-2016', '--mov-capture-setup-2016', 8),
             ('library', '--mov-capture-library', 8),
             ('daily', '--mov-capture-daily', 8),
+            ('analysis', '--mov-capture-analysis', 30),
+            ('replay', '--mov-capture-replay', 30),
             ('saves', '--mov-capture-saves', 30),
             ('account', '--mov-capture-account', 8),
             ('world-uk', '--mov-capture-world-uk', 20),
