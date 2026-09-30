@@ -4,8 +4,11 @@ import WebKit
 private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
     let webView: WKWebView
     private var campaignURL: URL?
+    #if targetEnvironment(simulator)
+    private var openSignInForSmokeTest = ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login")
+    #endif
     private let allowedHosts: Set<String> = [
-        "ask.lakesidegames.net", "auth.ahousedividedgame.com",
+        "ask.lakesidegames.net", "auth.lakesidegames.net", "auth.ahousedividedgame.com",
         "ahousedividedgame.com", "www.ahousedividedgame.com",
         "sandbox.ahousedividedgame.com", "accounts.lakesidegames.net",
         "discord.com", "accounts.google.com", "www.google.com",
@@ -56,6 +59,18 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
         }
         return nil
     }
+
+    #if targetEnvironment(simulator)
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let url = webView.url else { return }
+        if url.host == "auth.lakesidegames.net" {
+            NSLog("MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH")
+        } else if openSignInForSmokeTest, url.host == "ask.lakesidegames.net", url.path == "/" {
+            openSignInForSmokeTest = false
+            webView.evaluateJavaScript("document.querySelector('a[href^=\"/auth/login\"]')?.click()")
+        }
+    }
+    #endif
 }
 
 private struct AskWebView: UIViewRepresentable {
@@ -136,7 +151,8 @@ struct ContentView: View {
         }
         .onAppear {
             #if targetEnvironment(simulator)
-            if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") {
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") ||
+                ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login") {
                 session.prepareSimulatorCaptureIfRequested()
                 openAsk()
             }
