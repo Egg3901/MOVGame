@@ -33,7 +33,7 @@ def screen_coverage(path: pathlib.Path):
     row_size = width * channels
     previous = bytearray(row_size)
     position = 0
-    dark = amber = coral = blue_samples = samples = 0
+    dark = amber = coral = blue_samples = white_samples = samples = 0
     x_step = max(1, width // 40)
     y_step = max(1, height // 50)
     for y in range(height):
@@ -73,15 +73,22 @@ def screen_coverage(path: pathlib.Path):
                     coral += 1
                 if blue > 110 and blue > red * 1.3 and blue > green * 1.1:
                     blue_samples += 1
+                if red > 195 and green > 195 and blue > 195:
+                    white_samples += 1
         previous = row
-    return dark / samples, amber, coral, blue_samples
+    return dark / samples, amber, coral, blue_samples, white_samples
 
 
 if __name__ == '__main__':
-    fraction, amber, coral, blue_samples = screen_coverage(pathlib.Path(sys.argv[1]))
-    print(f'dark={fraction:.2f} amber_samples={amber} coral_samples={coral} blue_samples={blue_samples}')
+    fraction, amber, coral, blue_samples, white_samples = screen_coverage(pathlib.Path(sys.argv[1]))
+    print(f'dark={fraction:.2f} amber_samples={amber} coral_samples={coral} blue_samples={blue_samples} white_samples={white_samples}')
     if '--boot' in sys.argv[2:]:
         # The simulator's black Apple-logo boot splash is ~96% dark. Wait for
         # SpringBoard before installing and launching the app.
         sys.exit(0 if fraction < 0.90 else 1)
+    if '--ask' in sys.argv[2:]:
+        # Ask has a near-black page with white copy, rather than MOV's coral
+        # and amber accents. A dense text area distinguishes it from the game
+        # home screen and an empty black webview.
+        sys.exit(0 if fraction >= 0.35 and white_samples >= 80 else 1)
     sys.exit(0 if fraction >= 0.35 and (amber >= 3 or coral >= 3 or blue_samples >= 8) else 1)

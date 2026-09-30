@@ -31,7 +31,8 @@ def capture_ready(name, process, attempts=3):
             subprocess.run(['sips', '-Z', '160', str(screenshot), '--out', str(probe)],
                            check=True, capture_output=True, timeout=30)
             checked = subprocess.run(
-                [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')), str(probe)],
+                [sys.executable, str(pathlib.Path(__file__).with_name('ios-screen-ready.py')),
+                 str(probe), *(['--ask'] if name == 'ask' else [])],
                 text=True, capture_output=True, timeout=30)
         finally:
             probe.unlink(missing_ok=True)
@@ -107,6 +108,7 @@ try:
             ('setup-2016', '--mov-capture-setup-2016', 8),
             ('campaign', '--mov-capture-game', 20),
             ('plan', '--mov-capture-plan', 20),
+            ('ask', '--mov-capture-ask', 20),
         ]:
             subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
             with (output / f'{name}-console.log').open('w') as preview_console:

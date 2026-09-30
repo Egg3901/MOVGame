@@ -1,8 +1,74 @@
 import SwiftUI
+import WebKit
+
+private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
+    let webView: WKWebView
+    private var campaignURL: URL?
+    private let allowedHosts: Set<String> = [
+        "ask.lakesidegames.net", "auth.ahousedividedgame.com",
+        "ahousedividedgame.com", "www.ahousedividedgame.com",
+        "sandbox.ahousedividedgame.com", "accounts.lakesidegames.net",
+        "discord.com", "accounts.google.com", "www.google.com",
+    ]
+
+    override init() {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .default()
+        webView = WKWebView(frame: .zero, configuration: configuration)
+        super.init()
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+        webView.allowsBackForwardNavigationGestures = true
+        // Ask owns its light/dark theme. A transparent webview lets the dark
+        // native canvas show through a light Ask page, hiding its dark text.
+        webView.backgroundColor = .black
+        webView.scrollView.backgroundColor = .black
+    }
+
+    func open(_ url: URL, refresh: Bool = false) {
+        let selectedGame = webView.url.flatMap { current in
+            URLComponents(url: current, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "game" })?.value
+        }
+        guard refresh || campaignURL != url || webView.url == nil || selectedGame != "electioneer" else { return }
+        campaignURL = url
+        webView.load(URLRequest(url: url))
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = action.request.url else { decisionHandler(.cancel); return }
+        if url.scheme == "https", let host = url.host?.lowercased(), allowedHosts.contains(host) {
+            decisionHandler(.allow)
+        } else {
+            UIApplication.shared.open(url)
+            decisionHandler(.cancel)
+        }
+    }
+
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                 for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        guard let url = action.request.url else { return nil }
+        if url.scheme == "https", let host = url.host?.lowercased(), allowedHosts.contains(host) {
+            webView.load(URLRequest(url: url))
+        } else {
+            UIApplication.shared.open(url)
+        }
+        return nil
+    }
+}
+
+private struct AskWebView: UIViewRepresentable {
+    let webView: WKWebView
+    func makeUIView(context: Context) -> WKWebView { webView }
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+}
 
 struct ContentView: View {
     @ObservedObject var session: GameSession
     @State private var showingMenu = false
+    @State private var showingAsk = false
+    @StateObject private var askBrowser = AskBrowser()
     @State private var menuDestination: MenuDestination? = nil
 
     private enum MenuDestination: String, Identifiable {
@@ -26,7 +92,7 @@ struct ContentView: View {
             Button("Campaign library") { menuDestination = .store }
             Button("How to play") { menuDestination = .guide }
             Button(session.hasGame ? "Ask about this campaign" : "Ask about Margin of Victory") {
-                UIApplication.shared.open(session.askURL())
+                openAsk()
             }
             Button("Account and saves") { menuDestination = .account }
             Button("Image credits") { menuDestination = .credits }
@@ -49,13 +115,45 @@ struct ContentView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingAsk) {
+            NavigationStack {
+                AskWebView(webView: askBrowser.webView)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .navigationTitle("Ask")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Done") { showingAsk = false }
+                        }
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button { askBrowser.open(session.askURL(), refresh: true) } label: {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            .accessibilityLabel("Refresh campaign snapshot")
+                        }
+                    }
+            }
+        }
+        .onAppear {
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") {
+                session.prepareSimulatorCaptureIfRequested()
+                openAsk()
+            }
+            #endif
+        }
+    }
+
+    private func openAsk() {
+        askBrowser.open(session.askURL())
+        showingAsk = true
     }
 
     @ViewBuilder
     private var currentScreen: some View {
         switch session.playScreen {
         case .home:
-            HomeView(session: session)
+            HomeView(session: session, onAsk: openAsk)
         case .setup:
             SetupView(session: session)
         case .loading:
@@ -64,7 +162,7 @@ struct ContentView: View {
                 Text("Preparing the campaign trail…")
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         case .game:
-            GameView(session: session)
+            GameView(session: session, onAsk: openAsk)
         case .results:
             ResultsView(session: session)
         }

@@ -38,6 +38,7 @@ final class PlannerDraft: ObservableObject {
 // Native campaign desk with map, state projection, action plan, and turn recap.
 struct GameView: View {
     @ObservedObject var session: GameSession
+    let onAsk: () -> Void
     @AppStorage("mov.hasSeenCampaignGuide") private var hasSeenCampaignGuide = false
     @State private var coachStep: Int? = nil
     @State private var coachStartTurn = 0
@@ -84,6 +85,15 @@ struct GameView: View {
                             Text("CAMPAIGN DESK").font(.caption2.bold()).tracking(1.5).foregroundStyle(CampaignStyle.gold)
                             Text(g.campaignLabel()).font(.headline.bold()).lineLimit(1).minimumScaleFactor(0.8)
                         }
+                        Spacer(minLength: 4)
+                        Button(action: onAsk) {
+                            Label("Ask", systemImage: "bubble.left.and.text.bubble.right")
+                                .font(.caption.bold())
+                                .foregroundStyle(CampaignStyle.coral)
+                                .padding(.horizontal, 10).padding(.vertical, 8)
+                                .background(CampaignStyle.card, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
                     if deskSection == .map {
                     VStack(spacing: 7) {

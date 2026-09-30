@@ -40,7 +40,8 @@ final class GameSession: ObservableObject {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
             playScreen = .setup
-        } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") {
+        } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") ||
+                    arguments.contains("--mov-capture-ask") {
             let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
                 ?? mates(scenarioId: "2024", playerSerial: "dem").first
             guard let mate else { return }
