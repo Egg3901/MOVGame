@@ -50,6 +50,7 @@ import com.lakesidegames.electioneer.ui.WorldCampaignScreen
 
 class MainActivity : ComponentActivity() {
     private lateinit var gameSession: GameSession
+    override fun onResume() { super.onResume(); if (::gameSession.isInitialized) gameSession.requestCloudSync(force = true) }
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (::gameSession.isInitialized && gameSession.settings.hotkeysOn &&
             event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&

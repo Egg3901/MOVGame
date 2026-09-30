@@ -21,6 +21,7 @@ fun CampaignSavesScreen(session: GameSession) {
     val scope = rememberCoroutineScope()
     val saves by session.namedSaves.collectAsState()
     val notice by session.saveNotice.collectAsState()
+    val syncNotice by session.cloudSyncNotice.collectAsState()
     val account = session.account
     val user by account.user.collectAsState()
     val busy by account.busy.collectAsState()
@@ -69,7 +70,7 @@ fun CampaignSavesScreen(session: GameSession) {
     LaunchedEffect(user?.id) { if (user != null) account.loadCloudSaves() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("SAVED CAMPAIGNS", style = MaterialTheme.typography.headlineSmall)
-        Text("Local saves work offline. U.S. cloud saves also open in the web game.", style = MaterialTheme.typography.bodySmall)
+        Text("Local saves work offline. When signed in, U.S. autosaves and named saves sync with the web. Conflicting cloud saves need your choice.", style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(name, { name = it }, label = { Text("Save name") }, modifier = Modifier.fillMaxWidth())
         Button(onClick = { if (session.saveNamed(name)) name = "" }, enabled = name.isNotBlank() && session.currentSnapshot() != null) { Text("Save current campaign") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,6 +98,10 @@ fun CampaignSavesScreen(session: GameSession) {
                     }
                 }
             }
+        }
+        if (user != null) {
+            syncNotice?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            TextButton(onClick = session::retryCloudSync, enabled = !busy) { Text("Retry cloud sync") }
         }
         Text("CLOUD SAVES", style = MaterialTheme.typography.titleMedium)
         if (user == null) TextButton(onClick = { session.go(Screen.ACCOUNT) }) { Text("Sign in to sync saves") }

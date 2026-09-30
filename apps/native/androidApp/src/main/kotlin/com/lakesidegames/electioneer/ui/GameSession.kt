@@ -56,6 +56,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
+import com.lakesidegames.electioneer.engine.NativeCloudQueue
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -157,6 +162,67 @@ class GameSession : ViewModel() {
             ?.putString("daily_last", date)?.putInt("daily_streak", streak)?.apply()
     }
 
+    private var cloudQueue = NativeCloudQueue.empty()
+    private var cloudTask: Job? = null
+    private var cloudInFlight = false
+    private val _cloudSyncNotice = MutableStateFlow<String?>(null)
+    val cloudSyncNotice: StateFlow<String?> = _cloudSyncNotice
+    private fun persistCloudQueue() { savePrefs?.edit()?.putString("cloud_outbox_v1", cloudQueue.json())?.apply() }
+    private fun offerCloud(id: String) {
+        val owner = account.user.value?.id ?: return
+        val entry = saveLibrary.get(id) ?: return
+        if (entry.document?.engine != "us") return
+        cloudQueue.offer(id, owner, entry.updatedAt)
+        persistCloudQueue(); requestCloudSync()
+    }
+    fun retryCloudSync() {
+        account.user.value?.id?.let { owner ->
+            saveLibrary.entries().filter { it.document?.engine == "us" && (it.cloudOwner == null || it.cloudOwner == owner) }.forEach { cloudQueue.offer(it.id, owner, it.updatedAt) }
+            cloudQueue.retry(owner); persistCloudQueue(); requestCloudSync(force = true)
+        }
+    }
+    fun requestCloudSync(force: Boolean = false) {
+        if (cloudTask?.isActive == true) {
+            if (!force || cloudInFlight) return
+            cloudTask?.cancel()
+        }
+        cloudTask = scope.launch {
+            delay(1000)
+            while (true) {
+                val owner = account.user.value?.id ?: break
+                if (account.busy.value) break
+                val now = System.currentTimeMillis()
+                val write = cloudQueue.next(owner, now)
+                if (write == null) {
+                    if (cloudQueue.conflicted(owner)) _cloudSyncNotice.value = "Cloud sync needs attention. Download the changed save or upload your local campaign as a new save. Local play is safe."
+                    val wait = cloudQueue.delayMillis(owner, now)
+                    if (wait < 0) break
+                    delay(maxOf(1000, wait)); continue
+                }
+                val payload = saveLibrary.uploadJson(write.id, owner, now)
+                if (payload == null) { cloudQueue.remove(write.id); persistCloudQueue(); continue }
+                cloudInFlight = true
+                val outcome = try { account.mirrorSave(write.id, payload, owner) } finally { cloudInFlight = false }
+                if (account.user.value?.id != owner) break
+                if (outcome.status == "synced") {
+                    saveLibrary.markSynced(write.id, owner, outcome.version)
+                    persistLibrary(); cloudQueue.acknowledge(write)
+                    _cloudSyncNotice.value = "Campaigns synced to the cloud."
+                } else {
+                    cloudQueue.fail(write, outcome, System.currentTimeMillis())
+                    _cloudSyncNotice.value = outcome.message + " Your campaign is saved on this device."
+                }
+                persistCloudQueue()
+            }
+        }
+    }
+    private fun mirrorAutosave(snapshot: String) {
+        val previous = saveLibrary.get("autosave")
+        val stamp = maxOf(System.currentTimeMillis(), (previous?.updatedAt ?: -1) + 1)
+        if (saveLibrary.save("autosave", "Autosave", snapshot, stamp)) {
+            saveLibrary.setReplay("autosave", replay.json()); persistLibrary(); offerCloud("autosave")
+        }
+    }
     private var saveLibrary = NativeSaveLibrary.empty()
     private val _namedSaves = MutableStateFlow<List<NativeNamedSave>>(emptyList())
     val namedSaves: StateFlow<List<NativeNamedSave>> = _namedSaves
@@ -183,14 +249,14 @@ class GameSession : ViewModel() {
     fun saveNamed(name: String, id: String = UUID.randomUUID().toString()): Boolean {
         val snapshot = currentSnapshot() ?: return false
         val saved = saveLibrary.save(id, name, snapshot, System.currentTimeMillis())
-        if (saved) { saveLibrary.setReplay(id, replay.json()); persistLibrary(); _saveNotice.value = "Saved on this device." }
+        if (saved) { saveLibrary.setReplay(id, replay.json()); persistLibrary(); offerCloud(id); _saveNotice.value = "Saved on this device." }
         return saved
     }
     fun renameSave(id: String, name: String) {
         val entry = saveLibrary.get(id) ?: return
-        if (saveLibrary.save(id, name, entry.snapshot, System.currentTimeMillis())) persistLibrary()
+        if (saveLibrary.save(id, name, entry.snapshot, maxOf(System.currentTimeMillis(), entry.updatedAt + 1))) { persistLibrary(); offerCloud(id) }
     }
-    fun deleteLocalSave(id: String) { saveLibrary.remove(id); persistLibrary() }
+    fun deleteLocalSave(id: String) { saveLibrary.remove(id); cloudQueue.remove(id); persistCloudQueue(); persistLibrary() }
     fun loadNamed(id: String): Boolean {
         val entry = saveLibrary.get(id) ?: return false
         return importCampaign(entry.snapshot, entry.replay)
@@ -221,8 +287,9 @@ class GameSession : ViewModel() {
     }
     fun uploadSave(id: String) {
         val owner = account.user.value?.id ?: return
+        val revision = saveLibrary.get(id)?.updatedAt ?: return
         val payload = saveLibrary.uploadJson(id, owner, System.currentTimeMillis()) ?: return
-        account.uploadSave(id, payload) { user, version -> saveLibrary.markSynced(id, user, version); persistLibrary() }
+        account.uploadSave(id, payload) { user, version -> saveLibrary.markSynced(id, user, version); cloudQueue.acknowledgeRevision(id, user, revision); persistCloudQueue(); persistLibrary() }
     }
     fun uploadSaveAsNew(id: String) {
         val entry = saveLibrary.get(id) ?: return
@@ -233,6 +300,7 @@ class GameSession : ViewModel() {
     }
     fun downloadSave(id: String) = account.downloadSave(id) { key, name, json, owner, version, replayJson ->
         check(saveLibrary.receiveCloud(key, name, json, owner, version, UUID.randomUUID().toString())) { "This cloud save is not supported by this native client." }
+        cloudQueue.remove(key); cloudQueue.acknowledgeRevision(key, owner, version); persistCloudQueue()
         saveLibrary.setReplay(key, replayJson)
         persistLibrary()
     }
@@ -242,9 +310,20 @@ class GameSession : ViewModel() {
         val prefs = context.applicationContext.getSharedPreferences("mov_native", Context.MODE_PRIVATE)
         savePrefs = prefs
         settings = NativePreferences(context.applicationContext)
+        cloudQueue = NativeCloudQueue.restore(prefs.getString("cloud_outbox_v1", null))
         saveLibrary = prefs.getString("named_saves_v1", null)?.let(NativeSaveLibrary::restore) ?: NativeSaveLibrary.empty()
         _namedSaves.value = saveLibrary.entries()
         account = CampaignAccount(context.applicationContext, scope)
+        scope.launch {
+            var lastOwner: String? = null
+            combine(account.user, account.busy) { user, busy -> user to busy }.collect { (user, busy) ->
+                if (user?.id != lastOwner) {
+                    lastOwner = user?.id
+                    if (user != null) saveLibrary.entries().filter { it.cloudOwner == null || it.cloudOwner == user.id }.forEach { offerCloud(it.id) }
+                }
+                if (!busy) requestCloudSync()
+            }
+        }
         if (prefs.getString("active_campaign", "us") == "world") {
             val campaign = prefs.getString("world_campaign_v1", null)?.let(MobileCampaign::restore)
             if (campaign != null) {
@@ -274,6 +353,7 @@ class GameSession : ViewModel() {
         }
         account.recordAchievementSnapshot(saveGame(game, turnSeed, campaignDifficulty))
         recordDaily()
+        mirrorAutosave(saveGame(game, turnSeed, campaignDifficulty))
     }
 
     private val _campaign = MutableStateFlow<MobileCampaign?>(null)

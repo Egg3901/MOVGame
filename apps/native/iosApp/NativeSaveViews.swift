@@ -93,7 +93,7 @@ struct CampaignSavesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("SAVED CAMPAIGNS").font(.title2.bold()).foregroundStyle(CampaignStyle.gold)
-                Text("Local saves work offline. U.S. cloud saves also open in the web game.").font(.caption)
+                Text("Local saves work offline. When signed in, U.S. autosaves and named saves sync with the web. Conflicting cloud saves need your choice.").font(.caption)
                 TextField("Save name", text: $name)
                 Button("Save current campaign") { if session.saveNamed(name: name) { name = "" } }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || !session.hasGame)
@@ -122,6 +122,10 @@ struct CampaignSavesView: View {
                         }
                     }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 12))
+                }
+                if account.user != nil {
+                    if let notice = session.cloudSyncNotice { Text(notice).font(.caption).foregroundStyle(CampaignStyle.muted) }
+                    Button("Retry cloud sync") { session.retryCloudSync() }.disabled(account.busy)
                 }
                 Text("CLOUD SAVES").font(.headline).foregroundStyle(CampaignStyle.gold)
                 if account.user == nil { Text("Sign in from Account to sync saves.").font(.caption) }
