@@ -87,7 +87,7 @@ struct ContentView: View {
     @State private var menuDestination: MenuDestination? = nil
 
     private enum MenuDestination: String, Identifiable {
-        case store, account, credits, guide, saves
+        case store, account, credits, guide, saves, analysis
         var id: String { rawValue }
     }
 
@@ -102,6 +102,7 @@ struct ContentView: View {
         .confirmationDialog("Campaign menu", isPresented: $showingMenu) {
             if session.hasGame {
                 Button("Continue campaign") { session.resumeGame() }
+                Button("Campaign analysis") { menuDestination = .analysis }
             }
             Button("Start a new campaign") { session.playScreen = .library }
             Button("Campaign library") { session.playScreen = .library }
@@ -119,11 +120,12 @@ struct ContentView: View {
                     case .store: StoreView(session: session)
                     case .account: AccountView(session: session)
                     case .saves: CampaignSavesView(session: session)
+                    case .analysis: CampaignAnalysisView(session: session)
                     case .credits: ImageCreditsView()
                     case .guide: CampaignGuideView()
                     }
                 }
-                .navigationTitle(destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .guide ? "How to play" : "Image credits")
+                .navigationTitle(destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .guide ? "How to play" : "Image credits")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { menuDestination = nil }
@@ -154,6 +156,7 @@ struct ContentView: View {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") { menuDestination = .account }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-saves") { menuDestination = .saves }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-analysis") { menuDestination = .analysis }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") ||
                 ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login") {
                 session.prepareSimulatorCaptureIfRequested()

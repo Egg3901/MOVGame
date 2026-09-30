@@ -26,6 +26,14 @@ class MobileGame private constructor(
     private val seedStr: String,
     private val difficulty: String?,
 ) {
+    private val undoHistory = NativeUndoHistory()
+    fun canUndo(): Boolean = game.queuedActions.isNotEmpty() || undoHistory.available()
+    fun undo(): Boolean {
+        if (game.queuedActions.isNotEmpty()) return removePlannedAction(game, game.queuedActions.lastIndex)
+        val previous = undoHistory.take()?.let(::loadGame) ?: return false
+        game = previous.state
+        return true
+    }
     companion object {
         fun restore(snapshot: String): MobileGame? {
             val saved = loadGame(snapshot) ?: return null
@@ -128,6 +136,8 @@ class MobileGame private constructor(
 
     fun isDaily(dateUTC: String): Boolean = NativeDaily.matchesUs(dateUTC, game)
 
+    fun analysis(regionId: String?): NativeAnalysisDocument = NativeAnalysis.us(game, regionId)
+
     fun askSnapshot(): String = askCampaignSnapshot(game, campaignLabel())
 
     fun turn(): Int = game.turn
@@ -209,6 +219,8 @@ class MobileGame private constructor(
 
     // Ends the week; returns the recap lines for display.
     fun endTurn(): List<TurnRecapItem> {
+        if (game.phase == GamePhase.RESULT) return game.lastRecap
+        undoHistory.record(saveSnapshot())
         game = advanceCampaignWeek(game, difficulty)
         return game.lastRecap
     }
@@ -229,7 +241,7 @@ class MobileGame private constructor(
         }
 
     fun answerEvent(eventId: String, choiceId: String): String =
-        resolveEvent(game, eventId, choiceId, game.playerCandidate)
+        answerPlayerEvent(game, eventId, choiceId)
             ?: "That response is no longer available."
 
     fun hasResult(): Boolean = game.result != null

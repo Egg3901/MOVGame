@@ -59,6 +59,8 @@ fun GameScreen(session: GameSession) {
       Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
         Text("CAMPAIGN DESK", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
         Text(session.campaigns().firstOrNull { it.id == g.scenarioId }?.label ?: "The election", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        TextButton(onClick = { session.go(Screen.ANALYSIS) }) { Text("Campaign analysis") }
+        TextButton(onClick = session::undo, enabled = session.canUndo()) { Text("Undo") }
         Spacer(Modifier.height(10.dp))
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

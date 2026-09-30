@@ -68,6 +68,7 @@ final class GameSession: ObservableObject {
     private var saveLibrary = NativeSaveLibrary.companion.empty()
     @Published var namedSaves: [NativeNamedSave] = []
     @Published var saveNotice: String?
+    func analysis(regionId: String?) -> NativeAnalysisDocument? { campaign?.analysis(regionId: regionId) ?? game?.analysis(regionId: regionId) }
     func currentSnapshot() -> String? { campaign?.saveSnapshot() ?? game?.saveSnapshot() }
     func exportCampaign() -> String? {
         guard let snapshot = currentSnapshot() else { return nil }
@@ -174,7 +175,7 @@ final class GameSession: ObservableObject {
         } else if arguments.contains("--mov-capture-setup") || arguments.contains("--mov-capture-setup-2016") {
             playScreen = .setup
         } else if arguments.contains("--mov-capture-game") || arguments.contains("--mov-capture-plan") ||
-                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") || arguments.contains("--mov-capture-saves") {
+                    arguments.contains("--mov-capture-ask") || arguments.contains("--mov-capture-ask-login") || arguments.contains("--mov-capture-results") || arguments.contains("--mov-capture-saves") || arguments.contains("--mov-capture-analysis") {
             let mate = mates(scenarioId: "2024", playerSerial: "dem").first(where: { $0.historical })
                 ?? mates(scenarioId: "2024", playerSerial: "dem").first
             guard let mate else { return }
@@ -364,6 +365,14 @@ final class GameSession: ObservableObject {
             showRecap = true
         }
         promptNextEvent()
+    }
+
+    func canUndo() -> Bool { campaign?.canUndo() ?? game?.canUndo() ?? false }
+    func undo() {
+        let changed = campaign?.undo() ?? game?.undo() ?? false
+        guard changed else { return }
+        recapLines = []; showRecap = false; eventResult = nil; eventId = game?.pendingEventIds().first
+        touch()
     }
 
     func dismissRecap() {

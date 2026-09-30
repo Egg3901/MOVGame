@@ -213,6 +213,8 @@ fun WorldCampaignScreen(session: GameSession) {
             Text(regions.first { it.id == regionId }.name, style = MaterialTheme.typography.titleMedium)
             StandingRows(game.regionStandings(regionId), unit)
         } } }
+        item { TextButton(onClick = { session.go(Screen.ANALYSIS) }) { Text("Campaign analysis") } }
+        if (!game.isOver()) item { TextButton(onClick = session::undo, enabled = session.canUndo()) { Text("Undo week") } }
         if (!game.isOver()) {
             item { Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Plan your week", style = MaterialTheme.typography.titleLarge)

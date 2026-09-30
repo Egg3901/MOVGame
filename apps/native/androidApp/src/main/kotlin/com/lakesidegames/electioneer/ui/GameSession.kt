@@ -20,7 +20,9 @@ import com.lakesidegames.electioneer.engine.advanceCampaignWeek
 import com.lakesidegames.electioneer.engine.choiceAvailable
 import com.lakesidegames.electioneer.engine.createGame
 import com.lakesidegames.electioneer.engine.projectElection
-import com.lakesidegames.electioneer.engine.resolveEvent
+import com.lakesidegames.electioneer.engine.answerPlayerEvent
+import com.lakesidegames.electioneer.engine.NativeAnalysis
+import com.lakesidegames.electioneer.engine.NativeUndoHistory
 import com.lakesidegames.electioneer.engine.loadGame
 import com.lakesidegames.electioneer.engine.saveGame
 import com.lakesidegames.electioneer.engine.MobileGame
@@ -52,12 +54,26 @@ import java.time.ZoneOffset
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffset.UTC).plusDays(offsetDays).toString()
 
 class GameSession : ViewModel() {
+    private val undoHistory = NativeUndoHistory()
+    fun canUndo(): Boolean = _campaign.value?.canUndo() ?: (_game.value?.queuedActions?.isNotEmpty() == true || undoHistory.available())
+    fun undo() {
+        _campaign.value?.let { if (it.undo()) campaignChanged(); return }
+        val game = _game.value ?: return
+        if (game.queuedActions.isNotEmpty()) { removeAction(game.queuedActions.lastIndex); return }
+        val previous = undoHistory.take()?.let(::loadGame) ?: return
+        _game.value = previous.state
+        _selected.value = null
+        _recap.value = null
+        _eventResult.value = null
+        promptNextEvent(previous.state)
+        emit()
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     override fun onCleared() {
         scope.cancel()
@@ -104,6 +120,7 @@ class GameSession : ViewModel() {
         savePrefs?.edit()?.putString("named_saves_v1", saveLibrary.json())?.apply()
         _namedSaves.value = saveLibrary.entries()
     }
+    fun analysis(regionId: String?) = _campaign.value?.analysis(regionId) ?: _game.value?.let { NativeAnalysis.us(it, regionId) }
     fun currentSnapshot(): String? = _campaign.value?.saveSnapshot()
         ?: _game.value?.let { saveGame(it, turnSeed, campaignDifficulty) }
     fun exportCampaign(): String? = currentSnapshot()?.let(NativeSaveTransfer::export)
@@ -122,6 +139,7 @@ class GameSession : ViewModel() {
     fun importCampaign(json: String): Boolean {
         val document = NativeSaveTransfer.inspect(json)
         if (document == null) { _saveNotice.value = "This file is not a supported campaign save."; return false }
+        undoHistory.clear()
         currentSnapshot()?.takeIf { it != document.snapshot }?.let {
             saveLibrary.save(UUID.randomUUID().toString(), "Before loading another campaign", it, System.currentTimeMillis())
             persistLibrary()
@@ -196,6 +214,7 @@ class GameSession : ViewModel() {
     val campaignVersion: StateFlow<Int> = _campaignVersion
 
     fun startCampaign(countryId: String, electionId: String, party: String, difficulty: String, seed: String) {
+        undoHistory.clear()
         _screen.value = Screen.LOADING
         scope.launch {
             val started = withContext(Dispatchers.Default) {
@@ -309,6 +328,7 @@ class GameSession : ViewModel() {
     }
 
     fun newGame(scenarioId: String, player: CandidateId, mateId: String, staffIds: List<String>, difficulty: String, eventMode: EventMode, totalTurns: Int, seed: String, whatIfState: String, mirrorMatch: Boolean, pandemic: Boolean) {
+        undoHistory.clear()
         require(MobileGame.campaigns().any { it.id == scenarioId })
         require(MobileGame.mates(scenarioId, player.serial).any { it.id == mateId })
         require(staffIds.size <= 3 && staffIds.distinct().size == staffIds.size)
@@ -399,6 +419,8 @@ class GameSession : ViewModel() {
 
     fun endTurn() {
         val g = _game.value ?: return
+        if (g.phase == GamePhase.RESULT) return
+        undoHistory.record(saveGame(g, turnSeed, campaignDifficulty))
         val next = advanceCampaignWeek(g, campaignDifficulty)
         _game.value = next
         refresh()
@@ -433,7 +455,7 @@ class GameSession : ViewModel() {
 
     fun answerEvent(eventId: String, choiceId: String) {
         val g = _game.value ?: return
-        val text = resolveEvent(g, eventId, choiceId, g.playerCandidate)
+        val text = answerPlayerEvent(g, eventId, choiceId)
             ?: "That response is no longer available."
         _eventResult.value = text
         emit()

@@ -200,6 +200,7 @@ struct NativeWorldCampaign: View {
                     Text(game.isOver() ? "ELECTION RESULT" : "WEEK \(game.turn() + 1) OF \(game.totalTurns())")
                         .font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
                     Text(game.goalText()).font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                    if !game.isOver() { Button("Undo week", action: session.undo).disabled(!session.canUndo()) }
                     VStack(alignment: .leading, spacing: 8) {
                         Text(game.isOver() ? game.outcome() : "Projected standings").font(.headline)
                         NativeStandingRows(rows: game.standings(), units: game.unitName())
