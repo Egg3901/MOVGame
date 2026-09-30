@@ -41,6 +41,15 @@ class NativeCloudQueueTest {
         queue.remove("autosave")
         assertEquals(0, queue.pending("alice"))
     }
+    @Test fun quotaFailuresStopWritesWithoutClaimingAnotherDeviceChangedTheSave() {
+        val queue = NativeCloudQueue.empty()
+        queue.offer("new-save", "alice", 1)
+        queue.fail(queue.next("alice", 0)!!, NativeCloudOutcome("rejected"), 10)
+        assertFalse(queue.conflicted("alice"))
+        assertNull(queue.next("alice", 1_000_000))
+        queue.retry("alice")
+        assertNotNull(queue.next("alice", 0))
+    }
     @Test fun corruptAndFutureOutboxesDoNotCreateUploads() {
         assertEquals(0, NativeCloudQueue.restore("bad json").pending("alice"))
         assertEquals(0, NativeCloudQueue.restore("{\"version\":2,\"writes\":[]}").pending("alice"))

@@ -291,7 +291,7 @@ final class CampaignAccount: ObservableObject {
         guard let http = response as? HTTPURLResponse else { throw AccountError("Could not reach account server") }
         guard credential == readToken() else { throw AccountError("Account changed during the request. Try again.") }
         if http.statusCode == 401, credential != nil, path != "/api/lakeside/exchange" { signOut() }
-        guard (200..<300).contains(http.statusCode) else { throw AccountError(serverMessage(data), status: http.statusCode) }
+        guard (200..<300).contains(http.statusCode) else { throw AccountError(serverMessage(data), status: http.statusCode, conflict: ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["conflict"] as? Bool == true) }
         return data
     }
 
@@ -315,7 +315,7 @@ final class CampaignAccount: ObservableObject {
         } catch {
             let code = (error as? AccountError)?.status
             let rejected = code.map { (400..<500).contains($0) && ![401, 408, 429].contains($0) } ?? false
-            return NativeCloudOutcome(status: code == 409 ? "conflict" : rejected ? "rejected" : "retry", version: -1, message: error.localizedDescription)
+            return NativeCloudOutcome(status: (error as? AccountError)?.conflict == true ? "conflict" : rejected ? "rejected" : "retry", version: -1, message: error.localizedDescription)
         }
     }
 
@@ -506,7 +506,8 @@ struct ScorePosting: View {
 private struct AccountError: LocalizedError {
     let detail: String
     let status: Int?
-    init(_ detail: String, status: Int? = nil) { self.detail = detail; self.status = status }
+    let conflict: Bool
+    init(_ detail: String, status: Int? = nil, conflict: Bool = false) { self.detail = detail; self.status = status; self.conflict = conflict }
     var errorDescription: String? { detail }
 }
 

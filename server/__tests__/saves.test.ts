@@ -178,6 +178,21 @@ describe("quotas", () => {
 });
 
 describe("version preconditions", () => {
+  it("keeps versions monotonic when legacy snapshots and replays use an older clock", async () => {
+    const a = makeUser();
+    const path = "/api/saves/clock-skew";
+    await req("PUT", path, a.token, sampleRecord({ updatedAt: 5000, expectedUpdatedAt: null }));
+    const legacy = await req("PUT", path, a.token, sampleRecord({ updatedAt: 1000, state: { note: "web edit" } }));
+    expect(legacy.status).toBe(200);
+    expect(legacy.json.updatedAt).toBe(5001);
+    await req("PUT", `${path}/replay`, a.token, { log: { frames: [2] }, updatedAt: 900 });
+    expect((await req("GET", path, a.token)).json.updatedAt).toBe(5002);
+    const stale = await req("PUT", path, a.token, sampleRecord({ expectedUpdatedAt: 5000 }));
+    expect(stale.status).toBe(409);
+    const latest = await req("GET", path, a.token);
+    expect(latest.json.state).toEqual({ note: "web edit" });
+    expect(latest.json.replay).toEqual({ frames: [2] });
+  });
   it("rejects stale and create-only uploads without replacing either snapshot or replay", async () => {
     const a = makeUser();
     expect((await req("PUT", "/api/saves/versioned", a.token,

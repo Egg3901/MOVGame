@@ -58,7 +58,7 @@ private class SessionToken(context: Context) {
     fun clear() { prefs.edit().clear().apply() }
 }
 
-private class CampaignRequestError(val status: Int, message: String) : RuntimeException(message)
+private class CampaignRequestError(val status: Int, message: String, val conflict: Boolean = false) : RuntimeException(message)
 
 class CampaignAccount(context: Context, private val scope: CoroutineScope) {
     private val vault = SessionToken(context.applicationContext)
@@ -121,7 +121,7 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
         }
         check(credential == token) { "Account changed during the request. Try again." }
         if (status == 401 && credential != null && path !in listOf("/api/auth/login", "/api/auth/register", "/api/lakeside/exchange")) signOut()
-        if (status !in 200..299) throw CampaignRequestError(status, response?.optString("error")?.takeIf { it.isNotBlank() } ?: "Account request failed ($status)")
+        if (status !in 200..299) throw CampaignRequestError(status, response?.optString("error")?.takeIf { it.isNotBlank() } ?: "Account request failed ($status)", response?.optBoolean("conflict", false) == true)
         return response ?: error("The server returned an unreadable response.")
     }
 
@@ -265,7 +265,7 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
             com.lakesidegames.electioneer.engine.NativeCloudOutcome("synced", version)
         } catch (error: Exception) {
             val status = (error as? CampaignRequestError)?.status
-            com.lakesidegames.electioneer.engine.NativeCloudOutcome(if (status == 409) "conflict" else if (status != null && status in 400..499 && status !in listOf(401, 408, 429)) "rejected" else "retry", message = error.message ?: "Cloud sync will retry.")
+            com.lakesidegames.electioneer.engine.NativeCloudOutcome(if ((error as? CampaignRequestError)?.conflict == true) "conflict" else if (status != null && status in 400..499 && status !in listOf(401, 408, 429)) "rejected" else "retry", message = error.message ?: "Cloud sync will retry.")
         } finally { _busy.value = false }
     }
 

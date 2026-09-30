@@ -5,7 +5,7 @@ import kotlinx.serialization.encodeToString
 
 @Serializable
 data class NativeCloudWrite(val id: String, val owner: String, val revision: Long,
-    val failures: Int = 0, val retryAt: Long = 0, val blocked: Boolean = false)
+    val failures: Int = 0, val retryAt: Long = 0, val blocked: Boolean = false, val blockedReason: String = "")
 @Serializable private data class NativeCloudCheckpoint(val id: String, val owner: String, val revision: Long)
 @Serializable private data class NativeCloudOutbox(val version: Int = 1, val writes: List<NativeCloudWrite> = emptyList(), val checkpoints: List<NativeCloudCheckpoint> = emptyList())
 data class NativeCloudOutcome(val status: String, val version: Long = -1, val message: String = "")
@@ -29,14 +29,14 @@ class NativeCloudQueue private constructor(private var writes: List<NativeCloudW
         if (checkpoints.any { it.id == id && it.owner == owner && it.revision >= revision }) return
         val previous = writes.firstOrNull { it.id == id && it.owner == owner }
         if (previous != null && previous.revision >= revision) return
-        val next = NativeCloudWrite(id, owner, revision, blocked = previous?.blocked == true)
+        val next = NativeCloudWrite(id, owner, revision, blocked = previous?.blocked == true, blockedReason = previous?.blockedReason ?: "")
         writes = writes.filterNot { it.id == id && it.owner == owner } + next
     }
     fun next(owner: String, now: Long): NativeCloudWrite? = writes.firstOrNull { it.owner == owner && !it.blocked && it.retryAt <= now }
     fun delayMillis(owner: String, now: Long): Long = writes.filter { it.owner == owner && !it.blocked }
         .minOfOrNull { (it.retryAt - now).coerceAtLeast(0) } ?: -1
     fun pending(owner: String): Int = writes.count { it.owner == owner }
-    fun conflicted(owner: String): Boolean = writes.any { it.owner == owner && it.blocked }
+    fun conflicted(owner: String): Boolean = writes.any { it.owner == owner && it.blocked && it.blockedReason == "conflict" }
     fun acknowledge(write: NativeCloudWrite) = acknowledgeRevision(write.id, write.owner, write.revision)
     fun acknowledgeRevision(id: String, owner: String, revision: Long) {
         writes = writes.filterNot { it.owner == owner && it.id == id && it.revision <= revision }
@@ -48,10 +48,10 @@ class NativeCloudQueue private constructor(private var writes: List<NativeCloudW
             if (it.id != write.id || it.owner != write.owner) it else {
                 val failures = (it.failures + 1).coerceAtMost(10)
                 val blocked = outcome.status in listOf("conflict", "unsupported", "rejected")
-                it.copy(failures = failures, retryAt = now + minOf(300_000L, 15_000L * (1L shl minOf(failures, 5))), blocked = blocked)
+                it.copy(failures = failures, retryAt = now + minOf(300_000L, 15_000L * (1L shl minOf(failures, 5))), blocked = blocked, blockedReason = if (blocked) outcome.status else "")
             }
         }
     }
-    fun retry(owner: String) { writes = writes.map { if (it.owner == owner) it.copy(failures = 0, retryAt = 0, blocked = false) else it } }
+    fun retry(owner: String) { writes = writes.map { if (it.owner == owner) it.copy(failures = 0, retryAt = 0, blocked = false, blockedReason = "") else it } }
     fun remove(id: String) { writes = writes.filterNot { it.id == id }; checkpoints = checkpoints.filterNot { it.id == id } }
 }
