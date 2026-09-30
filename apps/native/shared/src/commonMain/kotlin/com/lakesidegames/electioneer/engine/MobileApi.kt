@@ -24,11 +24,12 @@ data class StaffChoice(val id: String, val name: String, val role: String, val b
 class MobileGame private constructor(
     private var game: GameState,
     private val seedStr: String,
+    private val difficulty: String?,
 ) {
     companion object {
         fun restore(snapshot: String): MobileGame? {
             val saved = loadGame(snapshot) ?: return null
-            return MobileGame(saved.state, saved.seed)
+            return MobileGame(saved.state, saved.seed, saved.difficulty)
         }
 
         fun startGame(playerSerial: String, difficulty: String, seed: Long): MobileGame {
@@ -40,7 +41,7 @@ class MobileGame private constructor(
                     difficulty = difficulty,
                 ),
             )
-            return MobileGame(state, seed.toString())
+            return MobileGame(state, seed.toString(), difficulty)
         }
 
         fun candidates(): List<Candidate> = CANDIDATES.values.toList()
@@ -107,7 +108,7 @@ class MobileGame private constructor(
                 eventMode = eventMode, totalTurns = totalTurns,
                 modifiers = GameModifiers(whatIfState = whatIfState.ifEmpty { null }, mirrorMatch = mirrorMatch, pandemic = pandemic),
             ))
-            return MobileGame(state, seed)
+            return MobileGame(state, seed, difficulty)
         }
     }
 
@@ -115,7 +116,11 @@ class MobileGame private constructor(
 
     fun campaignLabel(): String = SCENARIOS[game.scenarioId ?: "2020"]?.label ?: "Your campaign"
 
-    fun saveSnapshot(): String = saveGame(game, seedStr)
+    fun saveSnapshot(): String = saveGame(game, seedStr, difficulty)
+
+    fun resultSummary(): NativeResultSummary? = NativeResults.us(game, difficulty)
+    fun resultAchievements(): List<NativeAward> = NativeResults.achievements(game, difficulty)
+    fun resultHistory(): List<NativeHistoricalRegion> = NativeResults.historicalUs(game)
 
     fun askSnapshot(): String = askCampaignSnapshot(game, campaignLabel())
 

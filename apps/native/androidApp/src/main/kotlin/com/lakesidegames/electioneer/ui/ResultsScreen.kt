@@ -26,6 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.lakesidegames.electioneer.engine.CandidateId
+import com.lakesidegames.electioneer.engine.NativeResults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextButton
 
 // Phase 3 Results screen (#21): winner banner, EV/popular totals, state
 // table, post-mortem, play again.
@@ -50,6 +54,9 @@ fun ResultsScreen(session: GameSession) {
 
     val demEv = result.electoralVotes[CandidateId.DEM.serial] ?: 0
     val repEv = result.electoralVotes[CandidateId.REP.serial] ?: 0
+    val summary = remember(g, session.campaignDifficulty) { NativeResults.us(g, session.campaignDifficulty) }
+    val achievements = remember(g, session.campaignDifficulty) { NativeResults.achievements(g, session.campaignDifficulty) }
+    var showHistory by remember { mutableStateOf(false) }
     val winnerName = when (result.winner) {
         CandidateId.DEM.serial -> g.candidates[CandidateId.DEM.serial]?.name ?: "Democrat"
         CandidateId.REP.serial -> g.candidates[CandidateId.REP.serial]?.name ?: "Republican"
@@ -72,12 +79,35 @@ fun ResultsScreen(session: GameSession) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("ELECTION NIGHT", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 Text(if (result.winner == g.playerCandidate.serial) "Victory" else "The race is over", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black)
-                Text("$winnerName wins the presidency", style = MaterialTheme.typography.titleMedium)
+                Text(if (result.winner == "tie") "Electoral College tied. No candidate reaches 270." else "$winnerName wins the presidency", style = MaterialTheme.typography.titleMedium)
                 Text("DEM $demEv   ·   $repEv REP", style = MaterialTheme.typography.headlineSmall)
                 val demPop = (result.popularShare[CandidateId.DEM.serial] ?: 0.5) * 100
                 Text("Democratic popular vote ${"%.1f".format(demPop)}%", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text("Republican popular vote ${"%.1f".format(100 - demPop)}%", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
+        Spacer(Modifier.height(14.dp))
+        summary?.let { info ->
+            Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(if (info.score >= 0) "CAMPAIGN SCORE ${info.score} / 1000" else "Score unavailable for this older save", style = MaterialTheme.typography.titleMedium)
+                if (info.score >= 0) Text("${info.difficulty.replaceFirstChar { it.uppercase() }} difficulty · EV margin ${info.unitMargin}")
+                Text("Popular vote margin ${"%+.1f".format(info.popularMargin)} points")
+                if (!info.standardLength) Text("Short and long campaigns are casual runs. Standard nine-week campaigns are comparable on the leaderboard.", style = MaterialTheme.typography.bodySmall)
+            } }
+        }
+        if (achievements.isNotEmpty()) {
+            Text("ACHIEVEMENTS EARNED", Modifier.fillMaxWidth().padding(top = 16.dp), color = MaterialTheme.colorScheme.primary)
+            achievements.forEach { award -> Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                Text("${award.icon} ${award.name}", fontWeight = FontWeight.Bold)
+                Text(award.blurb, style = MaterialTheme.typography.bodySmall)
+            } }
+        }
+        TextButton(onClick = { showHistory = !showHistory }) { Text(if (showHistory) "Hide historical comparison" else "Compare with history") }
+        if (showHistory) NativeResults.historicalUs(g).forEach { region -> Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            Text(region.name, fontWeight = FontWeight.Bold)
+            Text("${region.units} EV now · ${region.historicalUnits} historically", style = MaterialTheme.typography.bodySmall)
+            Text("Vote share swing ${"%+.1f".format(region.shareSwing)} points", style = MaterialTheme.typography.bodySmall)
+        } }
         Spacer(Modifier.height(18.dp))
         Text("STATE RESULTS", modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
