@@ -314,6 +314,24 @@ struct GameView: View {
         }
     }
 
+    private func legendItem(_ title: String, color: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(title).foregroundStyle(CampaignStyle.muted)
+        }
+    }
+
+    private func deskButton(_ title: String, section: DeskSection) -> some View {
+        Button(title) { deskSection = section }
+            .font(.subheadline.bold()).frame(maxWidth: .infinity).padding(.vertical, 10)
+            .foregroundStyle(deskSection == section ? CampaignStyle.background : .white)
+            .background(deskSection == section ? CampaignStyle.gold : CampaignStyle.card,
+                        in: RoundedRectangle(cornerRadius: 10))
+            .buttonStyle(.plain)
+    }
+
+    // Presents the pending-event sheet; hidden while the recap is up so the
+    // recap reads first, matching the Android dialog order.
     private func eventVisible() -> Binding<Bool> {
         Binding(
             get: { !session.showRecap && session.eventId != nil },
