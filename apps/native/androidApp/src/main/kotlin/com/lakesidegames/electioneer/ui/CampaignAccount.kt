@@ -57,7 +57,7 @@ private class SessionToken(context: Context) {
 
 class CampaignAccount(context: Context, private val scope: CoroutineScope) {
     private val vault = SessionToken(context.applicationContext)
-    private var token = vault.read()
+    @Volatile private var token = vault.read()
     private val _user = MutableStateFlow<AccountUser?>(null)
     val user: StateFlow<AccountUser?> = _user
     private val _busy = MutableStateFlow(false)
@@ -86,8 +86,9 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
 
     init { if (token != null) refresh() }
 
-    private suspend fun call(path: String, method: String = "GET", body: JSONObject? = null): JSONObject = withContext(Dispatchers.IO) {
+    private suspend fun call(path: String, method: String = "GET", body: JSONObject? = null): JSONObject {
         val credential = token
+        val (status, response) = withContext(Dispatchers.IO) {
         val connection = URL("https://sim.ahousedividedgame.com$path").openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
@@ -104,11 +105,13 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             val response = runCatching { JSONObject(text) }.getOrNull()
-            check(credential == token) { "Account changed during the request. Try again." }
-            if (status == 401 && credential != null && path !in listOf("/api/auth/login", "/api/auth/register", "/api/lakeside/exchange")) withContext(Dispatchers.Main) { if (credential == token) signOut() }
-            check(status in 200..299) { response?.optString("error")?.takeIf { it.isNotBlank() } ?: "Account request failed ($status)" }
-            response ?: error("The server returned an unreadable response.")
+            status to response
         } finally { connection.disconnect() }
+        }
+        check(credential == token) { "Account changed during the request. Try again." }
+        if (status == 401 && credential != null && path !in listOf("/api/auth/login", "/api/auth/register", "/api/lakeside/exchange")) signOut()
+        check(status in 200..299) { response?.optString("error")?.takeIf { it.isNotBlank() } ?: "Account request failed ($status)" }
+        return response ?: error("The server returned an unreadable response.")
     }
 
     private fun operation(block: suspend () -> Unit) {
