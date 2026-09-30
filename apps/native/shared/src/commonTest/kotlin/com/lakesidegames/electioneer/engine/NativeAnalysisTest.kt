@@ -85,7 +85,8 @@ class NativeAnalysisTest {
 
     @Test
     fun liveAnalysisIsDeterministicAndDoesNotMutateTheCampaign() {
-        val game = beginGame(createGame(NewGameOptions(seed = "analysis", playerCandidate = CandidateId.REP)))
+        val mobile = MobileGame.startGame("rep", "normal", 42)
+        val game = loadGame(mobile.saveSnapshot())!!.state
         val before = saveGame(game, "analysis", "normal")
         val document = NativeAnalysis.us(game, "PA")
         assertEquals(document, NativeAnalysis.us(game, "PA"))

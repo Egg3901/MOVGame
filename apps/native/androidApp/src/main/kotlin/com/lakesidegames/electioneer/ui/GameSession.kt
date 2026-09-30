@@ -17,6 +17,7 @@ import com.lakesidegames.electioneer.engine.NewGameOptions
 import com.lakesidegames.electioneer.engine.PendingEvent
 import com.lakesidegames.electioneer.engine.Projection
 import com.lakesidegames.electioneer.engine.advanceCampaignWeek
+import com.lakesidegames.electioneer.engine.beginGame
 import com.lakesidegames.electioneer.engine.choiceAvailable
 import com.lakesidegames.electioneer.engine.createGame
 import com.lakesidegames.electioneer.engine.projectElection
@@ -353,7 +354,7 @@ class GameSession : ViewModel() {
                 modifiers = GameModifiers(whatIfState.ifEmpty { null }, mirrorMatch, pandemic),
             ),
         ) }
-        _game.value = g
+        _game.value = beginGame(g)
         _selected.value = null
         _pendingDialog.value = null
         _eventResult.value = null

@@ -49,7 +49,7 @@ class MobileGame private constructor(
                     difficulty = difficulty,
                 ),
             )
-            return MobileGame(state, seed.toString(), difficulty)
+            return MobileGame(beginGame(state), seed.toString(), difficulty)
         }
 
         fun candidates(): List<Candidate> = CANDIDATES.values.toList()
@@ -118,7 +118,7 @@ class MobileGame private constructor(
                 eventMode = eventMode, totalTurns = totalTurns,
                 modifiers = GameModifiers(whatIfState = whatIfState.ifEmpty { null }, mirrorMatch = mirrorMatch, pandemic = pandemic),
             ))
-            return MobileGame(state, seed, difficulty)
+            return MobileGame(beginGame(state), seed, difficulty)
         }
     }
 
