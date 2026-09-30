@@ -43,9 +43,9 @@ class NativeAccountProgress private constructor(private val entries: MutableMap<
         record(scenario.scenarioId, NativeResults.achievements(saved.state, saved.difficulty).map { it.id })
     }.getOrDefault(false)
 
-    fun json(): String = EngineJson.encodeToString(AchievementJournal(entries = entries.toSortedMap()))
+    fun json(): String = EngineJson.encodeToString(AchievementJournal(entries = entries.entries.sortedBy { it.key }.associate { it.key to it.value }))
 
-    fun awards(): List<NativeCollectedAward> = entries.toSortedMap().flatMap { (scenario, ids) ->
+    fun awards(): List<NativeCollectedAward> = entries.entries.sortedBy { it.key }.flatMap { (scenario, ids) ->
         val label = nativeElections.first { it.scenarioId == scenario }.label
         ACHIEVEMENTS.filter { it.id in ids }.map {
             NativeCollectedAward(scenario, label, NativeAward(it.id, it.name, it.description, it.icon))
@@ -57,7 +57,7 @@ class NativeAccountProgress private constructor(private val entries: MutableMap<
         val remote = runCatching { EngineJson.decodeFromString<RemoteAchievements>(serverJson).achievements }.getOrNull() ?: return null
         remote.forEach { record(it.scenarioId, listOf(it.achievementId)) }
         val acknowledged = remote.groupBy { it.scenarioId }.mapValues { it.value.map { row -> row.achievementId }.toSet() }
-        return entries.toSortedMap().mapNotNull { (scenario, ids) ->
+        return entries.entries.sortedBy { it.key }.mapNotNull { (scenario, ids) ->
             val missing = ids.filter { it !in acknowledged[scenario].orEmpty() }
             if (missing.isEmpty()) null else NativeAchievementUpload(scenario,
                 EngineJson.encodeToString(AchievementSubmission(scenario, missing)))
