@@ -2,6 +2,7 @@ import pathlib
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from unittest.mock import Mock, patch
 from ios_simulator_control import launch, screenshot, stop
@@ -30,9 +31,15 @@ class SimulatorControlTest(unittest.TestCase):
                 return original(['python3', '-c', 'import time; print("com.example.app: 123"); time.sleep(0.2); print("AUTH_REACHED"); time.sleep(20)'], **kwargs)
             with patch('ios_simulator_control.subprocess.Popen', side_effect=begin):
                 process, console = launch('device', 'com.example.app', path, acknowledgement_seconds=3)
-                self.assertIn('AUTH_REACHED', path.read_text())
-                stop(process)
-                console.close()
+                try:
+                    for attempt in range(30):
+                        if 'AUTH_REACHED' in path.read_text():
+                            break
+                        time.sleep(0.1)
+                    self.assertIn('AUTH_REACHED', path.read_text())
+                finally:
+                    stop(process)
+                    console.close()
 
     def test_pending_launch_retries_once_and_fails_with_no_pid(self):
         with tempfile.TemporaryDirectory() as folder:
