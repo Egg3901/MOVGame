@@ -474,6 +474,11 @@ struct ActionPlannerView: View {
                 Spacer()
                 Text("\(plan.count) planned").font(.subheadline.bold())
             }
+            PlanBonusHints(active: session.currentGame()?.planBonuses() ?? [])
+            if !plan.isEmpty, let game = session.currentGame() {
+                Text("Plan estimate: \(game.previewPlayerEv()) EV. Rival moves and events can change the result.")
+                    .font(.caption).foregroundStyle(CampaignStyle.gold)
+            }
             HStack {
                 Menu {
                     ForEach(1...7, id: \.self) { n in

@@ -125,6 +125,11 @@ final class GameSession: ObservableObject {
         if let game = game {
             UserDefaults.standard.set(game.saveSnapshot(), forKey: Self.saveKey)
             UserDefaults.standard.set("us", forKey: "mov_active_campaign")
+            let previous = UserDefaults.standard.stringArray(forKey: "mov_achievement_ids") ?? []
+            let earned = game.resultAchievements().map { $0.id }
+            if !earned.isEmpty {
+                UserDefaults.standard.set(Array(Set(previous + earned)).sorted(), forKey: "mov_achievement_ids")
+            }
         }
     }
 

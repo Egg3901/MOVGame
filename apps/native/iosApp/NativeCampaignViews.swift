@@ -9,6 +9,26 @@ private func nativePartyColor(_ hex: String) -> Color {
 
 private func nativeActionName(_ serial: String) -> String { serial.replacingOccurrences(of: "_", with: " ").capitalized }
 
+struct PlanBonusHints: View {
+    let active: [PlanBonus]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(active, id: \.id) { bonus in
+                Text("\(bonus.name) +\(bonus.percent)%").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
+            }
+            DisclosureGroup("How to combine moves") {
+                ForEach(MobileGame.companion.planBonusRecipes(), id: \.id) { bonus in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(bonus.recipe) · +\(bonus.percent)%").font(.caption.bold())
+                        Text(bonus.blurb).font(.caption).foregroundStyle(CampaignStyle.muted)
+                    }.padding(.vertical, 4)
+                }
+            }.font(.caption)
+        }
+    }
+}
+
 private struct NativeCountryMapView: View {
     let map: NativeMap
     let regions: [NativeRegion]
@@ -205,6 +225,22 @@ struct NativeWorldCampaign: View {
                         }.nativeCampaignCard()
                     }
                     if game.isOver() {
+                        if let summary = game.resultSummary() {
+                            VStack(alignment: .leading, spacing: 7) {
+                                Text("CAMPAIGN SCORE \(summary.score) / 1000").font(.headline).foregroundStyle(CampaignStyle.gold)
+                                Text("\(summary.difficulty.capitalized) difficulty · \(game.unitName().capitalized) above majority: \(summary.unitMargin)").font(.subheadline)
+                                Text(String(format: "Vote margin vs. leading rival: %+.1f points", summary.popularMargin)).font(.subheadline)
+                            }.nativeCampaignCard()
+                        }
+                        DisclosureGroup("Compare with history") {
+                            ForEach(game.historicalRegions(), id: \.id) { region in
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(region.name).font(.subheadline.bold())
+                                    Text("\(region.units) \(game.unitName()) now · \(region.historicalUnits) historically")
+                                    Text(String(format: "Vote share swing %+.1f points", region.shareSwing))
+                                }.font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 4)
+                            }
+                        }
                         Text("WHAT DECIDED IT").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
                         ForEach(Array(game.resultCauses().enumerated()), id: \.offset) { _, cause in Text(cause).font(.subheadline) }
                         Button("Choose another campaign") { session.playScreen = .library }.buttonStyle(.borderedProminent)
@@ -277,6 +313,9 @@ struct NativeWorldCampaign: View {
             Text("\(game.currency())\(String(format: "%.1f", game.funds()))M cash · \(game.slotsLeft()) moves left").font(.subheadline)
             Text("Planned \(game.currency())\(String(format: "%.1f", game.plannedSpend()))M · Available \(game.currency())\(String(format: "%.1f", game.availableFunds()))M")
                 .font(.caption).foregroundStyle(CampaignStyle.muted)
+            Text("Plan estimate: \(game.previewPlayerUnits()) \(game.unitName()) after your queued actions. Rival moves and events can change the result.")
+                .font(.caption).foregroundStyle(CampaignStyle.gold)
+            PlanBonusHints(active: game.planBonuses())
             Picker("Action", selection: $type) { ForEach(game.actionTypes(), id: \.self) { Text(nativeActionName($0)).tag($0) } }
             Picker("Target", selection: $regionId) {
                 Text("National").tag("")

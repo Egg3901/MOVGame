@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
 // Deep copy of a game state (TS: structuredClone). Mutable paths are copied;
 // immutable leaves (issues, results, modifiers) are shared by reference, which
 // is behaviorally identical since nothing mutates through them.
-private fun GameState.deepCopy(): GameState = copy(
+internal fun GameState.deepCopy(): GameState = copy(
     candidates = candidates.mapValues { (_, c) ->
         c.copy(traits = c.traits.copy(), issuePositions = c.issuePositions.toMutableMap())
     },
@@ -91,39 +91,47 @@ private fun decay(game: GameState) {
     }
 }
 
-private fun buildRecap(game: GameState, turn: Int, evBefore: Int): List<TurnRecapItem> {
+private fun buildRecap(game: GameState, turn: Int, evBefore: Int, cashBefore: Double): List<TurnRecapItem> {
     val recap = mutableListOf<TurnRecapItem>()
-    // Group this turn's causes by their human-readable label.
-    val byCause = linkedMapOf<String, Pair<Double, MutableSet<String>>>()
+    data class Group(val label: String, val actor: CandidateId?, var delta: Double = 0.0,
+                     val states: MutableSet<String> = mutableSetOf())
+    val byCause = linkedMapOf<String, Group>()
     for (c in game.causes) {
         if (c.turn != turn) continue
-        val entry = byCause[c.cause] ?: (0.0 to mutableSetOf())
-        val newDelta = entry.first + c.marginDelta
-        if (c.stateId != null) entry.second.add(c.stateId)
-        byCause[c.cause] = newDelta to entry.second
+        val key = "${c.actor?.serial ?: "event"}:${c.cause}"
+        val entry = byCause.getOrPut(key) { Group(c.cause, c.actor) }
+        entry.delta += c.marginDelta
+        if (c.stateId != null) entry.states.add(c.stateId)
     }
-    for ((cause, info) in byCause) {
+    val sign = if (game.playerCandidate == CandidateId.DEM) 1.0 else -1.0
+    for (info in byCause.values) {
+        val actor = when (info.actor) { game.playerCandidate -> "Your action"; null -> "Campaign event"; else -> "Opponent action" }
         recap.add(
             TurnRecapItem(
-                label = cause,
-                detail = if (info.second.isNotEmpty()) "${info.second.size} contest(s)" else "nationwide",
-                marginDelta = info.first,
+                label = info.label,
+                detail = "$actor · ${if (info.states.isNotEmpty()) "${info.states.size} contest(s)" else "nationwide"}",
+                marginDelta = if (info.label.startsWith("Plan bonus:") || info.delta == 0.0) null else info.delta * sign,
             ),
         )
     }
-    // sortedWith is stable, matching Array.prototype.sort stability.
-    recap.sortWith(compareByDescending { abs(it.marginDelta ?: 0.0) })
+    recap.sortWith(compareByDescending<TurnRecapItem> { it.detail.startsWith("Your action") }
+        .thenBy { it.label.startsWith("Plan bonus:") }.thenByDescending { abs(it.marginDelta ?: 0.0) })
 
-    val evAfter = projectElection(game).ev.getValue("dem")
+    val evAfter = projectElection(game).ev.getValue(game.playerCandidate.serial)
     recap.add(
         0,
         TurnRecapItem(
             label = "Projected electoral votes",
-            detail = "${game.candidates.getValue("dem").shortName} $evAfter (was $evBefore)",
+            detail = "${game.candidates.getValue(game.playerCandidate.serial).shortName} $evAfter (was $evBefore)",
             marginDelta = (evAfter - evBefore).toDouble(),
         ),
     )
-    return recap.take(12)
+    val cashAfter = game.resources.getValue(game.playerCandidate.serial).cash
+    val cashDelta = cashAfter - cashBefore
+    recap.add(1, TurnRecapItem(label = "Campaign cash",
+        detail = "\$${toFixed1(cashAfter / 1_000_000)}M after ${if (cashDelta >= 0) "+" else "-"}\$${toFixed1(abs(cashDelta) / 1_000_000)}M this week"))
+    return recap.take(2) + recap.drop(2).filter { it.detail.startsWith("Your action") } +
+        recap.drop(2).filter { !it.detail.startsWith("Your action") }.take(8)
 }
 
 @Serializable
@@ -150,7 +158,8 @@ fun advanceTurn(
     val ai = OPPONENT_OF.getValue(player)
     val cfg = opts.difficulty ?: DIFFICULTY.getValue("normal")
 
-    val evBefore = projectElection(game).ev.getValue("dem")
+    val evBefore = projectElection(game).ev.getValue(player.serial)
+    val cashBefore = game.resources.getValue(player.serial).cash
 
     // 1. Resolve leftover player events with a sensible default. Debates go
     //    head-to-head so the scorecard swing applies even when skipped.
@@ -172,11 +181,9 @@ fun advanceTurn(
     resolveAiEvents(game, ai)
 
     // 3. Player's queued actions in day order, then the AI's plan.
-    // sortedBy is stable, matching Array.prototype.sort stability.
-    val playerActions = actions
-        .filter { it.candidate == player }
-        .sortedBy { it.day ?: 1 }
-    for (action in playerActions) applyAction(game, action, rng)
+    resolvePlan(actions.filter { it.candidate == player }, { it.planMove() }, { game.causes.size }) { action, mult, bonuses ->
+        applyAction(game, action, rng, mult, bonuses)
+    }
     val aiActions = planAiActions(game, rng, cfg)
     for (action in aiActions) applyAction(game, action, rng, cfg.actionPower)
 
@@ -184,7 +191,7 @@ fun advanceTurn(
     decay(game)
 
     // 5. Recap + bookkeeping.
-    game.lastRecap = buildRecap(game, turn, evBefore)
+    game.lastRecap = buildRecap(game, turn, evBefore, cashBefore)
     game.queuedActions = emptyList()
     game.pendingEvents = mutableListOf()
     game.rngState = rng.state()

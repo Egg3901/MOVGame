@@ -3,7 +3,7 @@ package com.lakesidegames.electioneer.engine
 import com.lakesidegames.electioneer.content.OPPONENT_OF
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.round
+import kotlin.math.floor
 import kotlinx.serialization.Serializable
 
 // Campaign score: the 0-1000 leaderboard number from the player's
@@ -35,7 +35,9 @@ fun computeScoreFromFacts(f: ScoreFacts): Int {
     val evScore = clampScore(f.unitMargin * norm * 3, -300.0, 200.0)
     val popScore = clampScore(f.popularMargin * 10, -100.0, 100.0)
     val mult = DIFFICULTY_MULTIPLIER[f.difficulty] ?: 1.0
-    return round(clampScore((500 + evScore + popScore) * mult, 0.0, 1000.0)).toInt()
+    // Math.round in the web engine rounds half points upward. Kotlin round
+    // uses ties-to-even and disagrees on otherwise valid leaderboard scores.
+    return floor(clampScore((500 + evScore + popScore) * mult, 0.0, 1000.0) + 0.5).toInt()
 }
 
 fun usScoreFacts(

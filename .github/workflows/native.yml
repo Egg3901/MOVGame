@@ -20,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 "${{ github.workspace }}/scripts/verify-ios-metadata.py"
+      - run: python3 "${{ github.workspace }}/scripts/test-ios-screen-ready.py"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -29,6 +30,8 @@ jobs:
       - run: npm run build
       - name: Check native content matches web
         run: npm run native:content -- --check
+      - name: Check native plan vectors match web
+        run: npx tsx apps/native/scripts/export-plan-vectors.ts --check
       - name: Verify desktop uses this checkout
         run: node apps/native/scripts/fetch-web.mjs steam
   android:

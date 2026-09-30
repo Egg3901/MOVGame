@@ -24,11 +24,12 @@ data class StaffChoice(val id: String, val name: String, val role: String, val b
 class MobileGame private constructor(
     private var game: GameState,
     private val seedStr: String,
+    private val difficulty: String?,
 ) {
     companion object {
         fun restore(snapshot: String): MobileGame? {
             val saved = loadGame(snapshot) ?: return null
-            return MobileGame(saved.state, saved.seed)
+            return MobileGame(saved.state, saved.seed, saved.difficulty)
         }
 
         fun startGame(playerSerial: String, difficulty: String, seed: Long): MobileGame {
@@ -40,12 +41,14 @@ class MobileGame private constructor(
                     difficulty = difficulty,
                 ),
             )
-            return MobileGame(state, seed.toString())
+            return MobileGame(state, seed.toString(), difficulty)
         }
 
         fun candidates(): List<Candidate> = CANDIDATES.values.toList()
 
         fun difficulties(): List<String> = listOf("easy", "normal", "hard")
+
+        fun planBonusRecipes(): List<PlanBonus> = PLAN_BONUSES
 
         fun campaigns(): List<CampaignChoice> = SCENARIO_IDS.map { id ->
             val s = SCENARIOS.getValue(id)
@@ -107,7 +110,7 @@ class MobileGame private constructor(
                 eventMode = eventMode, totalTurns = totalTurns,
                 modifiers = GameModifiers(whatIfState = whatIfState.ifEmpty { null }, mirrorMatch = mirrorMatch, pandemic = pandemic),
             ))
-            return MobileGame(state, seed)
+            return MobileGame(state, seed, difficulty)
         }
     }
 
@@ -115,7 +118,11 @@ class MobileGame private constructor(
 
     fun campaignLabel(): String = SCENARIOS[game.scenarioId ?: "2020"]?.label ?: "Your campaign"
 
-    fun saveSnapshot(): String = saveGame(game, seedStr)
+    fun saveSnapshot(): String = saveGame(game, seedStr, difficulty)
+
+    fun resultSummary(): NativeResultSummary? = NativeResults.us(game, difficulty)
+    fun resultAchievements(): List<NativeAward> = NativeResults.achievements(game, difficulty)
+    fun resultHistory(): List<NativeHistoricalRegion> = NativeResults.historicalUs(game)
 
     fun askSnapshot(): String = askCampaignSnapshot(game, campaignLabel())
 
@@ -132,6 +139,10 @@ class MobileGame private constructor(
     fun availableCash(): Double = (playerCash() - plannedSpend()).coerceAtLeast(0.0)
 
     fun queuedCount(): Int = game.queuedActions.size
+
+    fun planBonuses(): List<PlanBonus> = plannedBonuses(game)
+
+    fun previewPlayerEv(): Int = projectPlannedElection(game).ev.getValue(game.playerCandidate.serial)
 
     fun plannedActions(): List<PlannedActionRow> = plannedActionRows(game)
 
@@ -177,14 +188,12 @@ class MobileGame private constructor(
     fun previewMarginPoints(typeSerial: String, stateId: String, day: Int,
                             adModeSerial: String?, spendMillions: Double?, issueSerial: String?,
                             newPosition: Double?): Double {
-        val copy = loadGame(saveGame(game, seedStr))?.state ?: return Double.NaN
+        val copy = game.deepCopy()
         val type = ActionType.entries.firstOrNull { it.serial == typeSerial } ?: return Double.NaN
         val mode = AdMode.entries.firstOrNull { it.serial == adModeSerial }
         val issue = IssueId.entries.firstOrNull { it.serial == issueSerial }
         if (!queuePlannedAction(copy, type, stateId, day, mode, spendMillions, issue, newPosition)) return Double.NaN
-        val action = copy.queuedActions.last()
-        applyAction(copy, action, Rng.createRng("$seedStr:preview:${copy.turn}:$stateId:$day:$typeSerial"))
-        val contest = projectElection(copy).contests.firstOrNull { it.stateId == stateId } ?: return Double.NaN
+        val contest = projectPlannedElection(copy).contests.firstOrNull { it.stateId == stateId } ?: return Double.NaN
         return (contest.demShare - 0.5) * 200
     }
 

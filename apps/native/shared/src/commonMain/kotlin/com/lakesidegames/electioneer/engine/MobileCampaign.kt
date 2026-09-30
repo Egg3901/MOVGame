@@ -148,6 +148,30 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
             .sortedByDescending { it.units }
     }
 
+    fun previewPlayerUnits(): Int {
+        if (isOver()) return standings().first { it.partyId == playerParty() }.units
+        return uk?.let { projectUkPreview(it).seats[playerParty()] ?: 0 }
+            ?: projectCountryPreview(country!!, bundle()!!).seats[playerParty()] ?: 0
+    }
+
+    fun resultSummary(): NativeResultSummary? {
+        if (!isOver()) return null
+        val rows = standings()
+        val facts = multipartyScoreFacts(rows.associate { it.partyId to it.units }, rows.associate { it.partyId to it.voteShare },
+            playerParty(), majority(), totalUnits(), uk?.difficulty ?: country?.difficulty ?: "normal")
+        return NativeResultSummary(computeScoreFromFacts(facts), facts.difficulty, facts.unitMargin.toInt(), facts.popularMargin, true)
+    }
+
+    fun historicalRegions(): List<NativeHistoricalRegion> {
+        val regions = regions()
+        return (uk?.regions ?: country!!.regions).map { state ->
+            val row = regions.first { it.id == state.id }
+            NativeHistoricalRegion(state.id, state.name, row.playerUnits,
+                state.baselineSeats?.get(playerParty()) ?: 0,
+                (row.playerShare - (state.baselineShare?.get(playerParty()) ?: 0.0)) * 100)
+        }.sortedByDescending { kotlin.math.abs(it.shareSwing) }
+    }
+
     fun regions(): List<NativeRegion> {
         val rows = uk?.let { (it.result ?: projectUk(it)).seatResults }
             ?: country!!.let { (it.result ?: projectCountry(it, bundle()!!)).seatResults }
@@ -179,6 +203,9 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
         "oppo_research" -> 2.0
         else -> 0.0
     }
+
+    fun planBonuses(): List<PlanBonus> = activePlanBonuses(
+        uk?.queuedActions?.map { it.planMove() } ?: country!!.queuedActions.map { it.planMove() })
 
     fun plan(): List<NativePlan> {
         fun row(i: Int, type: String, region: String?, day: Int?, mode: String?, spend: Double?, issue: String?, rival: String?): NativePlan {
