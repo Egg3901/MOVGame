@@ -4,14 +4,17 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.util.Base64
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -64,16 +67,13 @@ fun NativeSettingsScreen(session: GameSession) {
     val uri = LocalUriHandler.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("SETTINGS", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-        Text("Sound effects")
-        Switch(settings.soundOn, settings::sound, modifier = Modifier.semantics { contentDescription = "Sound effects" })
+        NativeToggle("Sound effects", settings.soundOn, settings::sound)
         Text("Volume: ${(settings.volume * 100).toInt()}%")
         Slider(settings.volume, settings::volume, enabled = settings.soundOn, modifier = Modifier.semantics { contentDescription = "Sound volume" })
         Button(onClick = { settings.play("turnAdvance") }, enabled = settings.soundOn) { Text("Preview sound") }
-        Text("Reduce motion")
-        Switch(settings.reducedMotion, settings::motion, modifier = Modifier.semantics { contentDescription = "Reduce motion" })
+        NativeToggle("Reduce motion", settings.reducedMotion, settings::motion)
         Text("Election night uses instant results when this or your device's animation setting is on.", style = MaterialTheme.typography.bodySmall)
-        Text("Hardware keyboard shortcuts")
-        Switch(settings.hotkeysOn, settings::hotkeys, modifier = Modifier.semantics { contentDescription = "Keyboard shortcuts" })
+        NativeToggle("Keyboard shortcuts", settings.hotkeysOn, settings::hotkeys)
         Text("Enter or Space ends the week, with confirmation if no moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.", style = MaterialTheme.typography.bodySmall)
         Button(onClick = { settings.replayTutorial(); session.resumeGame() }, enabled = (session.game.value.state != null || session.campaign.value != null)) { Text("Replay tutorial") }
         OutlinedButton(onClick = { session.go(Screen.EDITOR) }) { Text("Scenario editor") }
@@ -83,6 +83,15 @@ fun NativeSettingsScreen(session: GameSession) {
         TextButton(onClick = { uri.openUri("mailto:support@lakesidegames.net") }) { Text("Contact support") }
         TextButton(onClick = { uri.openUri("https://lakesidegames.net/games/electioneer/") }) { Text("Web game") }
         Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+internal fun NativeToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

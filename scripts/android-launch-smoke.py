@@ -98,7 +98,7 @@ try:
         name = f'settings-accessibility-{attempt}'
         semantic_text(name)
         nodes = ET.fromstring((output / f'{name}.xml').read_text()).iter('node')
-        remaining -= {node.get('content-desc') for node in nodes if node.get('checkable') == 'true'}
+        remaining -= {node.get('content-desc') or node.get('text') for node in nodes if node.get('checkable') == 'true'}
         if not remaining:
             break
         adb('shell', 'input', 'swipe', str(width // 2), str(height * 3 // 4), str(width // 2), str(height // 3), '300')
