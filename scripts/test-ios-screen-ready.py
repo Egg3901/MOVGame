@@ -57,6 +57,14 @@ class ScreenReadyTest(unittest.TestCase):
         self.assertGreaterEqual(dark, 0.35)
         self.assertTrue(amber >= 3 or coral >= 3 or blue >= 8)
 
+    def test_guide_probe_preserves_thin_gold_headings_at_320_pixel_width(self):
+        # The iOS 27 guide rendered correctly, but a 320-pixel longest-edge
+        # probe shrank its width to 147 pixels and erased its thin gold text.
+        # These probes come from that actual capture at the two resolutions.
+        fixtures = pathlib.Path(__file__).parent / 'test-fixtures'
+        self.assertFalse(check_screen(fixtures / 'ios-guide-narrow.png')[0])
+        self.assertTrue(check_screen(fixtures / 'ios-guide.png')[0])
+
     def test_blank_dark_screen_has_no_accent(self):
         self.assertFalse(self.ready(png([10, 15, 20])))
         self.assertFalse(self.ready(png([10, 15, 20]), 'ask'))
