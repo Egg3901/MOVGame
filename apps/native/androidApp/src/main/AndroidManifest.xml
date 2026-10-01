@@ -6,6 +6,8 @@
         android:name=".MovApp"
         android:label="Margin of Victory"
         android:theme="@android:style/Theme.Material.NoActionBar">
+        <!-- MovApp initializes reporting only when a build supplies a DSN. -->
+        <meta-data android:name="io.sentry.auto-init" android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

@@ -30,7 +30,8 @@ def capture(name, marker, mode='game'):
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
         time.sleep(1)
-        if not adb('shell', 'pidof', PACKAGE).strip():
+        alive = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True, timeout=25)
+        if alive.returncode != 0 or not alive.stdout.strip():
             raise RuntimeError(f'App exited during {name}')
         path = output / f'{name}.png'
         path.write_bytes(adb('exec-out', 'screencap', '-p', binary=True))
