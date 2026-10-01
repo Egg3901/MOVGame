@@ -146,6 +146,28 @@ jobs:
         with:
           name: ios-simulator-launch
           path: ${{ runner.temp }}/mov-launch
+  ios-layouts:
+    name: Small iPhone and iPad flows
+    needs: ios
+    runs-on: macos-26
+    timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned-ios-simulator-app
+          path: ${{ runner.temp }}/mov-layouts
+      - name: Capture small phone and tablet navigation
+        run: |
+          tar -xzf "$RUNNER_TEMP/mov-layouts/mov-simulator.tar.gz" -C "$RUNNER_TEMP/mov-layouts"
+          python3 scripts/ios-layout-smoke.py "$RUNNER_TEMP/mov-layouts/MOVGameiOS.app" "$RUNNER_TEMP/mov-layout-captures"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-layout-flows
+          path: ${{ runner.temp }}/mov-layout-captures
   ios27:
     name: iOS 27 iPhone 17 Pro Max launch
     needs: ios
