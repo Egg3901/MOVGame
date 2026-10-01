@@ -37,6 +37,7 @@ import com.lakesidegames.electioneer.engine.NativeResultsJourney
 import com.lakesidegames.electioneer.engine.NativeResults
 import com.lakesidegames.electioneer.engine.NativeDaily
 import com.lakesidegames.electioneer.engine.NativeDailyAssignment
+import com.lakesidegames.electioneer.engine.NativeAutosave
 import com.lakesidegames.electioneer.engine.NativeSaveLibrary
 import com.lakesidegames.electioneer.engine.NativeSaveTransfer
 import com.lakesidegames.electioneer.engine.NativeNamedSave
@@ -216,11 +217,16 @@ class GameSession : ViewModel() {
             }
         }
     }
+    private var activeAutosaveId = "autosave"
+    private fun beginAutosave(owner: String? = account.user.value?.id) {
+        activeAutosaveId = NativeAutosave.slot(owner, UUID.randomUUID().toString())
+        savePrefs?.edit()?.putString("active_autosave_id", activeAutosaveId)?.apply()
+    }
     private fun mirrorAutosave(snapshot: String) {
-        val previous = saveLibrary.get("autosave")
+        val previous = saveLibrary.get(activeAutosaveId)
         val stamp = maxOf(System.currentTimeMillis(), (previous?.updatedAt ?: -1) + 1)
-        if (saveLibrary.save("autosave", "Autosave", snapshot, stamp)) {
-            saveLibrary.setReplay("autosave", replay.json()); persistLibrary(); offerCloud("autosave")
+        if (saveLibrary.save(activeAutosaveId, "Autosave", snapshot, stamp)) {
+            saveLibrary.setReplay(activeAutosaveId, replay.json()); persistLibrary(); offerCloud(activeAutosaveId)
         }
     }
     private var saveLibrary = NativeSaveLibrary.empty()
@@ -259,9 +265,9 @@ class GameSession : ViewModel() {
     fun deleteLocalSave(id: String) { saveLibrary.remove(id); cloudQueue.remove(id); persistCloudQueue(); persistLibrary() }
     fun loadNamed(id: String): Boolean {
         val entry = saveLibrary.get(id) ?: return false
-        return importCampaign(entry.snapshot, entry.replay)
+        return importCampaign(entry.snapshot, entry.replay, entry.cloudOwner ?: account.user.value?.id)
     }
-    fun importCampaign(json: String, replayJson: String? = NativeReplay.fileReplay(json)): Boolean {
+    fun importCampaign(json: String, replayJson: String? = NativeReplay.fileReplay(json), owner: String? = account.user.value?.id): Boolean {
         val document = NativeSaveTransfer.inspect(json)
         if (document == null) { _saveNotice.value = "This file is not a supported campaign save."; return false }
         undoHistory.clear()
@@ -271,6 +277,7 @@ class GameSession : ViewModel() {
             saveLibrary.setReplay(backupId, replay.json())
             persistLibrary()
         }
+        beginAutosave(owner)
         replay.restore(replayJson, document.snapshot)
         _eventResult.value = null; _recap.value = null; _pendingDialog.value = null; _selected.value = null
         if (document.engine == "world") {
@@ -309,6 +316,7 @@ class GameSession : ViewModel() {
         if (savePrefs != null) return
         val prefs = context.applicationContext.getSharedPreferences("mov_native", Context.MODE_PRIVATE)
         savePrefs = prefs
+        activeAutosaveId = prefs.getString("active_autosave_id", "autosave") ?: "autosave"
         settings = NativePreferences(context.applicationContext)
         cloudQueue = NativeCloudQueue.restore(prefs.getString("cloud_outbox_v1", null))
         saveLibrary = prefs.getString("named_saves_v1", null)?.let(NativeSaveLibrary::restore) ?: NativeSaveLibrary.empty()
@@ -363,6 +371,7 @@ class GameSession : ViewModel() {
 
     fun startCampaign(countryId: String, electionId: String, party: String, difficulty: String, seed: String) {
         undoHistory.clear()
+        beginAutosave()
         _screen.value = Screen.LOADING
         scope.launch {
             val started = withContext(Dispatchers.Default) {
@@ -486,6 +495,7 @@ class GameSession : ViewModel() {
         require(staffIds.all { id -> MobileGame.staffChoices().any { it.id == id } })
         require(difficulty in DIFFICULTIES && totalTurns in listOf(5, 9, 14))
         require(whatIfState in listOf("", "TX", "FL", "OH", "PA", "MI", "WI", "GA", "AZ", "NC", "NY"))
+        beginAutosave()
         _screen.value = Screen.LOADING
         _campaign.value = null
         turnSeed = seed

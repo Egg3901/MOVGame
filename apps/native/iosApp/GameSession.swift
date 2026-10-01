@@ -163,11 +163,16 @@ final class GameSession: ObservableObject {
             }
         }
     }
+    private var activeAutosaveID = UserDefaults.standard.string(forKey: "mov_active_autosave_id") ?? "autosave"
+    private func beginAutosave(owner: String? = nil) {
+        activeAutosaveID = NativeAutosave.companion.slot(owner: owner ?? account.user?.id, nonce: UUID().uuidString)
+        UserDefaults.standard.set(activeAutosaveID, forKey: "mov_active_autosave_id")
+    }
     private func mirrorAutosave(_ snapshot: String) {
-        let previous = saveLibrary.get(id: "autosave")
+        let previous = saveLibrary.get(id: activeAutosaveID)
         let stamp = max(Int64(Date().timeIntervalSince1970 * 1000), (previous?.updatedAt ?? -1) + 1)
-        if saveLibrary.save(id: "autosave", name: "Autosave", snapshot: snapshot, updatedAt: stamp) {
-            saveLibrary.setReplay(id: "autosave", json: replay.json()); persistLibrary(); offerCloud("autosave")
+        if saveLibrary.save(id: activeAutosaveID, name: "Autosave", snapshot: snapshot, updatedAt: stamp) {
+            saveLibrary.setReplay(id: activeAutosaveID, json: replay.json()); persistLibrary(); offerCloud(activeAutosaveID)
         }
     }
     private var saveLibrary = NativeSaveLibrary.companion.empty()
@@ -211,9 +216,9 @@ final class GameSession: ObservableObject {
     func deleteLocalSave(id: String) { saveLibrary.remove(id: id); cloudQueue.remove(id: id); persistCloudQueue(); persistLibrary() }
     @discardableResult func loadNamed(id: String) -> Bool {
         guard let entry = saveLibrary.get(id: id) else { return false }
-        return importCampaign(json: entry.snapshot, replayJSON: entry.replay)
+        return importCampaign(json: entry.snapshot, replayJSON: entry.replay, owner: entry.cloudOwner)
     }
-    @discardableResult func importCampaign(json: String, replayJSON: String? = nil) -> Bool {
+    @discardableResult func importCampaign(json: String, replayJSON: String? = nil, owner: String? = nil) -> Bool {
         guard let document = NativeSaveTransfer.companion.inspect(json: json) else {
             saveNotice = "This file is not a supported campaign save."; return false
         }
@@ -224,6 +229,7 @@ final class GameSession: ObservableObject {
             saveLibrary.setReplay(id: backupID, json: replay.json())
             persistLibrary()
         }
+        beginAutosave(owner: owner)
         replay.restore(json: replayJSON ?? NativeReplay.shared.fileReplay(json: json), snapshot: document.snapshot)
         eventId = nil; eventResult = nil; showRecap = false; recapLines = []
         if document.engine == "world" {
@@ -330,6 +336,7 @@ final class GameSession: ObservableObject {
     var savedCampaignLabel: String { campaign?.label() ?? game?.campaignLabel() ?? "Your campaign" }
 
     func newCampaign(countryId: String, electionId: String, partyId: String, difficulty: String, seed: String) {
+        beginAutosave()
         playScreen = .loading
         DispatchQueue.global(qos: .userInitiated).async {
             let started = MobileCampaign.companion.start(countryId: countryId, electionId: electionId,
@@ -418,6 +425,7 @@ final class GameSession: ObservableObject {
     func staffChoices() -> [StaffChoice] { MobileGame.companion.staffChoices() }
 
     func newGame(scenarioId: String, playerSerial: String, mateId: String, staffIds: [String], difficulty: String, eventMode: String, totalTurns: Int, seed: String, whatIfState: String, mirrorMatch: Bool, pandemic: Bool) {
+        beginAutosave()
         playScreen = .loading
         DispatchQueue.global(qos: .userInitiated).async {
             let started = MobileGame.companion.startConfiguredGame(
