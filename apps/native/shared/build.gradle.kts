@@ -40,6 +40,8 @@ android {
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
     }
+    // Android does not inherit KMP common resources into its Java resource jar.
+    sourceSets.getByName("main").resources.srcDir("src/commonMain/resources")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

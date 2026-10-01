@@ -70,6 +70,8 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print androidApp/build/outputs/apk/debug/androidApp-debug.apk > "$RUNNER_TEMP/mov-android-manifest.xml"
           python3 ../../scripts/verify-android-metadata.py "$RUNNER_TEMP/mov-android-manifest.xml"
+      - name: Verify packaged Android campaign content
+        run: python3 ../../scripts/verify-android-bundles.py androidApp/build/outputs/apk/debug/androidApp-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: mov-android-debug
