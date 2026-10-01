@@ -1,9 +1,8 @@
 # Store billing adapters
 
-The native clients can be built and shipped today, but they cannot *sell*
-anything: the store channels deliberately disable the Lakeside checkout and
-nothing has replaced it. This is the contract for the three adapters that close
-that gap, and it is the gating item for pack sales on every native platform.
+The native beta offers the complete catalog for free. Store channels hide the
+Lakeside checkout, and their empty SKU tables cannot sell packs. This document
+describes the adapters and configuration needed before native paid sales.
 
 ## The seam that already exists
 
@@ -97,8 +96,8 @@ a mobile purchase would be device-scoped. Two options:
    ever appear on the web. Recognition of existing web purchases follows the
    platform and product decisions above; it is not universally prohibited.
 
-Recommendation: ship (1) for the first store submission, then decide on (2) once
-Play sales exist. Do not block the Android launch on the bridge.
+Choose the ownership model before paid sales. The current free beta does not
+depend on this decision.
 
 ## Offline and refund behaviour (release gates)
 
@@ -115,9 +114,10 @@ One table, exported from MOVGame, mapping `packId` → per-store SKU, so the thr
 stores cannot drift. Add the SKU column when the first store product is created;
 until then the adapter has nothing to sell.
 
-## Order of work
+## Remaining configuration
 
-1. Play Billing on Android — the only store the ops host can build and test end
-   to end (SDK 35, NDK 27.2 installed).
-2. StoreKit on iOS — after the macOS/Xcode pipeline decision.
-3. Steam DLC — last: it needs Steamworks partner setup, not just code.
+Configure iOS and Android together: create the four canonical pack products,
+map their real IDs, set platform validation credentials, then exercise actual
+purchase, restore, refund, reinstall and offline behavior on both stores.
+Existing StoreKit and Play Billing adapters and Actions build pipelines do not
+replace those store exercises. Steam DLC additionally needs partner setup.
