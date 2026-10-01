@@ -40,9 +40,6 @@ final class PlannerDraft: ObservableObject {
 struct GameView: View {
     @ObservedObject var session: GameSession
     let onAsk: () -> Void
-    @AppStorage("mov.hasSeenCampaignGuide") private var hasSeenCampaignGuide = false
-    @State private var coachStep: Int? = nil
-    @State private var coachStartTurn = 0
     @State private var selectedStateId: String? = nil
     @State private var mapMode = "tiles"
     @State private var deskSection: DeskSection = .map
@@ -173,7 +170,6 @@ struct GameView: View {
                                             onSelect: { id in
                                                 selectedStateId = id
                                                 if states.first(where: { $0.id == id })?.blocs.isEmpty == false { draft.target = id }
-                                                if coachStep == 1 { advanceCoach() }
                                             })
                                     .padding(10)
                             } else {
@@ -182,7 +178,6 @@ struct GameView: View {
                                            onSelect: { if let id = abbrToId[$0] {
                                                selectedStateId = id
                                                if states.first(where: { $0.id == id })?.blocs.isEmpty == false { draft.target = id }
-                                               if coachStep == 1 { advanceCoach() }
                                            } })
                                     .frame(height: 260)
                             }
@@ -270,22 +265,9 @@ struct GameView: View {
             .background(Color(red: 10/255, green: 15/255, blue: 20/255))
             .preferredColorScheme(.dark)
             .overlay(alignment: .bottom) {
-                if let coachStep {
-                    coachCard(coachStep)
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, deskSection == .plan ? 76 : 12)
-                }
+                NativeCampaignCoach(country: "US", goal: "Win 270 electoral votes in \(g.totalTurns()) weeks.", turn: Int(g.turn()), selected: selectedStateId, queued: session.plannedActions().count, settings: session.settings)
             }
             .onAppear {
-                #if targetEnvironment(simulator)
-                let capturing = ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--mov-capture-") }
-                #else
-                let capturing = false
-                #endif
-                if !hasSeenCampaignGuide && !capturing {
-                    coachStartTurn = Int(g.turn())
-                    coachStep = 0
-                }
                 if draft.target.isEmpty, let first = battlegrounds.first {
                     draft.target = first.state.id
                     selectedStateId = first.state.id
@@ -301,14 +283,16 @@ struct GameView: View {
                     selectedStateId = state.id
                 }
             }
-            .onChange(of: hasSeenCampaignGuide) { seen in
-                if !seen { coachStartTurn = Int(g.turn()); coachStep = 0 }
-            }
-            .onChange(of: session.plannedActions().count) { count in
-                if coachStep == 3 && count > 0 { coachStep = 4 }
-            }
-            .onChange(of: Int(g.turn())) { turn in
-                if coachStep == 4 && turn > coachStartTurn { coachStep = 5 }
+            .onChange(of: session.shortcutSequence) { _ in
+                if session.shortcut == UIKeyCommand.inputEscape {
+                    if session.showRecap { session.dismissRecap() } else { selectedStateId = nil }
+                }
+                guard session.eventId == nil && !session.showRecap else { return }
+                if let number = Int(session.shortcut), (1...9).contains(number) {
+                    let actions = ["advertise", "rally", "surrogate", "fundraise", "ground_game", "gotv", "oppo_research", "debate_prep", "policy_prep"]
+                    draft.type = actions[number - 1]; deskSection = .plan
+                }
+                if ["\r", " "].contains(session.shortcut) && !session.plannedActions().isEmpty { session.endTurn() }
             }
             .alert("Week \(Int(g.turn())) recap", isPresented: $session.showRecap) {
                 Button("OK") { session.dismissRecap() }
@@ -328,57 +312,6 @@ struct GameView: View {
             Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(CampaignStyle.muted)
             Text(value).font(.subheadline.bold()).minimumScaleFactor(0.75).lineLimit(1)
         }
-    }
-
-    private func advanceCoach() {
-        guard let step = coachStep else { return }
-        if step >= 7 {
-            coachStep = nil
-            hasSeenCampaignGuide = true
-        } else {
-            coachStep = step + 1
-            if step == 2 { deskSection = .plan }
-        }
-    }
-
-    private func coachCard(_ step: Int) -> some View {
-        let titles = ["Welcome to the war room", "The battleground", "Read the margin", "Plan your week",
-                      "Lock it in", "Curveballs", "Your campaign menu", "That's the loop"]
-        let details = [
-            "Win 270 electoral votes. Every week changes the map.",
-            "Gray, amber-ringed tiles are toss-ups. Tap a state on the map to inspect it.",
-            "The inspector shows electoral votes and the poll margin. Target close contests first.",
-            "Choose a target and move, tune its settings, then add at least one move to a day.",
-            "Scroll to the week schedule and end the week. The opposing campaign acts too.",
-            "Events and debates interrupt the campaign. Each response has a trade-off.",
-            "Home, saves, and this tour live in Menu. You can replay it any time.",
-            "Watch the projected electoral votes. Election Night decides the result."
-        ]
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("TOUR · \(step + 1)/8").font(.caption.bold()).tracking(1).foregroundStyle(CampaignStyle.gold)
-                Spacer()
-                Button("Skip tour") { coachStep = nil; hasSeenCampaignGuide = true }
-                    .font(.caption).foregroundStyle(CampaignStyle.muted)
-            }
-            Text(titles[step]).font(.headline)
-            Text(details[step]).font(.subheadline).foregroundStyle(CampaignStyle.muted)
-            HStack {
-                if step > 0 {
-                    Button("Back") { coachStep = step - 1; if step == 3 { deskSection = .map } }
-                        .font(.subheadline).foregroundStyle(CampaignStyle.muted)
-                }
-                Spacer()
-                Button(step == 0 ? "Show me  →" : step == 7 ? "Done" : "Next  →") { advanceCoach() }
-                    .font(.subheadline.bold()).foregroundStyle(CampaignStyle.background)
-                    .padding(.horizontal, 14).padding(.vertical, 9)
-                    .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 9))
-            }
-        }
-        .padding(14)
-        .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 15))
-        .overlay(RoundedRectangle(cornerRadius: 15).strokeBorder(CampaignStyle.gold.opacity(0.7)))
-        .shadow(radius: 12)
     }
 
     private func legendItem(_ title: String, color: Color) -> some View {

@@ -3,6 +3,8 @@ package com.lakesidegames.electioneer.ui
 import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.lakesidegames.electioneer.BuildConfig
 import com.lakesidegames.electioneer.billing.PlayBilling
@@ -59,7 +61,7 @@ import java.time.ZoneOffset
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY, REVEAL, BOARDS }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY, REVEAL, BOARDS, SETTINGS, GUIDE }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffset.UTC).plusDays(offsetDays).toString()
@@ -67,7 +69,7 @@ internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffs
 class GameSession : ViewModel() {
     private val _electionNight = MutableStateFlow<NativeElectionNight?>(null)
     val electionNight: StateFlow<NativeElectionNight?> = _electionNight
-    fun reducedMotion(): Boolean = savePrefs?.getBoolean("reduce_motion", false) ?: false
+    fun reducedMotion(): Boolean = settings.reducedMotion
     private fun presentReveal() {
         val night = currentSnapshot()?.let(NativeElectionNight::create) ?: return
         if (savePrefs?.getBoolean(night.data().storageKey, false) == true) return
@@ -86,10 +88,15 @@ class GameSession : ViewModel() {
     fun endWorldWeek(): Boolean {
         val campaign = _campaign.value ?: return false
         val previous = campaign.saveSnapshot()
+        val beforeUnits = campaign.standings().first { it.partyId == campaign.playerParty() }.units
         if (!campaign.endWeek()) return false
         replay.record(previous, campaign.saveSnapshot())
         campaignChanged()
-        if (campaign.isOver()) presentReveal()
+        settings.play("turnAdvance")
+        val afterUnits = campaign.standings().first { it.partyId == campaign.playerParty() }.units
+        if (afterUnits != beforeUnits) settings.play(if (afterUnits > beforeUnits) "pollUp" else "pollDown")
+        if (campaign.isOver()) { settings.play(if (afterUnits >= campaign.majority()) "win" else "lose"); presentReveal() }
+        else if (campaign.hasPendingEvent()) settings.play("eventPopup")
         return true
     }
     private val undoHistory = NativeUndoHistory()
@@ -107,8 +114,14 @@ class GameSession : ViewModel() {
         promptNextEvent(previous.state)
         emit()
     }
+    var shortcut by androidx.compose.runtime.mutableStateOf(""); private set
+    var shortcutSequence by androidx.compose.runtime.mutableIntStateOf(0); private set
+    fun sendShortcut(key: String) { shortcut = key; shortcutSequence++ }
+    lateinit var settings: NativePreferences
+        private set
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     override fun onCleared() {
+        if (::settings.isInitialized) settings.close()
         scope.cancel()
         super.onCleared()
     }
@@ -228,6 +241,7 @@ class GameSession : ViewModel() {
         if (savePrefs != null) return
         val prefs = context.applicationContext.getSharedPreferences("mov_native", Context.MODE_PRIVATE)
         savePrefs = prefs
+        settings = NativePreferences(context.applicationContext)
         saveLibrary = prefs.getString("named_saves_v1", null)?.let(NativeSaveLibrary::restore) ?: NativeSaveLibrary.empty()
         _namedSaves.value = saveLibrary.entries()
         account = CampaignAccount(context.applicationContext, scope)
@@ -478,6 +492,7 @@ class GameSession : ViewModel() {
     fun endTurn() {
         val g = _game.value ?: return
         if (g.phase == GamePhase.RESULT) return
+        val beforeUnits = projectElection(g).ev[g.playerCandidate.serial] ?: 0
         val previous = saveGame(g, turnSeed, campaignDifficulty)
         undoHistory.record(previous)
         val next = advanceCampaignWeek(g, campaignDifficulty)
@@ -485,7 +500,11 @@ class GameSession : ViewModel() {
         replay.record(previous, saveGame(next, turnSeed, campaignDifficulty))
         refresh()
         persist()
+        settings.play("turnAdvance")
+        val afterUnits = projectElection(next).ev[next.playerCandidate.serial] ?: 0
+        if (afterUnits != beforeUnits) settings.play(if (afterUnits > beforeUnits) "pollUp" else "pollDown")
         if (next.phase == GamePhase.RESULT) {
+            settings.play(if (next.result?.winner == next.playerCandidate.serial) "win" else "lose")
             _screen.value = Screen.RESULTS
             presentReveal()
             return
@@ -502,7 +521,9 @@ class GameSession : ViewModel() {
 
     private fun promptNextEvent(g: GameState) {
         _eventResult.value = null
+        val previous = _pendingDialog.value
         _pendingDialog.value = g.pendingEvents.firstOrNull { it.forCandidate == g.playerCandidate }
+        if (previous == null && _pendingDialog.value != null) settings.play("eventPopup")
     }
 
     fun eventDef(eventId: String) = EVENTS_BY_ID[eventId]

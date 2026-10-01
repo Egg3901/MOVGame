@@ -20,6 +20,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,6 +43,13 @@ fun GameScreen(session: GameSession) {
     val eventResult by session.eventResult.collectAsState()
     val recap by session.recap.collectAsState()
     val g = game ?: return
+    var lastShortcut by remember { mutableIntStateOf(session.shortcutSequence) }
+    LaunchedEffect(session.shortcutSequence) {
+        if (lastShortcut == session.shortcutSequence) return@LaunchedEffect
+        lastShortcut = session.shortcutSequence
+        if (session.shortcut == "escape") { if (recap != null) session.dismissRecap() else session.select(null) }
+        if (session.shortcut in listOf("enter", " ") && pending == null && recap == null && g.queuedActions.isNotEmpty()) session.endTurn()
+    }
 
     val abbrToStateId = remember(g) {
         g.states.associate { it.abbr.uppercase() to it.id }
@@ -56,6 +66,7 @@ fun GameScreen(session: GameSession) {
     val selectedContest = projection?.contests?.firstOrNull { it.stateId == selectedId }
 
     Column(Modifier.fillMaxSize()) {
+      NativeCampaignCoach(session, "US", "Win 270 electoral votes in ${g.totalTurns} weeks.", g.turn, selectedId, g.queuedActions.size)
       Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
         Text("CAMPAIGN DESK", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
         Text(session.campaigns().firstOrNull { it.id == g.scenarioId }?.label ?: "The election", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)

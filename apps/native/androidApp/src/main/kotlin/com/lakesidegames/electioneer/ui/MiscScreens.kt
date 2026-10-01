@@ -170,6 +170,8 @@ fun AccountScreen(session: GameSession) {
                 Text("$label · #${ranking.rank} · ${ranking.score} · ${ranking.difficulty}")
             }
         }
+        OutlinedButton(onClick = { session.go(Screen.SETTINGS) }) { Text("Settings") }
+        OutlinedButton(onClick = { session.go(Screen.GUIDE) }) { Text("How to play") }
         OutlinedButton(onClick = { session.go(Screen.BOARDS) }) { Text("Leaderboards and daily champions") }
         Text(session.savedCampaignLabel() ?: "No campaign on this device", style = MaterialTheme.typography.bodySmall)
     }

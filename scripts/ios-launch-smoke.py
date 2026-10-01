@@ -33,7 +33,7 @@ def capture_ready(name, process, attempts=3):
             raise SystemExit(f'FAIL: app exited during {name} capture')
         probe = output / f'{name}-probe.png'
         try:
-            subprocess.run(['sips', '-Z', '320', str(capture), '--out', str(probe)],
+            subprocess.run(['sips', '--resampleWidth', '320', str(capture), '--out', str(probe)],
                            check=True, capture_output=True, timeout=30)
             ready, summary = check_screen(probe, 'ask' if name == 'ask' else 'game')
         finally:
@@ -79,7 +79,7 @@ for attempt in range(24):
             continue
     probe = output / 'boot-probe.png'
     try:
-        subprocess.run(['sips', '-Z', '320', str(boot_image), '--out', str(probe)],
+        subprocess.run(['sips', '--resampleWidth', '320', str(boot_image), '--out', str(probe)],
                        check=True, capture_output=True, timeout=30)
         ready, summary = check_screen(probe, 'boot')
         print(f'boot capture {attempt + 1}: {summary}', flush=True)
@@ -115,6 +115,8 @@ try:
             ('replay', '--mov-capture-replay', 30),
             ('saves', '--mov-capture-saves', 30),
             ('account', '--mov-capture-account', 8),
+            ('settings', '--mov-capture-settings', 8),
+            ('guide', '--mov-capture-guide', 8),
             ('champions', '--mov-capture-champions', 20),
             ('lakeside-login', '--mov-capture-lakeside-login', 30),
             ('world-uk', '--mov-capture-world-uk', 20),
