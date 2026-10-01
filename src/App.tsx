@@ -316,10 +316,10 @@ type View =
   | { kind: "legal"; tab?: "privacy" | "terms" };
 
 function historyView(): View {
-  const legal = new URLSearchParams(window.location.search).get("legal");
-  if (legal === "privacy" || legal === "terms") return { kind: "legal", tab: legal };
   const view = (window.history.state as { movView?: View } | null)?.movView;
   if (view && ["landing", "us", "uk", "country", "leaderboard", "legal"].includes(view.kind)) return view;
+  const legal = new URLSearchParams(window.location.search).get("legal");
+  if (legal === "privacy" || legal === "terms") return { kind: "legal", tab: legal };
   return { kind: "landing" };
 }
 
@@ -380,7 +380,9 @@ export function App() {
   }, [view, game, ukGame, countryGame]);
 
   const navigate = (next: View) => {
-    window.history.pushState({ ...window.history.state, movView: next }, "");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("legal");
+    window.history.pushState({ ...window.history.state, movView: next }, "", url);
     setView(next);
   };
 

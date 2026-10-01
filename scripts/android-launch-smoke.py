@@ -63,6 +63,16 @@ try:
             launch(name)
             marker = 'CAMPAIGN DESK' if country == 'US' and kind != 'results' else 'ELECTION RESULT' if kind == 'results' and country != 'US' else 'CAMPAIGN SCORE' if kind == 'results' else 'WEEK'
             capture(name, marker)
+    # Use explicit dp widths for narrow phones and tablet navigation.
+    for layout, size, density in [('small-phone', '640x1136', '320'), ('tablet', '1920x1200', '240')]:
+        adb('shell', 'wm', 'size', size)
+        adb('shell', 'wm', 'density', density)
+        time.sleep(2)
+        for flow, marker in [('settings', 'Sound effects'), ('editor', 'SCENARIO EDITOR'), ('saves', 'SAVED CAMPAIGNS'), ('game-DE', 'WEEK')]:
+            launch(flow)
+            capture(f'{layout}-{flow}', marker, 'ask')
+    adb('shell', 'wm', 'size', 'reset')
+    adb('shell', 'wm', 'density', 'reset')
     # Verify a blank week's keyboard command asks before consuming the week.
     launch('game-US')
     capture('keyboard-before', 'WEEK 1/9')
