@@ -238,6 +238,7 @@ struct NativeWorldCampaign: View {
                     }
                     if game.isOver() {
                         ScorePosting(session: session)
+                        if game.isCustom() { Text("CUSTOM CAMPAIGN · CASUAL ONLY").font(.caption.bold()).foregroundStyle(CampaignStyle.gold) }
                         if let summary = game.resultSummary() {
                             VStack(alignment: .leading, spacing: 7) {
                                 Text("CAMPAIGN SCORE \(summary.score) / 1000").font(.headline).foregroundStyle(CampaignStyle.gold)

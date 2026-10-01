@@ -109,6 +109,13 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
         fun restore(snapshot: String): MobileCampaign? = runCatching {
             val saved = EngineJson.decodeFromString<NativeCampaignSave>(snapshot)
             require(saved.version == 1 && ((saved.uk == null) != (saved.country == null)))
+            val custom = saved.uk?.custom == true || saved.country?.custom == true
+            val doc = customDocument(saved.uk?.customScenario ?: saved.country?.customScenario)
+            require(custom == (doc != null))
+            if (custom) {
+                require(doc!!.election == (saved.uk?.electionId ?: saved.country!!.electionId))
+                require(if (saved.uk != null) doc.engine == "uk" else doc.engine == "country" && doc.id == saved.country!!.countryId)
+            }
             val campaign = MobileCampaign(saved.uk, saved.country)
             require(elections(campaign.countryId()).any { it.nativeId == campaign.electionId() })
             require(parties(campaign.countryId(), campaign.electionId()).any { it.id == campaign.playerParty() })
@@ -116,7 +123,8 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
         }.getOrNull()
     }
 
-    fun countryId(): String = country?.countryId ?: "UK"
+    fun isCustom(): Boolean = uk?.custom == true || country?.custom == true
+    fun countryId(): String = country?.let { customDocument(it.customScenario)?.country ?: it.countryId } ?: "UK"
     fun map(): NativeMap = nativeMaps.getValue(countryId())
     fun electionId(): String = uk?.electionId ?: country!!.electionId
     fun label(): String = uk?.label ?: country!!.label
@@ -128,11 +136,12 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
     fun unitName(): String = bundle()?.unitNamePlural ?: "seats"
     fun funds(): Double = uk?.resources?.getValue(playerParty())?.funds ?: country!!.resources.getValue(playerParty()).funds
 
-    fun isDaily(dateUTC: String): Boolean = NativeDaily.matches(dateUTC,
+    fun isDaily(dateUTC: String): Boolean = !isCustom() && NativeDaily.matches(dateUTC,
         nativeElections.first { it.country == countryId() && it.nativeId == electionId() }.scenarioId,
         uk?.seed ?: country!!.seed, playerParty())
 
     fun scoreSubmission(): String? {
+        if (isCustom()) return null
         val summary = resultSummary() ?: return null
         val rows = standings()
         val facts = multipartyScoreFacts(rows.associate { it.partyId to it.units }, rows.associate { it.partyId to it.voteShare },
@@ -157,7 +166,7 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
         else if (countryId() == "DE") "Reach ${majority()} of ${totalUnits()} seats, alone or in a compatible coalition. The 5% national threshold can exclude parties; CSU is exempt."
         else "Reach ${majority()} of ${totalUnits()} seats. A hung parliament can produce a coalition, confidence and supply, or minority government."
 
-    private fun bundle(): CountryBundle? = country?.let { COUNTRIES.getValue(it.countryId) }
+    private fun bundle(): CountryBundle? = country?.let { countryForGame(it)!! }
     private fun partyDefs(): List<PartyDef> = bundle()?.system?.parties ?: UK_SYSTEM.parties
     private fun name(id: String): String = partyDefs().firstOrNull { it.id == id }?.shortName ?: id.uppercase()
     private fun color(id: String): String = partyDefs().firstOrNull { it.id == id }?.color ?: "#94a3b8"

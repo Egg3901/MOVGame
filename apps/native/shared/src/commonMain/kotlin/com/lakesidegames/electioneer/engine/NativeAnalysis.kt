@@ -93,7 +93,7 @@ object NativeAnalysis {
     fun world(uk: UkGameState?, country: CountryGameState?, target: String?): NativeAnalysisDocument {
         val contests = uk?.regions ?: country!!.regions
         val region = contests.firstOrNull { it.id == target } ?: contests.first()
-        val countryBundle = country?.let { getCountry(it.countryId)!! }
+        val countryBundle = country?.let { countryForGame(it)!! }
         val parties = uk?.parties ?: country!!.parties
         fun name(id: String): String = countryBundle?.system?.parties?.firstOrNull { it.id == id }?.shortName
             ?: PARTY_BY_ID[id]?.shortName ?: id

@@ -75,6 +75,7 @@ fun NativeSettingsScreen(session: GameSession) {
         Switch(settings.hotkeysOn, settings::hotkeys)
         Text("Enter or Space ends the week when moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.", style = MaterialTheme.typography.bodySmall)
         Button(onClick = { settings.replayTutorial(); session.resumeGame() }, enabled = (session.game.value != null || session.campaign.value != null)) { Text("Replay tutorial") }
+        OutlinedButton(onClick = { session.go(Screen.EDITOR) }) { Text("Scenario editor") }
         OutlinedButton(onClick = { session.go(Screen.GUIDE) }) { Text("How to play") }
         TextButton(onClick = { uri.openUri("mailto:support@lakesidegames.net") }) { Text("Contact support") }
         TextButton(onClick = { uri.openUri("https://lakesidegames.net/games/electioneer/") }) { Text("Web game") }

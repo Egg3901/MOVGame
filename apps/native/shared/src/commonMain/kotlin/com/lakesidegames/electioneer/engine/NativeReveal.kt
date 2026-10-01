@@ -40,7 +40,7 @@ object NativeReveal {
         val uk = world.uk
         val country = world.country
         if ((uk == null) == (country == null)) return null
-        val bundle = country?.let { getCountry(it.countryId) } ?: if (country != null) return null else null
+        val bundle = country?.let { countryForGame(it) } ?: if (country != null) return null else null
         val seatResults = uk?.result?.seatResults ?: country?.result?.seatResults ?: return null
         val seats = uk?.result?.seats ?: country!!.result!!.seats
         val regions = uk?.regions ?: country!!.regions

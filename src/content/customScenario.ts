@@ -749,3 +749,20 @@ export function buildCountryCustomGame(cs: CustomScenario): { country: CountryBu
   game.custom = true;
   return { country, game };
 }
+
+// Restore the authoring document carried by a portable US campaign save.
+// Old browser saves can still resolve a scenario already in the editor library.
+export function registerCampaignCustomScenario(game: { scenarioId?: string; customScenario?: string }): void {
+  if (!isCustomScenarioId(game.scenarioId)) {
+    if (game.customScenario !== undefined) throw new Error("Custom scenario does not match this campaign.");
+    return;
+  }
+  if (game.customScenario === undefined) {
+    if (!SCENARIOS[game.scenarioId!]) throw new Error("This custom campaign is missing its authoring document. Import its scenario JSON first.");
+    return;
+  }
+  if (typeof game.customScenario !== "string") throw new Error("Custom scenario data is malformed.");
+  const cs = parseCustomScenario(game.customScenario);
+  if (cs.engine !== "us" || cs.id !== game.scenarioId) throw new Error("Custom scenario does not match this campaign.");
+  registerCustomScenario(cs);
+}

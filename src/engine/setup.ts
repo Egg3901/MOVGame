@@ -202,6 +202,7 @@ function buildCandidate(slot: CandidateId, t: ScenarioTicket): Candidate {
 }
 
 export interface NewGameOptions {
+  customScenario?: string;
   seed?: number | string;
   playerCandidate?: CandidateId;
   totalTurns?: number;
@@ -296,6 +297,7 @@ export function createGame(opts: NewGameOptions = {}): GameState {
     phase: "intel",
     playerCandidate: player,
     scenarioId: scenario.id,
+    ...(opts.customScenario ? { customScenario: opts.customScenario } : {}),
     eventMode: opts.eventMode ?? "historical",
     playerEdge: handicap.persuasion,
     locations: {},

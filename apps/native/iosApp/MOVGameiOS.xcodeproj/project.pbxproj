@@ -5,6 +5,8 @@
 	};
 	objectVersion = 56;
 	objects = {
+        7A000001000000000000004F = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeEditorView.swift; sourceTree = "<group>"; };
+        7A0000010000000000000050 = { isa = PBXBuildFile; fileRef = 7A000001000000000000004F; };
         7A000001000000000000004D = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSettingsViews.swift; sourceTree = "<group>"; };
         7A000001000000000000004E = { isa = PBXBuildFile; fileRef = 7A000001000000000000004D; };
         7A000001000000000000004B = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeResultJourneyViews.swift; sourceTree = "<group>"; };
@@ -39,6 +41,7 @@
 		7A0000010000000000000002 = {
 			isa = PBXGroup;
 			children = (
+                7A000001000000000000004F,
                 7A000001000000000000004D,
 				7A000001000000000000004B,
 				7A0000010000000000000049,
@@ -94,6 +97,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                7A0000010000000000000050,
                 7A000001000000000000004E,
 				7A000001000000000000004C,
 				7A000001000000000000004A,

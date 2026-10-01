@@ -66,7 +66,7 @@ import java.time.ZoneOffset
 
 // Hand-rolled nav; the session survives rotation via the platform ViewModel. Compose collects
 // the StateFlows with stock collectAsState (no lifecycle-runtime-compose).
-enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY, REVEAL, BOARDS, SETTINGS, GUIDE }
+enum class Screen { HOME, SETUP, LOADING, GAME, RESULTS, STORE, ACCOUNT, LIBRARY, WORLD_GAME, SAVES, ANALYSIS, REPLAY, REVEAL, BOARDS, SETTINGS, GUIDE, EDITOR }
 
 val DIFFICULTIES = listOf("easy", "normal", "hard")
 internal fun nativeUtcDay(offsetDays: Long = 0): String = LocalDate.now(ZoneOffset.UTC).plusDays(offsetDays).toString()

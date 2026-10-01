@@ -269,6 +269,7 @@ fun WorldCampaignScreen(session: GameSession) {
                 enabled = !game.hasPendingEvent(), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("End week") } }
         } else {
             item { ScorePosting(session) }
+            if (game.isCustom()) item { Text("CUSTOM CAMPAIGN · CASUAL ONLY", color = MaterialTheme.colorScheme.primary) }
             item { game.resultSummary()?.let { summary -> Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("CAMPAIGN SCORE ${summary.score} / 1000", style = MaterialTheme.typography.titleMedium)
                 Text("${summary.difficulty.replaceFirstChar { it.uppercase() }} difficulty · $unit above majority: ${summary.unitMargin}")

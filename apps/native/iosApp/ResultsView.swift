@@ -50,6 +50,7 @@ struct ResultsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(20)
                     .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
+                    if g.isCustom() { Text("CUSTOM CAMPAIGN · CASUAL ONLY").font(.caption.bold()).foregroundStyle(CampaignStyle.gold) }
                     if let summary = g.resultSummary() {
                         VStack(alignment: .leading, spacing: 8) {
                             if summary.score >= 0 {

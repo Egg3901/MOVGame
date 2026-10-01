@@ -124,7 +124,9 @@ class MobileGame private constructor(
 
     fun playerSerial(): String = game.playerCandidate.serial
 
-    fun campaignLabel(): String = SCENARIOS[game.scenarioId ?: "2020"]?.label ?: "Your campaign"
+    fun campaignLabel(): String = customDocument(game.customScenario)?.label ?: SCENARIOS[game.scenarioId ?: "2020"]?.label ?: "Your campaign"
+
+    fun isCustom(): Boolean = game.customScenario != null
 
     fun saveSnapshot(): String = saveGame(game, seedStr, difficulty)
 

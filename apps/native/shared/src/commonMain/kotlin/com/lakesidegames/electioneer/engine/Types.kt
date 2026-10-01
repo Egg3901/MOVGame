@@ -433,6 +433,7 @@ data class GameState(
     var phase: GamePhase,
     val playerCandidate: CandidateId,
     val scenarioId: String? = null,
+    val customScenario: String? = null,
     val eventMode: EventMode? = null,
     // Difficulty handicap on the player's own campaigning (1.0 = no edge).
     val playerEdge: Double? = null,

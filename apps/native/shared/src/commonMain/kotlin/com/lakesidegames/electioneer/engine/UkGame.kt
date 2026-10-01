@@ -133,6 +133,7 @@ data class UkGameState(
     var pendingEvent: UkPendingEvent? = null,
     // Player-authored game: casual only, never posts a score.
     val custom: Boolean? = null,
+    val customScenario: String? = null,
     var result: UkResult? = null,
 )
 

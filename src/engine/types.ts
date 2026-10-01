@@ -344,6 +344,8 @@ export interface GameState {
   playerCandidate: CandidateId;
   // Election scenario id (see content/scenarios); absent on pre-scenario saves.
   scenarioId?: string;
+  // Portable authoring document, independent of the browser editor library.
+  customScenario?: string;
   // How campaign events are drawn (see content/events). Absent → "historical".
   eventMode?: EventMode;
   // Difficulty handicap: multiplies how far the *player's* own campaigning moves

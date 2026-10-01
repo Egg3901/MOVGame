@@ -20,7 +20,11 @@ class NativeResultsJourney private constructor() {
             val summary = saved?.let { NativeResults.us(it.state, it.difficulty) } ?: world?.resultSummary() ?: return null
             val country = world?.countryId() ?: "US"
             val election = world?.electionId() ?: saved!!.state.scenarioId ?: "2020"
-            val meta = nativeElections.first { it.country == country && it.nativeId == election }
+            val custom = world?.isCustom() ?: (saved!!.state.customScenario != null)
+            val meta = nativeElections.firstOrNull { it.country == country && it.nativeId == election }
+            if (!custom && meta == null) return null
+            val label = if (custom) document.label else meta!!.label
+            val flag = meta?.flag ?: MobileCampaign.countries().first { it.id == country }.flag
             val player = world?.playerParty() ?: saved!!.state.playerCandidate.serial
             val daily = world?.isDaily(dateUTC) ?: NativeDaily.matchesUs(dateUTC, saved!!.state)
             val units = world?.standings()?.first { it.partyId == player }?.units
@@ -30,8 +34,8 @@ class NativeResultsJourney private constructor() {
             val role = NativeDaily.roleName(player)
             val title = "Margin of Victory${if (daily) " Daily · $dateUTC" else ""}"
             val scoreLine = if (summary.score >= 0) " · Score ${comma(summary.score)}" else ""
-            val share = "$title\n${meta.flag} ${meta.label} · as $role\n${if (won) "🏆" else "🗳️"} $unitLine$scoreLine\nlakesidegames.net/games/electioneer"
-            val next = nextHints[meta.scenarioId]?.let { hint ->
+            val share = "$title\n${flag} ${label} · as $role\n${if (won) "🏆" else "🗳️"} $unitLine$scoreLine\nlakesidegames.net/games/electioneer"
+            val next = (if (custom) null else nextHints[meta!!.scenarioId])?.let { hint ->
                 val party = if (country == "US") player else {
                     val playable = MobileCampaign.parties(country, hint.electionId)
                     playable.firstOrNull { it.id == player }?.id ?: playable.first().id

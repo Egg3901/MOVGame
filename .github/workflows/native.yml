@@ -44,6 +44,7 @@ jobs:
       - name: Check native election-night allocations and schedules
         run: npx tsx apps/native/scripts/export-reveal-vectors.ts --check
       - run: npx tsx apps/native/scripts/export-daily-percentiles.ts --check
+      - run: npx tsx apps/native/scripts/export-editor-vectors.ts --check
       - name: Verify desktop uses this checkout
         run: node apps/native/scripts/fetch-web.mjs steam
   android:

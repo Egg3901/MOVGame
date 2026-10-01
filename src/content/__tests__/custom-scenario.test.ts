@@ -99,3 +99,26 @@ describe("custom scenario loads into the engine", () => {
     expect(next.turn).toBe(1);
   });
 });
+
+// Portable native campaigns must not depend on a browser editor library.
+describe("portable custom campaign documents", () => {
+  it("restores a deleted registry entry from the campaign's authoring document", async () => {
+    const { registerCampaignCustomScenario } = await import("../customScenario");
+    const { SCENARIOS } = await import("../scenarios");
+    const doc = makeDefaultCustomScenario();
+    doc.id = "custom-portable-test";
+    const campaign = { scenarioId: doc.id, customScenario: JSON.stringify(doc) };
+    delete SCENARIOS[doc.id];
+    registerCampaignCustomScenario(campaign);
+    expect(SCENARIOS[doc.id].dem.name).toBe(doc.dem.name);
+    delete SCENARIOS[doc.id];
+    expect(() => registerCampaignCustomScenario({ scenarioId: doc.id })).toThrow("missing its authoring document");
+  });
+  it("rejects mismatched and malformed documents before they enter the registry", async () => {
+    const { registerCampaignCustomScenario } = await import("../customScenario");
+    const doc = makeDefaultCustomScenario();
+    expect(() => registerCampaignCustomScenario({ scenarioId: "custom-other", customScenario: JSON.stringify(doc) })).toThrow("does not match");
+    expect(() => registerCampaignCustomScenario({ scenarioId: "2024", customScenario: JSON.stringify(doc) })).toThrow("does not match");
+    expect(() => registerCampaignCustomScenario({ scenarioId: doc.id, customScenario: "{" })).toThrow("valid JSON");
+  });
+});
