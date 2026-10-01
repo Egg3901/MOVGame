@@ -70,6 +70,16 @@ class NativeCloudQueueTest {
         assertEquals(second, restored.get(bob)?.snapshot)
         assertNotEquals(restored.uploadJson(alice, "alice", 10), restored.uploadJson(bob, "bob", 10))
     }
+    @Test fun anOwnedSaveCannotBeUploadedUnderAnotherAccount() {
+        val library = NativeSaveLibrary.empty()
+        val snapshot = MobileGame.startGame("dem", "normal", 1).saveSnapshot()
+        assertTrue(library.save("owned-save", "Campaign", snapshot, 1))
+        library.markSynced("owned-save", "alice", 10)
+        assertNotNull(library.uploadJson("owned-save", "alice", 11))
+        assertNull(library.uploadJson("owned-save", "bob", 11))
+        assertEquals("alice", library.get("owned-save")?.cloudOwner)
+        assertEquals(snapshot, library.get("owned-save")?.snapshot)
+    }
     @Test fun guestsStartFreshSlotsAndSignedInSlotsAreStableForTheSameOwner() {
         assertNotEquals(NativeAutosave.slot(null, "guest-one"), NativeAutosave.slot(null, "guest-two"))
         assertEquals(NativeAutosave.slot("alice", "one"), NativeAutosave.slot("alice", "two"))
