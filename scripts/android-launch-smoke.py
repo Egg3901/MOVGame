@@ -135,6 +135,13 @@ try:
     # Verify a blank week's keyboard command asks before consuming the week.
     launch('game-US')
     capture('keyboard-before', 'WEEK 1/9')
+    # Android consumes the first navigation key when leaving touch mode.
+    # Establish focus with Tab before exercising the campaign shortcut.
+    adb('shell', 'input', 'keyevent', '61')
+    capture('keyboard-navigation-focus', 'WEEK 1/9')
+    focused = ET.fromstring((output / 'keyboard-navigation-focus.xml').read_text())
+    if not any(node.get('focused') == 'true' for node in focused.iter('node')):
+        raise RuntimeError('Keyboard navigation did not focus a campaign control')
     adb('shell', 'input', 'keyevent', '66')
     capture('keyboard-empty-week', 'Unspent slots win nothing', 'ask')
     adb('shell', 'input', 'keyevent', '4')
