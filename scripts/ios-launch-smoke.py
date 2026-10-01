@@ -49,10 +49,9 @@ devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '--j
 requested = os.environ.get('SIMULATOR_UDID')
 phones = [dict(d, runtime=runtime)
           for runtime, group in devices['devices'].items() if 'iOS' in runtime
-          for d in group if d['name'].startswith('iPhone')
-          and (not requested or d['udid'] == requested)]
+          for d in group if (d['udid'] == requested if requested else d['name'].startswith('iPhone'))]
 if not phones:
-    raise SystemExit('No available iPhone simulator')
+    raise SystemExit('No matching available iOS simulator')
 device = phones[0]['udid']
 if os.environ.get('MOV_FRESH_SIMULATOR') == '1' and not requested:
     template = phones[0]
@@ -133,6 +132,9 @@ try:
             ('ask', '--mov-capture-ask', 20),
             ('ask-login', '--mov-capture-ask-login', 20),
         ]:
+            selected = os.environ.get('MOV_CAPTURE_NAMES')
+            if selected and name not in selected.split(','):
+                continue
             subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
             preview, preview_console = launch(device, bundle, output / f'{name}-console.log', [argument])
             with preview_console:
