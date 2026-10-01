@@ -73,10 +73,12 @@ fun NativeSettingsScreen(session: GameSession) {
         Text("Election night uses instant results when this or your device's animation setting is on.", style = MaterialTheme.typography.bodySmall)
         Text("Hardware keyboard shortcuts")
         Switch(settings.hotkeysOn, settings::hotkeys)
-        Text("Enter or Space ends the week when moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.", style = MaterialTheme.typography.bodySmall)
+        Text("Enter or Space ends the week, with confirmation if no moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.", style = MaterialTheme.typography.bodySmall)
         Button(onClick = { settings.replayTutorial(); session.resumeGame() }, enabled = (session.game.value != null || session.campaign.value != null)) { Text("Replay tutorial") }
         OutlinedButton(onClick = { session.go(Screen.EDITOR) }) { Text("Scenario editor") }
         OutlinedButton(onClick = { session.go(Screen.GUIDE) }) { Text("How to play") }
+        TextButton(onClick = { uri.openUri("https://lakesidegames.net/games/electioneer/?legal=privacy") }) { Text("Privacy policy") }
+        TextButton(onClick = { uri.openUri("https://lakesidegames.net/games/electioneer/?legal=terms") }) { Text("Terms of service") }
         TextButton(onClick = { uri.openUri("mailto:support@lakesidegames.net") }) { Text("Contact support") }
         TextButton(onClick = { uri.openUri("https://lakesidegames.net/games/electioneer/") }) { Text("Web game") }
         Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.bodySmall)
@@ -89,7 +91,7 @@ fun NativeGuideScreen() {
         Text("HOW TO PLAY", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
         NativeHelp.guide().forEach { lesson ->
             Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp)) {
-                Text(lesson.title, style = MaterialTheme.typography.titleMedium)
+                Text(lesson.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                 Text(lesson.body)
             } }
         }
@@ -111,7 +113,7 @@ fun NativeCampaignCoach(session: GameSession, country: String, goal: String, tur
         Card(Modifier.fillMaxWidth().padding(12.dp).semantics { liveRegion = LiveRegionMode.Polite }) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row { Text("TOUR · ${index + 1}/8", Modifier.weight(1f), color = MaterialTheme.colorScheme.primary); TextButton(onClick = ::finish) { Text("Skip tour") } }
-                Text(lesson.title, style = MaterialTheme.typography.titleMedium)
+                Text(lesson.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                 Text(lesson.body)
                 Row { if (index > 0) TextButton(onClick = { step = index - 1 }) { Text("Back") }; Spacer(Modifier.weight(1f)); Button(onClick = { if (index == 7) finish() else step = index + 1 }) { Text(if (index == 7) "Done" else "Next") } }
             }

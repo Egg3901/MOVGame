@@ -98,7 +98,7 @@ struct GameView: View {
                     VStack(spacing: 7) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading) {
-                                Text("DEMOCRATS").font(.caption2.bold()).foregroundStyle(CampaignStyle.democrat)
+                                Text(g.ticketName(side: "dem").uppercased()).font(.caption2.bold()).foregroundStyle(Color(hex: g.ticketColor(side: "dem")))
                                 Text("\(proj.dem)").font(.title.bold())
                             }
                             Spacer()
@@ -108,7 +108,7 @@ struct GameView: View {
                             }
                             Spacer()
                             VStack(alignment: .trailing) {
-                                Text("REPUBLICANS").font(.caption2.bold()).foregroundStyle(CampaignStyle.republican)
+                                Text(g.ticketName(side: "rep").uppercased()).font(.caption2.bold()).foregroundStyle(Color(hex: g.ticketColor(side: "rep")))
                                 Text("\(proj.rep)").font(.title.bold())
                             }
                         }
@@ -292,8 +292,12 @@ struct GameView: View {
                     let actions = ["advertise", "rally", "surrogate", "fundraise", "ground_game", "gotv", "oppo_research", "debate_prep", "policy_prep"]
                     draft.type = actions[number - 1]; deskSection = .plan
                 }
-                if ["\r", " "].contains(session.shortcut) && !session.plannedActions().isEmpty { session.endTurn() }
+                if ["\r", " "].contains(session.shortcut) { session.requestEndTurn() }
             }
+            .alert("End week without moves?", isPresented: $session.confirmEmptyWeek) {
+                Button("End week", role: .destructive) { session.endTurn() }
+                Button("Keep planning", role: .cancel) { }
+            } message: { Text("You have no actions queued this week. Unspent slots win nothing. End the week anyway?") }
             .alert("Week \(Int(g.turn())) recap", isPresented: $session.showRecap) {
                 Button("OK") { session.dismissRecap() }
             } message: {
@@ -583,7 +587,7 @@ struct ActionPlannerView: View {
                     Spacer()
                 }
             }
-            Button { session.endTurn() } label: {
+            Button { session.requestEndTurn() } label: {
                 Text("End week · \(plan.count) planned  →")
                     .font(.subheadline.bold()).frame(maxWidth: .infinity).padding(12)
             }
@@ -591,9 +595,8 @@ struct ActionPlannerView: View {
             .foregroundStyle(plan.isEmpty ? CampaignStyle.muted : .white)
             .background(CampaignStyle.background, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(CampaignStyle.muted.opacity(0.5)))
-            .disabled(plan.isEmpty)
             if plan.isEmpty {
-                Text("Add a move before ending the week.").font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                Text("An empty week spends no moves. You will be asked to confirm.").font(.subheadline).foregroundStyle(CampaignStyle.muted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(14)

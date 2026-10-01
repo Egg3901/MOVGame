@@ -316,6 +316,8 @@ type View =
   | { kind: "legal"; tab?: "privacy" | "terms" };
 
 function historyView(): View {
+  const legal = new URLSearchParams(window.location.search).get("legal");
+  if (legal === "privacy" || legal === "terms") return { kind: "legal", tab: legal };
   const view = (window.history.state as { movView?: View } | null)?.movView;
   if (view && ["landing", "us", "uk", "country", "leaderboard", "legal"].includes(view.kind)) return view;
   return { kind: "landing" };

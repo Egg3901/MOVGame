@@ -161,9 +161,11 @@ fun WorldCampaignScreen(session: GameSession) {
     var issueId by remember(game) { mutableStateOf(game.issues().first().id) }
     var rival by remember(game) { mutableStateOf("") }
     var day by remember(game) { mutableIntStateOf(1) }
+    var confirmEmptyWeek by remember(game) { mutableStateOf(false) }
     var showRecap by remember(game) { mutableStateOf(false) }
     var notice by remember(game) { mutableStateOf<String?>(null) }
     var showHistory by remember(game) { mutableStateOf(false) }
+    fun requestEndWeek() { if (game.plan().isEmpty()) confirmEmptyWeek = true else if (session.endWorldWeek()) showRecap = game.recap().isNotEmpty() }
     val unit = game.unitName()
     var lastShortcut by remember { mutableIntStateOf(session.shortcutSequence) }
     LaunchedEffect(session.shortcutSequence) {
@@ -173,9 +175,13 @@ fun WorldCampaignScreen(session: GameSession) {
         if (!game.hasPendingEvent() && !game.isOver() && !showRecap) {
             val index = session.shortcut.toIntOrNull()?.minus(1)
             if (index != null && index in game.actionTypes().indices) type = game.actionTypes()[index]
-            if (session.shortcut in listOf("enter", " ") && game.plan().isNotEmpty() && session.endWorldWeek()) showRecap = game.recap().isNotEmpty()
+            if (session.shortcut in listOf("enter", " ")) requestEndWeek()
         }
     }
+    if (confirmEmptyWeek) AlertDialog(onDismissRequest = { confirmEmptyWeek = false }, title = { Text("End week without moves?") },
+        text = { Text("You have no actions queued this week. Unspent slots win nothing. End the week anyway?") },
+        confirmButton = { TextButton(onClick = { confirmEmptyWeek = false; if (session.endWorldWeek()) showRecap = game.recap().isNotEmpty() }) { Text("End week") } },
+        dismissButton = { TextButton(onClick = { confirmEmptyWeek = false }) { Text("Keep planning") } })
     val regional = type in listOf("rally", "surrogate", "ground_game", "gotv", "canvass")
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
@@ -265,7 +271,7 @@ fun WorldCampaignScreen(session: GameSession) {
                     TextButton(onClick = { game.removeAction(action.index); session.campaignChanged() }) { Text("Remove") }
                 }
             }
-            item { Button(onClick = { if (session.endWorldWeek()) { showRecap = game.recap().isNotEmpty() } },
+            item { Button(onClick = { requestEndWeek() },
                 enabled = !game.hasPendingEvent(), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("End week") } }
         } else {
             item { ScorePosting(session) }

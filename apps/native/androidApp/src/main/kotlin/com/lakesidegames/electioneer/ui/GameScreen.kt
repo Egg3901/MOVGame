@@ -43,14 +43,20 @@ fun GameScreen(session: GameSession) {
     val eventResult by session.eventResult.collectAsState()
     val recap by session.recap.collectAsState()
     val g = game ?: return
+    var confirmEmptyWeek by remember { androidx.compose.runtime.mutableStateOf(false) }
+    fun requestEndWeek() { if (pending == null && recap == null) { if (g.queuedActions.isEmpty()) confirmEmptyWeek = true else session.endTurn() } }
     var lastShortcut by remember { mutableIntStateOf(session.shortcutSequence) }
     LaunchedEffect(session.shortcutSequence) {
         if (lastShortcut == session.shortcutSequence) return@LaunchedEffect
         lastShortcut = session.shortcutSequence
         if (session.shortcut == "escape") { if (recap != null) session.dismissRecap() else session.select(null) }
-        if (session.shortcut in listOf("enter", " ") && pending == null && recap == null && g.queuedActions.isNotEmpty()) session.endTurn()
+        if (session.shortcut in listOf("enter", " ") && pending == null && recap == null ) requestEndWeek()
     }
 
+    if (confirmEmptyWeek) androidx.compose.material3.AlertDialog(onDismissRequest = { confirmEmptyWeek = false },
+        title = { Text("End week without moves?") }, text = { Text("You have no actions queued this week. Unspent slots win nothing. End the week anyway?") },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmEmptyWeek = false; session.endTurn() }) { Text("End week") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmEmptyWeek = false }) { Text("Keep planning") } })
     val abbrToStateId = remember(g) {
         g.states.associate { it.abbr.uppercase() to it.id }
     }
@@ -69,7 +75,7 @@ fun GameScreen(session: GameSession) {
       NativeCampaignCoach(session, "US", "Win 270 electoral votes in ${g.totalTurns} weeks.", g.turn, selectedId, g.queuedActions.size)
       Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
         Text("CAMPAIGN DESK", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-        Text(session.campaigns().firstOrNull { it.id == g.scenarioId }?.label ?: "The election", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(g.customScenario?.let { com.lakesidegames.electioneer.engine.NativeCustomScenario.entry(it)?.label } ?: session.campaigns().firstOrNull { it.id == g.scenarioId }?.label ?: "The election", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         if (session.canViewReplay()) TextButton(onClick = { session.go(Screen.REPLAY) }) { Text("Campaign replay and report") }
         TextButton(onClick = { session.go(Screen.ANALYSIS) }) { Text("Campaign analysis") }
         TextButton(onClick = session::undo, enabled = session.canUndo()) { Text("Undo") }
@@ -78,7 +84,7 @@ fun GameScreen(session: GameSession) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("DEMOCRATS", color = Color(0xFF7EA9FF), style = MaterialTheme.typography.labelSmall)
+                        Text(g.candidates.getValue("dem").shortName.uppercase(), color = Color(0xFF7EA9FF), style = MaterialTheme.typography.labelSmall)
                         Text("$demEv", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
                     }
                     Spacer(Modifier.weight(1f))
@@ -88,7 +94,7 @@ fun GameScreen(session: GameSession) {
                     }
                     Spacer(Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
-                        Text("REPUBLICANS", color = Color(0xFFFF8A83), style = MaterialTheme.typography.labelSmall)
+                        Text(g.candidates.getValue("rep").shortName.uppercase(), color = Color(0xFFFF8A83), style = MaterialTheme.typography.labelSmall)
                         Text("$repEv", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
                     }
                 }
@@ -127,7 +133,7 @@ fun GameScreen(session: GameSession) {
       }
       Surface(shadowElevation = 8.dp) {
         Button(
-            onClick = { session.endTurn() },
+            onClick = { requestEndWeek() },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         ) { Text("End week · ${g.queuedActions.size} planned →") }
       }

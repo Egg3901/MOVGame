@@ -78,6 +78,9 @@ class MainActivity : ComponentActivity() {
         gameSession = session
         session.attachStorage(applicationContext)
         session.attachBilling(applicationContext)
+        if (BuildConfig.DEBUG) intent.getStringExtra("mov_capture")?.let { flow ->
+            runCatching { captureDebugFlow(session, flow) }.onFailure { android.util.Log.e("MOVCapture", "Capture failed: $flow", it) }
+        }
         setContent { MarginOfVictoryApp(session, this) }
     }
 }

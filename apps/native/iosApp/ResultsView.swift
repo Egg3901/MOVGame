@@ -43,9 +43,9 @@ struct ResultsView: View {
                             Text("\(Int(g.resultRepEv())) REP").foregroundStyle(CampaignStyle.republican)
                         }
                         .font(.title2.bold())
-                        Text(String(format: "Democratic popular vote %.1f%%", g.resultDemPopularShare() * 100))
+                        Text("\(g.ticketName(side: "dem")) popular vote \(String(format: "%.1f%%", g.resultDemPopularShare() * 100))")
                             .font(.caption).foregroundStyle(.secondary)
-                        Text(String(format: "Republican popular vote %.1f%%", (1 - g.resultDemPopularShare()) * 100))
+                        Text("\(g.ticketName(side: "rep")) popular vote \(String(format: "%.1f%%", (1 - g.resultDemPopularShare()) * 100))")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(20)

@@ -187,6 +187,7 @@ struct NativeWorldCampaign: View {
     @State private var issueId = ""
     @State private var rival = ""
     @State private var day = 1
+    @State private var confirmEmptyWeek = false
     @State private var showRecap = false
     @State private var notice: String?
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
@@ -272,7 +273,8 @@ struct NativeWorldCampaign: View {
                             }.nativeCampaignCard()
                         }
                         Button {
-                            if session.endWorldWeek() { showRecap = !game.recap().isEmpty }
+                            if game.plan().isEmpty { confirmEmptyWeek = true }
+                            else if session.endWorldWeek() { showRecap = !game.recap().isEmpty }
                         } label: { Text("End week").font(.headline).frame(maxWidth: .infinity).padding(16) }
                             .buttonStyle(.plain).foregroundStyle(CampaignStyle.background)
                             .background(CampaignStyle.coral, in: RoundedRectangle(cornerRadius: 14))
@@ -290,10 +292,15 @@ struct NativeWorldCampaign: View {
                 if session.shortcut == UIKeyCommand.inputEscape { showRecap = false; regionId = "" }
                 guard !game.hasPendingEvent() && !game.isOver() && !showRecap else { return }
                 if let number = Int(session.shortcut), number > 0 && number <= min(9, game.actionTypes().count) { type = game.actionTypes()[number - 1] }
-                if ["\r", " "].contains(session.shortcut) && !game.plan().isEmpty {
-                    if session.endWorldWeek() { showRecap = !game.recap().isEmpty }
+                if ["\r", " "].contains(session.shortcut) {
+                    if game.plan().isEmpty { confirmEmptyWeek = true }
+                    else if session.endWorldWeek() { showRecap = !game.recap().isEmpty }
                 }
             }
+            .alert("End week without moves?", isPresented: $confirmEmptyWeek) {
+                Button("End week", role: .destructive) { if session.endWorldWeek() { showRecap = !game.recap().isEmpty } }
+                Button("Keep planning", role: .cancel) { }
+            } message: { Text("You have no actions queued this week. Unspent slots win nothing. End the week anyway?") }
             .onAppear { if issueId.isEmpty { issueId = game.issues().first?.id ?? "" } }
             .sheet(isPresented: $showRecap) {
                 NavigationStack {
