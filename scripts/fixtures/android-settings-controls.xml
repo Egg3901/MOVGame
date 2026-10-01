@@ -1,0 +1,18 @@
+<!-- Extracted from an actual Compose 1.9 settings accessibility capture. -->
+<hierarchy>
+  <node text="" class="android.view.View" content-desc="" checkable="true">
+    <node text="" class="android.view.View" content-desc="Sound effects" checkable="false" />
+    <node text="" class="android.view.View" content-desc="" checkable="false" />
+    <node text="" class="android.view.View" content-desc="" checkable="false" />
+  </node>
+  <node text="" class="android.view.View" content-desc="" checkable="true">
+    <node text="" class="android.view.View" content-desc="Reduce motion" checkable="false" />
+    <node text="" class="android.view.View" content-desc="" checkable="false" />
+    <node text="" class="android.view.View" content-desc="" checkable="false" />
+  </node>
+  <node text="" class="android.view.View" content-desc="" checkable="true">
+    <node text="" class="android.view.View" content-desc="Keyboard shortcuts" checkable="false" />
+    <node text="" class="android.view.View" content-desc="" checkable="false" />
+    <node text="" class="android.view.View" content-desc="" checkable="false" />
+  </node>
+</hierarchy>

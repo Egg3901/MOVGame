@@ -14,6 +14,9 @@ output.mkdir(parents=True, exist_ok=True)
 spec = importlib.util.spec_from_file_location('screen_ready', pathlib.Path(__file__).with_name('ios-screen-ready.py'))
 probe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(probe)
+semantics_spec = importlib.util.spec_from_file_location('ui_semantics', pathlib.Path(__file__).with_name('android-ui-semantics.py'))
+ui_semantics = importlib.util.module_from_spec(semantics_spec)
+semantics_spec.loader.exec_module(ui_semantics)
 
 
 def adb(*args, binary=False):
@@ -97,8 +100,7 @@ try:
     for attempt in range(4):
         name = f'settings-accessibility-{attempt}'
         semantic_text(name)
-        nodes = ET.fromstring((output / f'{name}.xml').read_text()).iter('node')
-        remaining -= {node.get('content-desc') or node.get('text') for node in nodes if node.get('checkable') == 'true'}
+        remaining -= ui_semantics.named_toggles((output / f'{name}.xml').read_text())
         if not remaining:
             break
         adb('shell', 'input', 'swipe', str(width // 2), str(height * 3 // 4), str(width // 2), str(height // 3), '300')
