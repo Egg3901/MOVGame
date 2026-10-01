@@ -36,7 +36,7 @@ import androidx.compose.material3.TextButton
 @Composable
 fun ResultsScreen(session: GameSession) {
     val game by session.game.collectAsState()
-    val g = game ?: return
+    val g = game.state ?: return
     val result = g.result
     if (result == null) {
         Column(

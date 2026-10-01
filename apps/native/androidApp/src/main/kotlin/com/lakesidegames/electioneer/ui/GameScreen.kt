@@ -42,7 +42,7 @@ fun GameScreen(session: GameSession) {
     val pending by session.pendingDialog.collectAsState()
     val eventResult by session.eventResult.collectAsState()
     val recap by session.recap.collectAsState()
-    val g = game ?: return
+    val g = game.state ?: return
     var confirmEmptyWeek by remember { androidx.compose.runtime.mutableStateOf(false) }
     fun requestEndWeek() { if (pending == null && recap == null) { if (g.queuedActions.isEmpty()) confirmEmptyWeek = true else session.endTurn() } }
     var lastShortcut by remember { mutableIntStateOf(session.shortcutSequence) }

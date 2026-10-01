@@ -65,7 +65,7 @@ jobs:
           packages: 'platform-tools platforms;android-36'
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :shared:jvmTest :androidApp:assembleDebug --no-daemon --max-workers=2
+      - run: ./gradlew :shared:jvmTest :androidApp:testDebugUnitTest :androidApp:assembleDebug --no-daemon --max-workers=2
       - name: Verify packaged Android startup metadata
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print androidApp/build/outputs/apk/debug/androidApp-debug.apk > "$RUNNER_TEMP/mov-android-manifest.xml"

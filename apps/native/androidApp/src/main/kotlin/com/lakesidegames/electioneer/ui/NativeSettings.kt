@@ -75,7 +75,7 @@ fun NativeSettingsScreen(session: GameSession) {
         Text("Hardware keyboard shortcuts")
         Switch(settings.hotkeysOn, settings::hotkeys, modifier = Modifier.semantics { contentDescription = "Keyboard shortcuts" })
         Text("Enter or Space ends the week, with confirmation if no moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.", style = MaterialTheme.typography.bodySmall)
-        Button(onClick = { settings.replayTutorial(); session.resumeGame() }, enabled = (session.game.value != null || session.campaign.value != null)) { Text("Replay tutorial") }
+        Button(onClick = { settings.replayTutorial(); session.resumeGame() }, enabled = (session.game.value.state != null || session.campaign.value != null)) { Text("Replay tutorial") }
         OutlinedButton(onClick = { session.go(Screen.EDITOR) }) { Text("Scenario editor") }
         OutlinedButton(onClick = { session.go(Screen.GUIDE) }) { Text("How to play") }
         TextButton(onClick = { uri.openUri("https://lakesidegames.net/games/electioneer/?legal=privacy") }) { Text("Privacy policy") }

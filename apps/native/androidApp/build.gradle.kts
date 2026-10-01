@@ -51,6 +51,7 @@ kotlin {
 }
 
 dependencies {
+    testImplementation(kotlin("test-junit"))
     implementation(project(":shared"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

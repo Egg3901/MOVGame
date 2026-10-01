@@ -399,8 +399,8 @@ class GameSession : ViewModel() {
     private val _screen = MutableStateFlow(Screen.HOME)
     val screen: StateFlow<Screen> = _screen
 
-    private val _game = MutableStateFlow<GameState?>(null)
-    val game: StateFlow<GameState?> = _game
+    private val _game = GamePublication<GameState?>(null)
+    val game: StateFlow<GameFrame<GameState?>> = _game.snapshots
 
     private val _projection = MutableStateFlow<Projection?>(null)
     val projection: StateFlow<Projection?> = _projection
@@ -538,8 +538,8 @@ class GameSession : ViewModel() {
     }
 
     private fun emit() {
-        // Shallow copy retires the old reference so StateFlow re-emits; the
-        // engine mutates nested maps in place, exactly like the web game.
+        // Publish a new game reference for Compose children. The publication
+        // revision also signals edits that leave projection values unchanged.
         _game.value = _game.value?.copy()
         refresh()
         persist()

@@ -2,6 +2,7 @@
 """Capture real native Android flows, semantic markers, keyboard and restart."""
 import importlib.util
 import pathlib
+import re
 import subprocess
 import sys
 import time
@@ -47,6 +48,29 @@ def launch(flow):
     adb('shell', 'am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity', '--es', 'mov_capture', flow)
 
 
+def tap_label(label, direction='down'):
+    width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
+    for attempt in range(12):
+        semantic_text(f'tap-{attempt}')
+        nodes = ET.fromstring((output / f'tap-{attempt}.xml').read_text()).iter('node')
+        for node in nodes:
+            if node.get('text', '').strip() != label or node.get('enabled') != 'true':
+                continue
+            bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
+            if len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
+                # Leave space below the button for the updated queue count.
+                if bounds[3] > height * 2 // 3:
+                    adb('shell', 'input', 'swipe', str(width // 2), str(height * 3 // 4), str(width // 2), str(height // 2), '300')
+                    break
+                adb('shell', 'input', 'tap', str((bounds[0] + bounds[2]) // 2), str((bounds[1] + bounds[3]) // 2))
+                time.sleep(0.5)
+                return
+        else:
+            start, end = (height * 3 // 4, height // 3) if direction == 'down' else (height // 3, height * 3 // 4)
+            adb('shell', 'input', 'swipe', str(width // 2), str(start), str(width // 2), str(end), '300')
+    raise RuntimeError(f'Could not reach control: {label}')
+
+
 try:
     adb('install', '-r', sys.argv[1])
     adb('shell', 'pm', 'clear', PACKAGE)
@@ -55,7 +79,7 @@ try:
     adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '0')
     routes = [('home', 'Margin of'), ('library', 'Choose your election'), ('setup', 'Choose your path'),
               ('store', 'History is yours to play'), ('account', 'YOUR ACCOUNT'), ('settings', 'Sound effects'), ('guide', 'HOW TO PLAY'),
-              ('editor', 'SCENARIO EDITOR'), ('saves', 'SAVED CAMPAIGNS'), ('analysis', 'Back to campaign'), ('replay', 'Campaign replay')]
+              ('editor', 'SCENARIO EDITOR'), ('saves', 'SAVED CAMPAIGNS'), ('analysis', 'CAMPAIGN ANALYSIS'), ('replay', 'CAMPAIGN REPLAY AND REPORT')]
     for flow, marker in routes:
         launch(flow)
         capture(flow, marker, 'ask')
@@ -92,6 +116,18 @@ try:
     adb('shell', 'settings', 'put', 'system', 'font_scale', '1.0')
     adb('shell', 'wm', 'size', 'reset')
     adb('shell', 'wm', 'density', 'reset')
+    # A successful queue edit must repaint without another navigation or selection.
+    launch('game-US')
+    capture('queue-before', 'CAMPAIGN DESK')
+    tap_label('Fundraise')
+    tap_label('Add to day 1')
+    capture('queue-added', '1 planned', 'ask')
+    tap_label('Add to day 1')
+    capture('queue-added-twice', '2 planned', 'ask')
+    tap_label('Fundraise  ×')
+    capture('queue-removed', '1 planned', 'ask')
+    tap_label('Clear all', direction='up')
+    capture('queue-cleared', '0 planned', 'ask')
     # Verify a blank week's keyboard command asks before consuming the week.
     launch('game-US')
     capture('keyboard-before', 'WEEK 1/9')
