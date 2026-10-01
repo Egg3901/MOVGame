@@ -60,7 +60,9 @@ final class StoreKitAdapter: ObservableObject {
         guard account.user?.ahdLinked == true else { products = []; return }
         do {
             try await configure()
+            try await refreshOwnership()
             await loadProducts()
+            guard !skuToPack.isEmpty else { return }
             for await result in Transaction.currentEntitlements { await deliver(result, refresh: false) }
             try await refreshOwnership()
         } catch { notice = error.localizedDescription }
@@ -108,6 +110,8 @@ final class StoreKitAdapter: ObservableObject {
     func restore() async {
         do {
             try await configure()
+            try await refreshOwnership()
+            guard !skuToPack.isEmpty else { notice = "Shared purchases refreshed."; return }
             try await AppStore.sync()
             for await result in Transaction.currentEntitlements { await deliver(result, refresh: false) }
             try await refreshOwnership()

@@ -171,8 +171,12 @@ class PlayBilling(
 
     fun restore(onDone: (Set<String>) -> Unit = {}) {
         scope.launch {
+            // Web and other-store ownership must not depend on Play being
+            // installed, connected or configured on this device.
+            refreshOwnership()
             try { configure() }
-            catch (error: Exception) { lastNotice = error.message; refreshOwnership(); onDone(entitlements()); changed(); return@launch }
+            catch (error: Exception) { lastNotice = error.message; onDone(entitlements()); changed(); return@launch }
+            if (skuToPack.isEmpty()) { lastNotice = "Shared purchases refreshed."; onDone(entitlements()); changed(); return@launch }
             ensureConnected {
                 val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
                 client.queryPurchasesAsync(params) { result, purchases ->

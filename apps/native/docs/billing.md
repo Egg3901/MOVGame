@@ -44,7 +44,7 @@ from.
 listProducts()   -> [{ storeSku, packId, price, currency }]   mapped from one table in MOVGame
 purchase(packId) -> transaction result
 restore()        -> re-deliver every non-consumable the account owns
-entitlements()   -> { packIds } from store receipts with a local, signed cache
+entitlements()   -> shared account packIds with a protected, expiring cache
 ```
 
 Store specifics:
@@ -91,6 +91,10 @@ appAccountToken and Play uses obfuscatedAccountId before checkout. The account
 service verifies current provider status and projects production receipts into
 its existing purchase ledger. Email and client-supplied owners cannot claim a
 purchase. A restore on a different Lakeside account rejects the claim.
+
+Shared ownership refresh runs before store queries. Existing web and other-store
+rights remain available when the store service is unavailable or the SKU catalog
+is empty. Store reconnect and restore redelivery do not gate that wallet read.
 
 MOV routes are `/api/store/catalog` (public), `/api/store/binding`,
 `/api/store/verify` and `/api/store/ownership` (authenticated). The dedicated
