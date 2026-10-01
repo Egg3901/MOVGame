@@ -233,6 +233,7 @@ export function ResultsScreen() {
                         seed: String(Date.now()),
                         playerCandidate: game.playerCandidate,
                         scenario: game.scenarioId,
+                        customScenario: game.customScenario,
                         eventMode: game.eventMode,
                         difficulty,
                       })

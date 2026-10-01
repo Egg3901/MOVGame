@@ -16,7 +16,13 @@ fun saveGame(state: GameState, seed: String, difficulty: String? = null): String
     EngineJson.encodeToString(SavedGame(seed = seed, state = state, difficulty = difficulty))
 
 fun loadGame(json: String): SavedGame? = runCatching {
-    EngineJson.decodeFromString<SavedGame>(json).takeIf {
+    EngineJson.decodeFromString<SavedGame>(json).also { saved ->
+        val state = saved.state
+        if (state.scenarioId?.startsWith("custom-") == true) {
+            val doc = customDocument(state.customScenario)
+            require(doc?.engine == "us" && doc.id == state.scenarioId)
+        } else require(state.customScenario == null)
+    }.takeIf {
         it.version == 1 && it.seed.isNotBlank() && (it.difficulty == null || it.difficulty in DIFFICULTY_MULTIPLIER)
     }
 }.getOrNull()
