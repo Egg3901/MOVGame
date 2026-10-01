@@ -41,6 +41,7 @@ import com.lakesidegames.electioneer.ui.SetupScreen
 import com.lakesidegames.electioneer.ui.StoreScreen
 import com.lakesidegames.electioneer.ui.CampaignLibraryScreen
 import com.lakesidegames.electioneer.ui.ElectionNightScreen
+import com.lakesidegames.electioneer.ui.DailyBoardsScreen
 import com.lakesidegames.electioneer.ui.WorldCampaignScreen
 
 class MainActivity : ComponentActivity() {
@@ -110,6 +111,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         Screen.REVEAL -> ElectionNightScreen(session)
                         Screen.STORE -> StoreScreen(session, activity)
                         Screen.ACCOUNT -> AccountScreen(session)
+                        Screen.BOARDS -> DailyBoardsScreen(session)
                         Screen.SAVES -> CampaignSavesScreen(session)
                         Screen.ANALYSIS -> AnalysisScreen(session)
                         Screen.REPLAY -> AnalysisScreen(session, timeline = true)

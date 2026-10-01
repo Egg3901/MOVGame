@@ -1,5 +1,8 @@
 package com.lakesidegames.electioneer.ui
 
+import com.lakesidegames.electioneer.engine.NativeDailyChampions
+import com.lakesidegames.electioneer.engine.NativePlayerRankings
+import com.lakesidegames.electioneer.engine.NativePlayerRanking
 import android.content.Context
 import com.lakesidegames.electioneer.engine.NativeAccountProgress
 import com.lakesidegames.electioneer.engine.NativeCollectedAward
@@ -72,6 +75,12 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
     val cloudSaves: StateFlow<List<CloudSaveMeta>> = _cloudSaves
     private var cloudVersionChecks = false
     private var boardGeneration = 0
+    private val _boardKey = MutableStateFlow("")
+    val boardKey: StateFlow<String> = _boardKey
+    private val _champions = MutableStateFlow<NativeDailyChampions?>(null)
+    val champions: StateFlow<NativeDailyChampions?> = _champions
+    private val _rankings = MutableStateFlow<List<NativePlayerRanking>>(emptyList())
+    val rankings: StateFlow<List<NativePlayerRanking>> = _rankings
     private val prefs = context.applicationContext.getSharedPreferences("mov_account_progress", Context.MODE_PRIVATE)
     private val progress = NativeAccountProgress.restore(prefs.getString("achievements_v1", null))
     private val _awards = MutableStateFlow(progress.awards())
@@ -176,6 +185,10 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
     fun syncAchievements() = operation { syncProgress(); _notice.value = "Achievements synced." }
     private suspend fun readDetails() {
         runCatching {
+            val response = call("/api/leaderboard/me")
+            _rankings.value = (NativePlayerRankings.parse(response.toString()) ?: error("Rankings unreadable.")).rankings
+        }.onFailure { _notice.value = "Personal rankings unavailable. Refresh your account to try again." }
+        runCatching {
             val response = call("/api/my-entitlements")
             val rows = response.getJSONArray("purchases")
             _purchases.value = (0 until rows.length()).map { rows.getJSONObject(it).let { row ->
@@ -196,12 +209,14 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
         _notice.value = "Campaign code activated."
     }
     fun signOut() {
+        _rankings.value = emptyList(); _boardKey.value = ""
         boardGeneration++; _board.value = emptyList(); _dailyRank.value = null; _purchases.value = emptyList(); _purchasesLoaded.value = false
         vault.clear(); token = null; _user.value = null; _unlocked.value = emptyList(); _cloudSaves.value = emptyList(); _notice.value = null
     }
 
     fun loadBoard(date: String, scenarioId: String? = null) {
         val generation = ++boardGeneration
+        _boardKey.value = scenarioId ?: "daily:$date"
         _board.value = emptyList(); _dailyRank.value = null
         scope.launch {
             runCatching {
@@ -216,8 +231,20 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
         }
     }
 
+    fun loadChampions() {
+        val generation = ++boardGeneration
+        _boardKey.value = "champions"; _champions.value = null
+        scope.launch {
+            runCatching {
+                val data = call("/api/daily/champions")
+                if (generation == boardGeneration) _champions.value = NativeDailyChampions.parse(data.toString()) ?: error("Champions unreadable.")
+            }.onFailure { if (generation == boardGeneration) _notice.value = "Daily champions unavailable. You can keep playing offline." }
+        }
+    }
+
     fun postScore(payload: String, daily: Boolean) = operation {
         val response = call(if (daily) "/api/daily" else "/api/leaderboard", "POST", JSONObject(payload))
+        if (daily) loadBoard(nativeUtcDay())
         _notice.value = if (response.getBoolean("posted")) "Score posted. Rank #${response.getInt("rank")}."
             else "Kept your personal best (${response.getInt("personalBest")}). Rank #${response.getInt("rank")}."
     }

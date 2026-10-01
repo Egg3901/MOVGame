@@ -10,17 +10,22 @@ import time
 
 def screenshot(device, destination):
     destination = pathlib.Path(destination)
-    destination.unlink(missing_ok=True)
     command = ['xcrun', 'simctl', 'io', device, 'screenshot', str(destination)]
-    print('Running:', ' '.join(command), flush=True)
-    try:
-        subprocess.check_output(command, text=True, timeout=120)
-    except subprocess.TimeoutExpired:
-        # simctl can finish writing a fresh image but stall returning to the
-        # caller. The existing rendered-screen probe must still validate it.
-        if not destination.is_file() or destination.stat().st_size == 0:
-            raise
-        print('Screenshot written; simctl response timed out', flush=True)
+    for attempt in range(2):
+        destination.unlink(missing_ok=True)
+        print('Running:', ' '.join(command), flush=True)
+        try:
+            subprocess.check_output(command, text=True, timeout=120)
+            return
+        except subprocess.TimeoutExpired:
+            # A fresh image still needs the existing rendered-screen probe.
+            if destination.is_file() and destination.stat().st_size > 0:
+                print('Screenshot written; simctl response timed out', flush=True)
+                return
+            if attempt == 1:
+                raise
+            print('Screenshot command stalled without an image; retrying once', flush=True)
+            time.sleep(10)
 
 
 def stop(process):

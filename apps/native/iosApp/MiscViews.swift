@@ -74,7 +74,6 @@ struct AccountView: View {
     @State private var username = ""
     @State private var registering = false
     @State private var code = ""
-    @State private var selectedBoard = "daily"
     @State private var showingLakeside = false
 
     init(session: GameSession) { self.session = session; self.account = session.account }
@@ -143,17 +142,14 @@ struct AccountView: View {
                 .padding(16).background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
                 NavigationLink("Manage saved campaigns") { CampaignSavesView(session: session) }
                 AccountAchievements(account: account)
-                Text("LEADERBOARDS").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
-                Picker("Election", selection: $selectedBoard) {
-                    Text("Today's daily challenge").tag("daily")
-                    ForEach(MobileCampaign.companion.countries().flatMap { MobileCampaign.companion.elections(countryId: $0.id) }, id: \.scenarioId) { election in
-                        Text("\(election.flag) \(election.label)").tag(election.scenarioId)
+                if account.user != nil && !account.rankings.isEmpty {
+                    DisclosureGroup("Your personal bests") {
+                        ForEach(account.rankings, id: \.scenarioId) { rank in
+                            Text("\(rank.scenarioId) · #\(rank.rank) · \(rank.score) · \(rank.difficulty)").font(.caption)
+                        }
                     }
-                }.pickerStyle(.menu)
-                if let rank = account.dailyRank { Text("Your daily rank: #\(rank.rank) · \(rank.score)").font(.headline).foregroundStyle(CampaignStyle.gold) }
-                if account.board.isEmpty { Text("No scores to show yet. You can keep playing offline.").font(.caption) }
-                ForEach(account.board, id: \.rank) { entry in Text("#\(entry.rank) \(entry.username) · \(entry.score)").font(.subheadline) }
-                Button("Refresh leaderboard") { Task { await account.loadBoard(date: nativeUTCDay(), scenarioId: selectedBoard == "daily" ? nil : selectedBoard) } }
+                }
+                NavigationLink("Leaderboards and daily champions") { AccountBoardsView(account: account) }
             }
             .padding(20)
         }
@@ -169,10 +165,10 @@ struct AccountView: View {
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { showingLakeside = true }
             #endif
         }
-        .task(id: "\(selectedBoard):\(account.user?.id ?? "guest")") { await account.loadBoard(date: nativeUTCDay(), scenarioId: selectedBoard == "daily" ? nil : selectedBoard) }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
     }
 }
+
 
 struct AccountUser: Decodable {
     let id: String
@@ -211,6 +207,9 @@ final class CampaignAccount: ObservableObject {
     @Published var unlocked: [String] = []
     @Published var cloudSaves: [CloudSaveMeta] = []
     @Published var dailyRank: PersonalDailyRank?
+    @Published var boardKey = ""
+    @Published var champions: NativeDailyChampions?
+    @Published var rankings: [NativePlayerRanking] = []
     @Published var purchases: [AccountPurchase] = []
     @Published var purchasesLoaded = false
     @Published var awards: [NativeCollectedAward] = []
@@ -275,7 +274,7 @@ final class CampaignAccount: ObservableObject {
         unlocked = []
         cloudSaves = []
         purchases = []; purchasesLoaded = false; dailyRank = nil
-        boardGeneration += 1; board = []
+        boardGeneration += 1; board = []; boardKey = ""; rankings = []
         message = nil
     }
 
@@ -311,6 +310,7 @@ final class CampaignAccount: ObservableObject {
     func loadBoard(date: String, scenarioId: String? = nil) async {
         boardGeneration += 1
         let generation = boardGeneration
+        boardKey = scenarioId ?? "daily:\(date)"
         board = []; dailyRank = nil
         do {
             let data = try await call(path: scenarioId.map { "/api/leaderboard?scenario=\($0)&limit=20" } ?? "/api/daily/board?date=\(date)")
@@ -320,6 +320,18 @@ final class CampaignAccount: ObservableObject {
         } catch { if generation == boardGeneration { message = "Leaderboard unavailable. You can keep playing offline." } }
     }
 
+    func loadChampions() async {
+        boardGeneration += 1
+        let generation = boardGeneration
+        boardKey = "champions"; champions = nil
+        do {
+            let data = try await call(path: "/api/daily/champions")
+            guard generation == boardGeneration, let json = String(data: data, encoding: .utf8),
+                  let result = NativeDailyChampions.companion.parse(json: json) else { return }
+            champions = result
+        } catch { if generation == boardGeneration { message = "Daily champions unavailable. You can keep playing offline." } }
+    }
+
     func postScore(payload: String, daily: Bool) async {
         guard !busy else { return }
         busy = true; message = nil
@@ -327,6 +339,7 @@ final class CampaignAccount: ObservableObject {
         do {
             let data = try await call(path: daily ? "/api/daily" : "/api/leaderboard", method: "POST", body: Data(payload.utf8))
             let posted = try JSONDecoder().decode(ScorePostResponse.self, from: data)
+            if daily { await loadBoard(date: nativeUTCDay()) }
             message = posted.posted ? "Score posted. Rank #\(posted.rank)." : "Kept your personal best (\(posted.personalBest)). Rank #\(posted.rank)."
         } catch { message = error.localizedDescription }
     }
@@ -374,6 +387,11 @@ final class CampaignAccount: ObservableObject {
         catch { message = "Achievements are saved on this device. Refresh your account to retry sync." }
     }
     private func readDetails() async {
+        do {
+            let data = try await call(path: "/api/leaderboard/me")
+            guard let json = String(data: data, encoding: .utf8), let result = NativePlayerRankings.companion.parse(json: json) else { throw AccountError("Rankings unreadable.") }
+            rankings = result.rankings
+        } catch { message = "Personal rankings unavailable. Refresh your account to try again." }
         do {
             let data = try await call(path: "/api/my-entitlements")
             purchases = try JSONDecoder().decode(PurchasesResponse.self, from: data).purchases
@@ -438,6 +456,8 @@ struct ScorePosting: View {
     init(session: GameSession) { self.session = session; self.account = session.account }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+        ResultJourneyCard(session: session)
         if let payload = session.scorePayload() {
             VStack(alignment: .leading, spacing: 8) {
                 if session.isDaily() { Text("DAILY CHALLENGE · Best \(session.dailyBest() ?? 0) · \(session.dailyStreak())-day streak").font(.caption.bold()).foregroundStyle(CampaignStyle.gold) }
@@ -454,6 +474,7 @@ struct ScorePosting: View {
             .sheet(isPresented: $showingAccount) {
                 NavigationStack { AccountView(session: session).toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { showingAccount = false } } } }
             }
+        }
         }
     }
 }

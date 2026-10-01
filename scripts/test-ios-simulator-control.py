@@ -65,10 +65,26 @@ class SimulatorControlTest(unittest.TestCase):
             path = pathlib.Path(folder) / 'screen.png'
             path.write_bytes(b'old image')
             timeout = subprocess.TimeoutExpired('simctl', 120)
-            with patch('ios_simulator_control.subprocess.check_output', side_effect=timeout):
+            with patch('ios_simulator_control.subprocess.check_output', side_effect=timeout) as capture, patch('ios_simulator_control.time.sleep'):
                 with self.assertRaises(subprocess.TimeoutExpired):
                     screenshot('device', path)
+            self.assertEqual(2, capture.call_count)
             self.assertFalse(path.exists())
+
+    def test_screenshot_recovers_when_first_command_times_out_without_an_image(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = pathlib.Path(folder) / 'screen.png'
+            attempts = []
+            def capture(*args, **kwargs):
+                attempts.append(args)
+                if len(attempts) == 1:
+                    raise subprocess.TimeoutExpired('simctl', 120)
+                path.write_bytes(b'fresh image to be checked by rendered-screen probe')
+                return ''
+            with patch('ios_simulator_control.subprocess.check_output', side_effect=capture), patch('ios_simulator_control.time.sleep'):
+                screenshot('device', path)
+            self.assertEqual(2, len(attempts))
+            self.assertTrue(path.exists())
 
     def test_fresh_screenshot_is_available_for_validation_after_response_timeout(self):
         with tempfile.TemporaryDirectory() as folder:
