@@ -75,10 +75,11 @@ class NativeSavesTest {
         assertEquals(JsonNull, expected("owner-a"))
         library.markSynced("save-one", "owner-a", 200)
         assertEquals(JsonPrimitive(200L), expected("owner-a"))
-        assertEquals(JsonNull, expected("owner-b"))
+        assertNull(library.uploadJson("save-one", "owner-b", 100))
         val remote = NativeSaveTransfer.export(saveGame(advanceCampaignWeek(game, "normal"), "one", "normal"))!!
         assertTrue(library.receiveCloud("save-one", "Cloud", remote, "owner-a", 300, "backup-one"))
         assertEquals(original, library.get("backup-one")!!.snapshot)
+        assertEquals("owner-a", library.get("backup-one")!!.cloudOwner)
         assertEquals(2, library.entries().size)
         assertEquals(300L, NativeSaveLibrary.restore(library.json())!!.get("save-one")!!.cloudVersion)
         library.remove("save-one")

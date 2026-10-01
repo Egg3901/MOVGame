@@ -86,6 +86,35 @@ class NativeCloudQueueTest {
         assertNotEquals(NativeAutosave.slot("alice", "one"), NativeAutosave.slot("bob", "one"))
         assertFailsWith<IllegalArgumentException> { NativeAutosave.slot("../bad", "one") }
     }
+    @Test fun offlineQueueClaimsTheSaveBeforeAnyNetworkAcknowledgement() {
+        val library = NativeSaveLibrary.empty()
+        val queue = NativeCloudQueue.empty()
+        val snapshot = MobileGame.startGame("dem", "normal", 1).saveSnapshot()
+        assertTrue(library.save("pending-save", "Campaign", snapshot, 1))
+        assertTrue(queue.offerSave(library, "pending-save", "alice"))
+        val restored = NativeSaveLibrary.restore(library.json())!!
+        val pending = NativeCloudQueue.restore(queue.json())
+        assertEquals("alice", restored.get("pending-save")?.cloudOwner)
+        assertNull(restored.get("pending-save")?.cloudVersion)
+        assertFalse(pending.offerSave(restored, "pending-save", "bob"))
+        assertNull(restored.uploadJson("pending-save", "bob", 2))
+        assertNotNull(restored.uploadJson("pending-save", "alice", 2))
+        assertEquals(1, pending.pending("alice"))
+        assertEquals(0, pending.pending("bob"))
+        assertEquals(snapshot, restored.get("pending-save")?.snapshot)
+    }
+    @Test fun droppingAnInvalidWriteKeepsOtherOwnersWritesAndCheckpoints() {
+        val queue = NativeCloudQueue.empty()
+        queue.offer("same-id", "alice", 1)
+        queue.offer("same-id", "bob", 1)
+        queue.removeOwned("same-id", "bob")
+        assertEquals(1, queue.pending("alice"))
+        assertEquals(0, queue.pending("bob"))
+        queue.acknowledge(queue.next("alice", 0)!!)
+        queue.removeOwned("same-id", "bob")
+        queue.offer("same-id", "alice", 1)
+        assertEquals(0, queue.pending("alice"))
+    }
     @Test fun corruptAndFutureOutboxesDoNotCreateUploads() {
         assertEquals(0, NativeCloudQueue.restore("bad json").pending("alice"))
         assertEquals(0, NativeCloudQueue.restore("{\"version\":2,\"writes\":[]}").pending("alice"))

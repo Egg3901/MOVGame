@@ -24,6 +24,12 @@ class NativeCloudQueue private constructor(private var writes: List<NativeCloudW
         }.getOrElse { empty() }
     }
     fun json(): String = EngineJson.encodeToString(NativeCloudOutbox(writes = writes, checkpoints = checkpoints))
+    fun offerSave(library: NativeSaveLibrary, id: String, owner: String): Boolean {
+        val entry = library.get(id) ?: return false
+        if (entry.document?.engine != "us" || !library.claimCloud(id, owner)) return false
+        offer(id, owner, entry.updatedAt)
+        return true
+    }
     fun offer(id: String, owner: String, revision: Long) {
         if (!NativeSaveLibrary.validId(id) || owner.isBlank() || revision < 0) return
         if (checkpoints.any { it.id == id && it.owner == owner && it.revision >= revision }) return
@@ -54,4 +60,8 @@ class NativeCloudQueue private constructor(private var writes: List<NativeCloudW
     }
     fun retry(owner: String) { writes = writes.map { if (it.owner == owner) it.copy(failures = 0, retryAt = 0, blocked = false, blockedReason = "") else it } }
     fun remove(id: String) { writes = writes.filterNot { it.id == id }; checkpoints = checkpoints.filterNot { it.id == id } }
+    fun removeOwned(id: String, owner: String) {
+        writes = writes.filterNot { it.id == id && it.owner == owner }
+        checkpoints = checkpoints.filterNot { it.id == id && it.owner == owner }
+    }
 }
