@@ -30,6 +30,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Typecheck the MOV backend
+        run: npx tsc --project tsconfig.server.json
       - name: Check native content matches web
         run: npm run native:content -- --check
       - name: Check native plan vectors match web

@@ -1,7 +1,7 @@
 # Store billing adapters
 
 The native beta offers the complete catalog for free. Store channels hide the
-Lakeside checkout, and their empty SKU tables cannot sell packs. This document
+Lakeside checkout, and the unconfigured platform SKU catalog cannot sell packs. This document
 describes the adapters and configuration needed before native paid sales.
 
 ## The seam that already exists
@@ -34,8 +34,8 @@ from.
 - The current open beta makes the complete catalog playable for free on web,
   iOS and Android. The paid model below is planned release behavior. When paid
   gating is enabled, two starter scenarios and the daily challenge stay free.
-- Both native SKU tables are empty. App Store Connect has no MOV IAP products
-  as of 2026-10-01. Play Console inventory is unverified. The app cannot sell
+- The platform store SKU catalog is empty. App Store Connect has no MOV IAP products
+  as of 2026-10-01. The owner confirms the Play app still needs creating. The app cannot sell
   packs until actual products, mappings and validation are configured.
 
 ## Adapter surface (identical on all three stores)
@@ -83,36 +83,41 @@ The current beta stays free. Future in-app pack sales require configured
 store products and actual purchase/refund/restore verification. Desktop-direct
 and web retain their Lakeside policy; Steam paid DLC needs partner setup.
 
-## Server-side bridge (open design question for the owner)
+## Shared Lakeside ownership
 
-A store purchase currently has no path into the Lakeside entitlement record, so
-a mobile purchase would be device-scoped. Two options:
+The owner selected shared ownership across web, iOS and Android on 2026-10-01.
+Both adapters obtain a binding through authenticated MOV routes. StoreKit uses
+appAccountToken and Play uses obfuscatedAccountId before checkout. The account
+service verifies current provider status and projects production receipts into
+its existing purchase ledger. Email and client-supplied owners cannot claim a
+purchase. A restore on a different Lakeside account rejects the claim.
 
-1. **Store-scoped (simplest, launch-safe).** The adapter keeps store receipts and
-   a signed local cache; the platform knows nothing. Cross-platform purchase
-   recognition does not happen.
-2. **Receipt bridge.** Add a platform endpoint that accepts a validated store
-   receipt and mints a Lakeside entitlement. Needed if a Play purchase should
-   ever appear on the web. Recognition of existing web purchases follows the
-   platform and product decisions above; it is not universally prohibited.
+MOV routes are `/api/store/catalog` (public), `/api/store/binding`,
+`/api/store/verify` and `/api/store/ownership` (authenticated). The dedicated
+MOV_STORE_BRIDGE_TOKEN stays server-side. Apple signed JWS and Google purchase
+tokens are sent to the platform for provider validation. StoreKit transactions
+finish only after durable delivery; Google acknowledgement runs on the server
+after the grant. Notifications and provider rechecks handle refunds and missed
+notifications. Sandbox receipts never grant production ownership.
 
-Choose the ownership model before paid sales. The current free beta does not
-depend on this decision.
+The four SKU mappings are read from the platform MOV_STORE_PRODUCTS configuration.
+Neither native client invents product IDs or derives local rights from a receipt
+before server delivery. Product names and regional prices come from the store.
+Paid offerings stay disabled until both stores are configured and verified.
 
-## Offline and refund behaviour (release gates)
+## Offline and refund behaviour
 
-- Cache the last known entitlement set with a signed timestamp; owned packs stay
-  playable offline for a grace period; the free app is never blocked.
-- A refund or revocation drops the pack on the next check and must not be
-  re-granted from a stale cache.
-- Test: purchase, refund, reinstall, offline refresh — the sequence in
-  `docs/mobile.md`, on a real device or a store sandbox.
+The shared NativeStoreWallet policy accepts fresh authenticated ownership
+snapshots. Keychain and Android Keystore protect its serialized cache. It is
+bound to the authenticated session and expires seven days after confirmation.
+Offline reads do not renew that timestamp. Logout and account changes prevent
+reuse of the previous wallet. A fresh server snapshot replaces the old set;
+delayed responses cannot restore an already observed refund. Provider outages
+retain only the current session's unexpired cache. The beta remains free.
 
-## Pack → SKU mapping
-
-One table, exported from MOVGame, mapping `packId` → per-store SKU, so the three
-stores cannot drift. Add the SKU column when the first store product is created;
-until then the adapter has nothing to sell.
+Actual purchase, refund, restore, reinstall and offline exercises on both store
+builds remain release gates. Unit fixtures and simulator flows do not prove a
+configured provider transaction.
 
 ## Remaining configuration
 

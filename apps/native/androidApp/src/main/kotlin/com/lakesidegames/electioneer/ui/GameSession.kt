@@ -128,6 +128,7 @@ class GameSession : ViewModel() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     override fun onCleared() {
         if (::settings.isInitialized) settings.close()
+        billing?.close()
         scope.cancel()
         super.onCleared()
     }
@@ -431,7 +432,7 @@ class GameSession : ViewModel() {
 
     fun attachBilling(context: Context) {
         if (billing != null) return
-        val b = PlayBilling(context, BuildConfig.PLAY_PUBLIC_KEY)
+        val b = PlayBilling(context, account, scope)
         billing = b
         b.setOnChangeListener {
             _owned.value = b.entitlements()
@@ -439,6 +440,17 @@ class GameSession : ViewModel() {
         }
         _owned.value = b.entitlements()
         b.listProducts { _products.value = it }
+        scope.launch { account.storeOwned.collect { _owned.value = account.cachedStorePacks() } }
+        scope.launch {
+            account.user.collect {
+                _products.value = emptyList()
+                _owned.value = account.cachedStorePacks()
+                if (it?.ahdLinked == true) {
+                    b.listProducts { products -> _products.value = products }
+                    b.restore { packs -> _owned.value = packs }
+                }
+            }
+        }
     }
 
     fun buy(activity: Activity, packId: String) {

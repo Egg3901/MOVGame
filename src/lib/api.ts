@@ -35,9 +35,9 @@ export interface Purchase {
   packId: string | null;
   packName: string | null;
   scenarioId: string | null;
-  provider: "stripe" | "code";
-  amountCents: number;
-  currency: string;
+  provider: "stripe" | "code" | "apple" | "google";
+  amountCents: number | null;
+  currency: string | null;
   status: "paid" | "refunded";
   createdAt: number;
 }

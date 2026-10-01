@@ -10,7 +10,10 @@ function fmtDate(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function fmtAmount(cents: number, currency: string): string {
+function fmtAmount(cents: number | null, currency: string | null, provider: string): string {
+  if (provider === "apple") return "App Store";
+  if (provider === "google") return "Google Play";
+  if (cents == null || currency == null) return provider === "code" ? "Code" : "Purchase";
   if (cents === 0) return "Code";
   return `$${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
 }
@@ -105,7 +108,7 @@ export function AccountModal() {
                       {p.status === "refunded" && <span className="account-chip" style={{ marginLeft: 6 }}>Refunded</span>}
                     </span>
                     <span className="muted small" style={{ whiteSpace: "nowrap" }}>
-                      {fmtAmount(p.amountCents, p.currency)} · {fmtDate(p.createdAt)}
+                      {fmtAmount(p.amountCents, p.currency, p.provider)} · {fmtDate(p.createdAt)}
                     </span>
                   </div>
                 ))}

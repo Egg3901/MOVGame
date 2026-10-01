@@ -1,16 +1,31 @@
 {
   "compilerOptions": {
     "target": "ES2021",
-    "lib": ["ES2021"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "allowImportingTsExtensions": false,
+    "lib": [
+      "ES2021"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "noEmit": true,
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
-  "include": ["server", "src/engine/scoring.ts", "src/content/packs.ts", "src/content/scenarioRegistry.ts"]
+  "include": [
+    "server",
+    "src/engine/scoring.ts",
+    "src/content/packs.ts",
+    "src/content/scenarioRegistry.ts"
+  ],
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "server/__tests__"
+  ]
 }

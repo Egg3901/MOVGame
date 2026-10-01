@@ -2,7 +2,6 @@ package com.lakesidegames.electioneer.billing
 
 import android.app.Activity
 import android.content.Context
-import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
@@ -13,23 +12,38 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
-import com.lakesidegames.electioneer.store.VerifiedPurchase
-import com.lakesidegames.electioneer.store.activePacks
+import com.lakesidegames.electioneer.ui.CampaignAccount
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 
-// Play Billing adapter (Phase 5, #8): the billing.md surface
-// listProducts / purchase / restore / entitlements for non-consumables.
-// Purchases are acknowledged (or Google auto-refunds); restore re-delivers
-// via queryPurchases; entitlements() unions verified purchases with the
-// signed local cache under the shared grace policy. RTDN refunds and the
-// receipt-bridge endpoint are server-side (web repo, out of scope); the
-// client picks refunds up on the next queryPurchases because a refunded
-// purchase stops being returned.
+// Store receipts are delivered to the authenticated Lakeside bridge. Only its
+// shared wallet grants rights; acknowledgement is durable and server-side.
 class PlayBilling(
     context: Context,
-    playPublicKeyBase64: String,
+    private val account: CampaignAccount,
+    private val scope: CoroutineScope,
 ) : PurchasesUpdatedListener {
     private val appContext = context.applicationContext
-    private val cache = EntitlementCache(appContext, playPublicKeyBase64)
+    private var skuToPack: Map<String, String> = emptyMap()
+    private var binding: JSONObject? = null
+    private var bindingSession: String? = null
+    private var purchasesEnabled = false
+    private suspend fun configure() {
+        val session = account.storeSessionKey() ?: error("Sign in with your Lakeside account to manage purchases.")
+        val response = account.storeBinding()
+        check(session == account.storeSessionKey()) { "Account changed during store setup." }
+        val rows = response.getJSONArray("products")
+        skuToPack = (0 until rows.length()).mapNotNull { i ->
+            val row = rows.getJSONObject(i)
+            if (row.isNull("googleSku")) null else row.getString("googleSku") to row.getString("packId")
+        }.toMap()
+        binding = response
+        bindingSession = session
+        purchasesEnabled = response.getBoolean("purchasesEnabled")
+    }
+    private fun currentBinding() = bindingSession != null && bindingSession == account.storeSessionKey()
+
     private var onChange: (() -> Unit)? = null
 
     private val client: BillingClient = BillingClient.newBuilder(appContext)
@@ -40,6 +54,7 @@ class PlayBilling(
         .build()
 
     private var connected = false
+    private var connecting = false
     private val pendingOnConnect = mutableListOf<() -> Unit>()
     private var detailsBySku: Map<String, ProductDetails> = emptyMap()
 
@@ -58,8 +73,11 @@ class PlayBilling(
             return
         }
         pendingOnConnect.add(run)
+        if (connecting) return
+        connecting = true
         client.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
+                connecting = false
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
                     connected = true
                     val queued = pendingOnConnect.toList()
@@ -74,85 +92,72 @@ class PlayBilling(
 
             override fun onBillingServiceDisconnected() {
                 connected = false
+                connecting = false
             }
         })
     }
 
-    // listProducts: details for every SKU in the table (empty until the
-    // first Play Console product exists).
     fun listProducts(onDone: (List<StoreProduct>) -> Unit) {
-        val skus = SkuTable.entries.map { it.playSku }
-        if (skus.isEmpty()) {
-            onDone(emptyList())
-            return
+        scope.launch {
+            try {
+                configure()
+                if (!purchasesEnabled || skuToPack.isEmpty()) { onDone(emptyList()); return@launch }
+                queryProducts(onDone)
+            } catch (_: Exception) { onDone(emptyList()) }
         }
+    }
+    private fun queryProducts(onDone: (List<StoreProduct>) -> Unit) {
+        val session = bindingSession
         ensureConnected {
-            val params = QueryProductDetailsParams.newBuilder()
-                .setProductList(
-                    skus.map { sku ->
-                        QueryProductDetailsParams.Product.newBuilder()
-                            .setProductId(sku)
-                            .setProductType(BillingClient.ProductType.INAPP)
-                            .build()
-                    },
-                )
-                .build()
+            val params = QueryProductDetailsParams.newBuilder().setProductList(skuToPack.keys.map { sku ->
+                QueryProductDetailsParams.Product.newBuilder().setProductId(sku).setProductType(BillingClient.ProductType.INAPP).build()
+            }).build()
             client.queryProductDetailsAsync(params) { result, details ->
+                if (session != account.storeSessionKey() || !currentBinding()) { onDone(emptyList()); return@queryProductDetailsAsync }
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                    detailsBySku = details.productDetailsList.associateBy {
-                        it.productId
-                    }
+                    detailsBySku = details.productDetailsList.associateBy { it.productId }
                     onDone(details.productDetailsList.mapNotNull { d ->
-                        val packId = SkuTable.packForSku(d.productId) ?: return@mapNotNull null
-                        StoreProduct(
-                            packId = packId,
-                            sku = d.productId,
-                            title = d.title,
-                            price = d.oneTimePurchaseOfferDetails?.formattedPrice ?: "",
-                        )
+                        val pack = skuToPack[d.productId] ?: return@mapNotNull null
+                        val offer = d.oneTimePurchaseOfferDetails ?: return@mapNotNull null
+                        StoreProduct(packId = pack, sku = d.productId, title = d.title, price = offer.formattedPrice)
                     })
-                } else {
-                    lastNotice = "Product lookup failed (${result.responseCode})."
-                    onDone(emptyList())
-                }
+                } else { lastNotice = "Product lookup failed."; onDone(emptyList()) }
                 changed()
             }
         }
     }
 
-    // purchase: launch the Play flow for a pack.
     fun purchase(activity: Activity, packId: String) {
-        val sku = SkuTable.skuForPack(packId) ?: return
-        ensureConnected {
-            val details = detailsBySku[sku]
-            if (details == null) {
-                listProducts { products ->
-                    val retry = products.firstOrNull { it.sku == sku }
-                        ?.let { detailsBySku[sku] }
-                    if (retry != null) launchFlow(activity, retry) else changed()
+        scope.launch {
+            try {
+                configure()
+                check(purchasesEnabled) { "Paid packs are not available yet." }
+                val sku = skuToPack.entries.firstOrNull { it.value == packId }?.key ?: error("This pack is unavailable.")
+                queryProducts { products ->
+                    if (products.any { it.sku == sku }) detailsBySku[sku]?.let { details -> launchFlow(activity, details) }
+                    else { lastNotice = "This pack is currently unavailable."; changed() }
                 }
-                return@ensureConnected
-            }
-            launchFlow(activity, details)
+            } catch (error: Exception) { lastNotice = error.message; changed() }
         }
     }
-
     private fun launchFlow(activity: Activity, details: ProductDetails) {
+        if (!currentBinding() || !purchasesEnabled) { lastNotice = "Refresh your Lakeside account before purchasing."; changed(); return }
+        val item = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(details)
+        details.oneTimePurchaseOfferDetails?.offerToken?.takeIf { it.isNotBlank() }?.let { item.setOfferToken(it) }
         val params = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(
-                listOf(
-                    BillingFlowParams.ProductDetailsParams.newBuilder()
-                        .setProductDetails(details)
-                        .build(),
-                ),
-            )
-            .build()
-        client.launchBillingFlow(activity, params)
+            .setObfuscatedAccountId(binding!!.getString("playAccountId"))
+            .setProductDetailsParamsList(listOf(item.build())).build()
+        val result = client.launchBillingFlow(activity, params)
+        if (result.responseCode != BillingClient.BillingResponseCode.OK) { lastNotice = "Purchase could not start."; changed() }
     }
 
     override fun onPurchasesUpdated(result: BillingResult, purchases: List<Purchase>?) {
         if (result.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
-            for (purchase in purchases) handlePurchase(purchase)
+            scope.launch {
+                for (purchase in purchases) deliver(purchase)
+                refreshOwnership()
+                changed()
+            }
         } else if (result.responseCode == BillingClient.BillingResponseCode.USER_CANCELED) {
             lastNotice = "Purchase canceled."
             changed()
@@ -162,60 +167,41 @@ class PlayBilling(
         }
     }
 
-    // restore + refresh: re-deliver every owned non-consumable, acknowledge
-    // anything still pending, and reconcile the cache (refunds vanish from
-    // queryPurchases, so they drop out of entitlements here).
     fun restore(onDone: (Set<String>) -> Unit = {}) {
-        ensureConnected {
-            val params = QueryPurchasesParams.newBuilder()
-                .setProductType(BillingClient.ProductType.INAPP)
-                .build()
-            client.queryPurchasesAsync(params) { result, purchases ->
-                if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                    lastNotice = "Restore failed (${result.responseCode})."
-                    onDone(entitlements())
-                    changed()
-                    return@queryPurchasesAsync
+        scope.launch {
+            try { configure() }
+            catch (error: Exception) { lastNotice = error.message; refreshOwnership(); onDone(entitlements()); changed(); return@launch }
+            ensureConnected {
+                val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
+                client.queryPurchasesAsync(params) { result, purchases ->
+                    scope.launch {
+                        if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                            for (purchase in purchases) deliver(purchase)
+                        } else lastNotice = "Store restore unavailable. Shared ownership will still refresh."
+                        refreshOwnership()
+                        onDone(entitlements())
+                        changed()
+                    }
                 }
-                for (purchase in purchases) handlePurchase(purchase)
-                // Drop cache entries the store no longer reports (refunds).
-                val liveSkus = purchases
-                    .filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
-                    .flatMap { it.products }
-                    .toSet()
-                for (entry in SkuTable.entries) {
-                    if (entry.playSku !in liveSkus) cache.drop(entry.packId)
-                }
-                onDone(entitlements())
-                changed()
             }
         }
     }
-
-    private fun handlePurchase(purchase: Purchase) {
-        if (purchase.purchaseState != Purchase.PurchaseState.PURCHASED) return
-        if (!purchase.isAcknowledged) {
-            val params = AcknowledgePurchaseParams.newBuilder()
-                .setPurchaseToken(purchase.purchaseToken)
-                .build()
-            client.acknowledgePurchase(params) { _ -> }
-        }
-        val now = System.currentTimeMillis()
-        for (sku in purchase.products) {
-            val packId = SkuTable.packForSku(sku)
-                ?: EntitlementCache.packIdFromPurchaseData(purchase.originalJson)
-                ?: continue
-            cache.store(packId, purchase.originalJson, purchase.signature, now)
-        }
-        lastNotice = "Purchase complete."
-        changed()
+    private suspend fun deliver(purchase: Purchase) {
+        if (purchase.purchaseState == Purchase.PurchaseState.PENDING) { lastNotice = "Purchase pending."; return }
+        if (purchase.purchaseState != Purchase.PurchaseState.PURCHASED || purchase.products.none { it in skuToPack }) return
+        try {
+            val result = account.verifyStorePurchase(purchase.purchaseToken)
+            lastNotice = when {
+                result.getString("status") != "paid" -> "Purchase is not active."
+                result.getString("environment") == "Sandbox" -> "Test purchase verified. Production ownership is unchanged."
+                else -> "Purchase delivered to your Lakeside account."
+            }
+        } catch (error: Exception) { lastNotice = error.message ?: "Purchase delivery will retry when you restore." }
     }
-
-    // entitlements: verified live purchases plus the signed cache under the
-    // shared grace policy. Query path is synchronous (cache only); call
-    // restore() first for a live check.
-    fun entitlements(): Set<String> {
-        val now = System.currentTimeMillis()
-        return activePacks(emptyList(), cache.load(now), now)
+    private suspend fun refreshOwnership() {
+        try { account.refreshStoreOwnership() }
+        catch (error: Exception) { if (lastNotice == null) lastNotice = error.message ?: "Shared purchases will refresh when online." }
     }
+    fun close() { onChange = null; pendingOnConnect.clear(); client.endConnection() }
+    fun entitlements(): Set<String> = account.cachedStorePacks()
 }

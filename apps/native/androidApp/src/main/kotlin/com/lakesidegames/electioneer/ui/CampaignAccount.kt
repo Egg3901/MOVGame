@@ -4,6 +4,8 @@ import com.lakesidegames.electioneer.engine.NativeDailyChampions
 import com.lakesidegames.electioneer.engine.NativePlayerRankings
 import com.lakesidegames.electioneer.engine.NativePlayerRanking
 import android.content.Context
+import com.lakesidegames.electioneer.engine.NativeStoreWallet
+import java.security.MessageDigest
 import com.lakesidegames.electioneer.engine.NativeAccountProgress
 import com.lakesidegames.electioneer.engine.NativeCollectedAward
 import android.security.keystore.KeyGenParameterSpec
@@ -25,14 +27,14 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class AccountUser(val id: String, val username: String, val email: String, val ahdLinked: Boolean = false)
-data class AccountPurchase(val name: String, val amountCents: Int, val currency: String, val refunded: Boolean, val createdAt: Long)
+data class AccountPurchase(val name: String, val amountCents: Int?, val currency: String?, val provider: String, val refunded: Boolean, val createdAt: Long)
 data class PersonalDailyRank(val rank: Int, val score: Int)
 data class BoardEntry(val rank: Int, val username: String, val score: Int)
 data class CloudSaveMeta(val id: String, val name: String, val turn: Int, val updatedAt: Long)
 
-private class SessionToken(context: Context) {
-    private val prefs = context.getSharedPreferences("mov_account", Context.MODE_PRIVATE)
-    private val alias = "mov_account_session"
+private class SessionToken(context: Context, namespace: String = "mov_account") {
+    private val prefs = context.getSharedPreferences(namespace, Context.MODE_PRIVATE)
+    private val alias = namespace + "_session"
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(alias, null) as? SecretKey)?.let { return it }
@@ -63,6 +65,34 @@ private class CampaignRequestError(val status: Int, message: String, val conflic
 class CampaignAccount(context: Context, private val scope: CoroutineScope) {
     private val vault = SessionToken(context.applicationContext)
     @Volatile private var token = vault.read()
+    private val walletVault = SessionToken(context.applicationContext, "mov_store_wallet")
+    private val storeWallet = NativeStoreWallet.restore(walletVault.read())
+    private val _storeOwned = MutableStateFlow(cachedStorePacks())
+    val storeOwned: StateFlow<Set<String>> = _storeOwned
+    fun storeSessionKey(): String? = token?.let { credential ->
+        MessageDigest.getInstance("SHA-256").digest(credential.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    }
+    fun cachedStorePacks(): Set<String> = storeWallet.packs(storeSessionKey(), System.currentTimeMillis()).toSet()
+    suspend fun storeBinding(): JSONObject {
+        check(_user.value?.ahdLinked == true) { "Sign in with your Lakeside account to manage shared purchases." }
+        val owner = _user.value!!.id
+        val response = call("/api/store/binding", "POST", JSONObject())
+        check(response.getString("owner") == owner && _user.value?.id == owner) { "Account changed during store setup." }
+        return response
+    }
+    suspend fun verifyStorePurchase(purchaseToken: String): JSONObject =
+        call("/api/store/verify", "POST", JSONObject().put("store", "google").put("purchaseToken", purchaseToken))
+    suspend fun refreshStoreOwnership(): Set<String> {
+        val session = storeSessionKey() ?: error("Sign in to refresh shared purchases.")
+        val response = call("/api/store/ownership", "POST", JSONObject())
+        val owner = _user.value?.id ?: response.getString("owner")
+        check(session == storeSessionKey() && storeWallet.accept(response.toString(), session, owner, System.currentTimeMillis())) {
+            "Shared account ownership could not be read."
+        }
+        storeWallet.json()?.let { walletVault.save(it) }
+        _storeOwned.value = cachedStorePacks()
+        return _storeOwned.value
+    }
     private val _user = MutableStateFlow<AccountUser?>(null)
     val user: StateFlow<AccountUser?> = _user
     private val _busy = MutableStateFlow(false)
@@ -105,7 +135,7 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
             connection.requestMethod = method
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 15_000
-            connection.readTimeout = 20_000
+            connection.readTimeout = if (path.startsWith("/api/store/")) 75_000 else 20_000
             connection.setRequestProperty("Content-Type", "application/json")
             credential?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
@@ -195,7 +225,7 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
             val rows = response.getJSONArray("purchases")
             _purchases.value = (0 until rows.length()).map { rows.getJSONObject(it).let { row ->
                 AccountPurchase(row.optString("packName").takeIf { it != "null" && it.isNotBlank() } ?: row.optString("packId", "Campaign"),
-                    row.getInt("amountCents"), row.getString("currency"), row.getString("status") == "refunded", row.getLong("createdAt"))
+                    if (row.isNull("amountCents")) null else row.getInt("amountCents"), if (row.isNull("currency")) null else row.getString("currency"), row.optString("provider", "code"), row.getString("status") == "refunded", row.getLong("createdAt"))
             } }
             _purchasesLoaded.value = true
         }.onFailure { _notice.value = "Purchase history unavailable. Refresh your account to try again." }
@@ -213,7 +243,7 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
     fun signOut() {
         _rankings.value = emptyList(); _boardKey.value = ""
         boardGeneration++; _board.value = emptyList(); _dailyRank.value = null; _purchases.value = emptyList(); _purchasesLoaded.value = false
-        vault.clear(); token = null; _user.value = null; _unlocked.value = emptyList(); _cloudSaves.value = emptyList(); _notice.value = null
+        vault.clear(); token = null; _storeOwned.value = emptySet(); _user.value = null; _unlocked.value = emptyList(); _cloudSaves.value = emptyList(); _notice.value = null
     }
 
     fun loadBoard(date: String, scenarioId: String? = null) {

@@ -42,6 +42,7 @@ fun StoreScreen(session: GameSession, activity: Activity) {
     val products by session.products.collectAsState()
     val owned by session.owned.collectAsState()
     val notice by session.storeNotice.collectAsState()
+    val user by session.account.user.collectAsState()
 
     if (products.isEmpty()) {
         Shell(
@@ -51,7 +52,13 @@ fun StoreScreen(session: GameSession, activity: Activity) {
             body = "Explore U.S., UK, Canadian, German, French, and Australian elections. There are no purchases in the app yet.",
         )
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            Button(onClick = { session.go(Screen.LIBRARY) }, modifier = Modifier.padding(24.dp)) { Text("Choose an election") }
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                notice?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                if (user?.ahdLinked == true) {
+                    OutlinedButton(onClick = session::restorePurchases) { Text("Restore purchases") }
+                }
+                Button(onClick = { session.go(Screen.LIBRARY) }) { Text("Choose an election") }
+            }
         }
         return
     }
@@ -74,11 +81,11 @@ fun StoreScreen(session: GameSession, activity: Activity) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(product.title, style = MaterialTheme.typography.titleSmall)
                     Text(
-                        if (product.packId in owned) "Owned" else product.price,
+                        if (product.packId in owned || "complete" in owned) "Owned" else product.price,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                if (product.packId !in owned) {
+                if (product.packId !in owned && "complete" !in owned) {
                     Button(onClick = { session.buy(activity, product.packId) }) {
                         Text("Buy")
                     }
@@ -128,9 +135,17 @@ fun AccountScreen(session: GameSession) {
             if (!purchasesLoaded) Text(if (busy) "Loading purchase history…" else "Refresh your account to load purchase history.")
             else if (purchases.isEmpty()) Text("No purchases yet. Campaigns are free to play during the open beta.", style = MaterialTheme.typography.bodySmall)
             purchases.forEach { purchase ->
-                val amount = if (purchase.amountCents == 0) "Code" else runCatching {
-                    java.text.NumberFormat.getCurrencyInstance().apply { currency = java.util.Currency.getInstance(purchase.currency.uppercase()) }.format(purchase.amountCents / 100.0)
-                }.getOrElse { "${purchase.amountCents / 100.0} ${purchase.currency.uppercase()}" }
+                val cents = purchase.amountCents
+                val money = purchase.currency
+                val amount = when {
+                    purchase.provider == "apple" -> "App Store"
+                    purchase.provider == "google" -> "Google Play"
+                    cents == null || money == null -> "Purchase"
+                    cents == 0 -> "Code"
+                    else -> runCatching {
+                        java.text.NumberFormat.getCurrencyInstance().apply { currency = java.util.Currency.getInstance(money.uppercase()) }.format(cents / 100.0)
+                    }.getOrElse { "${cents / 100.0} ${money.uppercase()}" }
+                }
                 val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(purchase.createdAt))
                 Text("${purchase.name} · $amount · $date${if (purchase.refunded) " · Refunded" else ""}")
             }
