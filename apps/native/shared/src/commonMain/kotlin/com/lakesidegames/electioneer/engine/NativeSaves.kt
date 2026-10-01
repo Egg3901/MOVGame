@@ -31,7 +31,9 @@ class NativeSaveTransfer private constructor() {
                 SavedGame(seed = seed, state = state, difficulty = difficulty)
             }
             val game = saved.state
-            require(game.scenarioId == null || game.scenarioId in SCENARIOS)
+            val custom = customDocument(game.customScenario)
+            if (game.scenarioId?.startsWith("custom-") == true) require(custom?.engine == "us" && custom.id == game.scenarioId)
+            else require(game.customScenario == null && (game.scenarioId == null || game.scenarioId in SCENARIOS))
             require(saved.difficulty == null || saved.difficulty in DIFFICULTY_MULTIPLIER)
             require(game.seed in 0..0xffffffffL && game.rngState in 0..0xffffffffL)
             require(game.totalTurns in listOf(5, 9, 14) && game.turn in 0..game.totalTurns)
@@ -46,7 +48,7 @@ class NativeSaveTransfer private constructor() {
             }
             require(game.queuedActions.all { it.candidate == game.playerCandidate })
             NativeSaveDocument(saveGame(game, saved.seed, saved.difficulty), "us",
-                SCENARIOS[game.scenarioId ?: "2020"]!!.label, game.turn, game.playerCandidate.serial)
+                custom?.label ?: SCENARIOS[game.scenarioId ?: "2020"]!!.label, game.turn, game.playerCandidate.serial)
         }.getOrNull()
 
         fun export(snapshot: String): String? {

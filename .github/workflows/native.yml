@@ -22,6 +22,7 @@ jobs:
       - run: python3 "${{ github.workspace }}/scripts/verify-ios-metadata.py"
       - run: python3 "${{ github.workspace }}/scripts/test-ios-screen-ready.py"
       - run: python3 "${{ github.workspace }}/scripts/test-ios-simulator-control.py"
+      - run: python3 "${{ github.workspace }}/scripts/test-android-ui-semantics.py"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -44,6 +45,7 @@ jobs:
       - name: Check native election-night allocations and schedules
         run: npx tsx apps/native/scripts/export-reveal-vectors.ts --check
       - run: npx tsx apps/native/scripts/export-daily-percentiles.ts --check
+      - run: npx tsx apps/native/scripts/export-editor-vectors.ts --check
       - name: Verify desktop uses this checkout
         run: node apps/native/scripts/fetch-web.mjs steam
   android:
@@ -64,11 +66,47 @@ jobs:
           packages: 'platform-tools platforms;android-36'
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :shared:jvmTest :androidApp:assembleDebug --no-daemon --max-workers=2
+      - run: ./gradlew :shared:jvmTest :androidApp:testDebugUnitTest :androidApp:assembleDebug --no-daemon --max-workers=2
+      - name: Verify packaged Android startup metadata
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print androidApp/build/outputs/apk/debug/androidApp-debug.apk > "$RUNNER_TEMP/mov-android-manifest.xml"
+          python3 ../../scripts/verify-android-metadata.py "$RUNNER_TEMP/mov-android-manifest.xml"
+      - name: Verify packaged Android campaign content
+        run: python3 ../../scripts/verify-android-bundles.py androidApp/build/outputs/apk/debug/androidApp-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: mov-android-debug
           path: apps/native/androidApp/build/outputs/apk/debug/*.apk
+          retention-days: 7
+  android-flows:
+    name: Android emulator flows
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mov-android-debug
+          path: android-apk
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          script: python3 scripts/android-launch-smoke.py android-apk/androidApp-debug.apk android-captures
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-emulator-flows
+          path: android-captures
           retention-days: 7
   ios:
     name: iOS simulator launch
@@ -115,6 +153,28 @@ jobs:
         with:
           name: ios-simulator-launch
           path: ${{ runner.temp }}/mov-launch
+  ios-layouts:
+    name: Small iPhone and iPad flows
+    needs: ios
+    runs-on: macos-26
+    timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned-ios-simulator-app
+          path: ${{ runner.temp }}/mov-layouts
+      - name: Capture small phone and tablet navigation
+        run: |
+          tar -xzf "$RUNNER_TEMP/mov-layouts/mov-simulator.tar.gz" -C "$RUNNER_TEMP/mov-layouts"
+          python3 scripts/ios-layout-smoke.py "$RUNNER_TEMP/mov-layouts/MOVGameiOS.app" "$RUNNER_TEMP/mov-layout-captures"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-layout-flows
+          path: ${{ runner.temp }}/mov-layout-captures
   ios27:
     name: iOS 27 iPhone 17 Pro Max launch
     needs: ios

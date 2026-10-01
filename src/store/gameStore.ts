@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { registerCampaignCustomScenario } from "@content/customScenario";
 import {
   createGame,
   beginGame,
@@ -331,6 +332,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     if (!record) record = await remoteProvider.load(id);
     if (!record) return;
+    registerCampaignCustomScenario(record.state);
     let replayRec = await localProvider.loadReplay(id).catch(() => null);
     if (!replayRec) replayRec = await remoteProvider.loadReplay(id);
     const replay = resumeReplayLog(record.state, replayRec?.log ?? null);
@@ -365,6 +367,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     try {
       const state = JSON.parse(json) as GameState;
       if (!state.states || !state.candidates) throw new Error("Invalid save");
+      registerCampaignCustomScenario(state);
       // Exported saves are just the raw GameState JSON (see exportSave), so an
       // imported save never carries a replay log. Regenerating a fresh log
       // from the current turn is the simpler-and-correct option here (see

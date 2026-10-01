@@ -11,8 +11,15 @@ struct StoreView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Choose an election").font(.title2.bold())
-                Text("Every U.S. campaign in this TestFlight build is playable.")
+                Text("All 49 elections across six countries are free to play during the open beta.")
                     .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                Button("Browse all elections") {
+                    session.dailySetup = nil
+                    session.playScreen = .library
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                Text("U.S. elections").font(.headline).foregroundStyle(CampaignStyle.gold)
                 ForEach(session.campaigns(), id: \.id) { campaign in
                     Button {
                         session.setupScenarioId = campaign.id

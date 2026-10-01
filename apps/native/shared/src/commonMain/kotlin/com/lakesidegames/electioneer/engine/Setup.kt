@@ -6,6 +6,7 @@ import com.lakesidegames.electioneer.content.ISSUES
 import com.lakesidegames.electioneer.content.OPPONENT_OF
 import com.lakesidegames.electioneer.content.STAFF_BY_ID
 import com.lakesidegames.electioneer.content.STATE_SEEDS
+import com.lakesidegames.electioneer.content.Scenario
 import com.lakesidegames.electioneer.content.ScenarioTicket
 import com.lakesidegames.electioneer.content.StateSeed
 import com.lakesidegames.electioneer.content.defaultRunningMate
@@ -196,6 +197,8 @@ data class NewGameOptions(
     val runningMate: String? = null,
     // Election scenario id; defaults to "2020".
     val scenario: String? = null,
+    val scenarioOverride: Scenario? = null,
+    val customScenario: String? = null,
     // Event source; defaults to historical.
     val eventMode: EventMode = EventMode.HISTORICAL,
     // Difficulty; defaults to normal.
@@ -216,7 +219,7 @@ fun createGame(opts: NewGameOptions = NewGameOptions()): GameState {
         else -> 0L // no platform clock in common code: explicit seeds only
     }
 
-    val scenario = getScenario(opts.scenario)
+    val scenario = opts.scenarioOverride ?: getScenario(opts.scenario)
 
     // National issue salience: scenario values where given, else base.
     val salience = mutableMapOf<String, Double>()
@@ -300,6 +303,7 @@ fun createGame(opts: NewGameOptions = NewGameOptions()): GameState {
         phase = GamePhase.INTEL,
         playerCandidate = player,
         scenarioId = scenario.id,
+        customScenario = opts.customScenario,
         eventMode = opts.eventMode,
         playerEdge = handicap.persuasion,
         locations = mutableMapOf(),

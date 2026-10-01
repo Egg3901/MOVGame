@@ -20,6 +20,11 @@ enum PlayScreen: Equatable {
 
 @MainActor
 final class GameSession: ObservableObject {
+    @Published var confirmEmptyWeek = false
+    func requestEndTurn() {
+        guard let game, !game.isOver(), eventId == nil, !showRecap else { return }
+        if game.plannedActions().isEmpty { confirmEmptyWeek = true } else { endTurn() }
+    }
     @Published var showReveal = false
     private(set) var electionNight: NativeElectionNight?
     private func presentReveal(force: Bool = false) {

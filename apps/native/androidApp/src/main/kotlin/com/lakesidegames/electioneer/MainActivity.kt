@@ -42,6 +42,7 @@ import com.lakesidegames.electioneer.ui.SetupScreen
 import com.lakesidegames.electioneer.ui.StoreScreen
 import com.lakesidegames.electioneer.ui.CampaignLibraryScreen
 import com.lakesidegames.electioneer.ui.ElectionNightScreen
+import com.lakesidegames.electioneer.ui.NativeEditorScreen
 import com.lakesidegames.electioneer.ui.NativeSettingsScreen
 import com.lakesidegames.electioneer.ui.NativeGuideScreen
 import com.lakesidegames.electioneer.ui.NativeCampaignCoach
@@ -77,6 +78,9 @@ class MainActivity : ComponentActivity() {
         gameSession = session
         session.attachStorage(applicationContext)
         session.attachBilling(applicationContext)
+        if (BuildConfig.DEBUG) intent.getStringExtra("mov_capture")?.let { flow ->
+            runCatching { captureDebugFlow(session, flow) }.onFailure { android.util.Log.e("MOVCapture", "Capture failed: $flow", it) }
+        }
         setContent { MarginOfVictoryApp(session, this) }
     }
 }
@@ -85,7 +89,7 @@ class MainActivity : ComponentActivity() {
 fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
     val screen by session.screen.collectAsState()
     BackHandler(enabled = screen != Screen.HOME && screen != Screen.REVEAL) {
-        if (screen in listOf(Screen.SETTINGS, Screen.GUIDE, Screen.BOARDS, Screen.SAVES)) session.go(Screen.ACCOUNT)
+        if (screen in listOf(Screen.SETTINGS, Screen.GUIDE, Screen.BOARDS, Screen.SAVES, Screen.EDITOR)) session.go(Screen.ACCOUNT)
         else if (screen in listOf(Screen.ANALYSIS, Screen.REPLAY)) session.resumeGame()
         else session.go(Screen.HOME)
     }
@@ -118,7 +122,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                             label = { Text("Store") },
                         )
                         NavigationBarItem(
-                            selected = screen in listOf(Screen.ACCOUNT, Screen.SAVES, Screen.BOARDS, Screen.SETTINGS, Screen.GUIDE),
+                            selected = screen in listOf(Screen.ACCOUNT, Screen.SAVES, Screen.BOARDS, Screen.SETTINGS, Screen.GUIDE, Screen.EDITOR),
                             onClick = { session.go(Screen.ACCOUNT) },
                             icon = {
                                 Icon(Icons.Filled.AccountCircle, contentDescription = "Account")
@@ -144,6 +148,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
                         Screen.ACCOUNT -> AccountScreen(session)
                         Screen.SETTINGS -> NativeSettingsScreen(session)
                         Screen.GUIDE -> NativeGuideScreen()
+                        Screen.EDITOR -> NativeEditorScreen(session)
                         Screen.BOARDS -> DailyBoardsScreen(session)
                         Screen.SAVES -> CampaignSavesScreen(session)
                         Screen.ANALYSIS -> AnalysisScreen(session)

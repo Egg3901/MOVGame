@@ -104,6 +104,7 @@ data class CountryGameState(
     var pendingEvent: CountryPendingEvent? = null,
     // Player-authored game: casual only, never posts a score.
     val custom: Boolean? = null,
+    val customScenario: String? = null,
     var result: CountryResult? = null,
 )
 

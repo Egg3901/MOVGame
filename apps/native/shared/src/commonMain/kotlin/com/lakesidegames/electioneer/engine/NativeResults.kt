@@ -32,13 +32,14 @@ object NativeResults {
 
     fun achievements(game: GameState, difficulty: String?): List<NativeAward> {
         val result = game.result ?: return emptyList()
-        if (difficulty == null) return emptyList()
+        if (difficulty == null || game.customScenario != null) return emptyList()
         return checkAchievements(AchievementContext(result, game, game.playerCandidate, difficulty))
             .map { NativeAward(it.id, it.name, it.description, it.icon) }
     }
 
     fun historicalUs(game: GameState): List<NativeHistoricalRegion> {
         val result = game.result ?: return emptyList()
+        if (game.customScenario != null) return emptyList()
         val dem = game.playerCandidate == CandidateId.DEM
         val scenario = getScenario(game.scenarioId)
         return result.stateResults.map { row ->

@@ -51,13 +51,15 @@ struct NativeSettingsView: View {
             }
             Section("Hardware keyboard") {
                 Toggle("Keyboard shortcuts", isOn: $settings.hotkeysOn)
-                Text("Enter or Space ends the week when moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.").font(.caption)
+                Text("Enter or Space ends the week, with confirmation if no moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.").font(.caption)
             }
             Section("Learn the game") {
                 NavigationLink("How to play") { CampaignGuideView() }
                 Button("Replay tutorial") { settings.replayTutorial(); dismiss() }
             }
             Section("Margin of Victory") {
+                Link("Privacy policy", destination: URL(string: "https://lakesidegames.net/games/electioneer/?legal=privacy")!)
+                Link("Terms of service", destination: URL(string: "https://lakesidegames.net/games/electioneer/?legal=terms")!)
                 Link("Contact support", destination: URL(string: "mailto:support@lakesidegames.net")!)
                 Link("Web game", destination: URL(string: "https://lakesidegames.net/games/electioneer/")!)
                 Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""))").font(.caption)

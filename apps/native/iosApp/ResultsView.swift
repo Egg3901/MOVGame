@@ -43,13 +43,14 @@ struct ResultsView: View {
                             Text("\(Int(g.resultRepEv())) REP").foregroundStyle(CampaignStyle.republican)
                         }
                         .font(.title2.bold())
-                        Text(String(format: "Democratic popular vote %.1f%%", g.resultDemPopularShare() * 100))
+                        Text("\(g.ticketName(side: "dem")) popular vote \(String(format: "%.1f%%", g.resultDemPopularShare() * 100))")
                             .font(.caption).foregroundStyle(.secondary)
-                        Text(String(format: "Republican popular vote %.1f%%", (1 - g.resultDemPopularShare()) * 100))
+                        Text("\(g.ticketName(side: "rep")) popular vote \(String(format: "%.1f%%", (1 - g.resultDemPopularShare()) * 100))")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(20)
                     .background(Color(red: 17/255, green: 27/255, blue: 38/255), in: RoundedRectangle(cornerRadius: 18))
+                    if g.isCustom() { Text("CUSTOM CAMPAIGN · CASUAL ONLY").font(.caption.bold()).foregroundStyle(CampaignStyle.gold) }
                     if let summary = g.resultSummary() {
                         VStack(alignment: .leading, spacing: 8) {
                             if summary.score >= 0 {

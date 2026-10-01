@@ -149,14 +149,8 @@ fun SetupScreen(session: GameSession) {
                         row.forEach { state -> FilterChip(selected = whatIfState == state, onClick = { whatIfState = state }, label = { Text(state.ifEmpty { "Off" }) }) }
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Mirror match · underdog boost", modifier = Modifier.weight(1f))
-                    Switch(checked = mirrorMatch, onCheckedChange = { mirrorMatch = it })
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Pandemic era issues", modifier = Modifier.weight(1f))
-                    Switch(checked = pandemic, onCheckedChange = { pandemic = it })
-                }
+                NativeToggle("Mirror match · underdog boost", mirrorMatch, { mirrorMatch = it })
+                NativeToggle("Pandemic era issues", pandemic, { pandemic = it })
                 OutlinedTextField(value = seed, onValueChange = { seed = it.take(32) }, label = { Text("Campaign seed") }, supportingText = { Text("Use the same seed to replay the same campaign") }, modifier = Modifier.fillMaxWidth())
             }
         }

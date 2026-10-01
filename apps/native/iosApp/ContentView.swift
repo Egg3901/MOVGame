@@ -97,13 +97,20 @@ private struct AskWebView: UIViewRepresentable {
 
 struct ContentView: View {
     @ObservedObject var session: GameSession
+    @Environment(\.sizeCategory) private var systemSizeCategory
+    private var captureSizeCategory: ContentSizeCategory {
+        #if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--mov-capture-large-text") { return .accessibilityLarge }
+        #endif
+        return systemSizeCategory
+    }
     @State private var showingMenu = false
     @State private var showingAsk = false
     @StateObject private var askBrowser = AskBrowser()
     @State private var menuDestination: MenuDestination? = nil
 
     private enum MenuDestination: String, Identifiable {
-        case store, account, credits, guide, saves, analysis, replay, boards, settings
+        case store, account, credits, guide, saves, analysis, replay, boards, settings, editor
         var id: String { rawValue }
     }
 
@@ -123,6 +130,8 @@ struct ContentView: View {
             }
             Button("Start a new campaign") { session.playScreen = .library }
             Button("Campaign library") { session.playScreen = .library }
+            Button("Store") { menuDestination = .store }
+            Button("Scenario editor") { menuDestination = .editor }
             Button("Settings") { menuDestination = .settings }
             Button("How to play") { menuDestination = .guide }
             Button(session.hasGame ? "Ask about this campaign" : "Ask about Margin of Victory") {
@@ -143,11 +152,12 @@ struct ContentView: View {
                     case .analysis: CampaignAnalysisView(session: session)
                     case .replay: CampaignAnalysisView(session: session, timeline: true)
                     case .credits: ImageCreditsView()
+                    case .editor: NativeEditorView(session: session)
                     case .guide: CampaignGuideView()
                     case .settings: NativeSettingsView(settings: session.settings)
                     }
                 }
-                .navigationTitle(destination == .settings ? "Settings" : destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .replay ? "Campaign replay" : destination == .boards ? "Leaderboards" : destination == .guide ? "How to play" : "Image credits")
+                .navigationTitle(destination == .editor ? "Scenario editor" : destination == .settings ? "Settings" : destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .replay ? "Campaign replay" : destination == .boards ? "Leaderboards" : destination == .guide ? "How to play" : "Image credits")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { menuDestination = nil }
@@ -184,6 +194,8 @@ struct ContentView: View {
         .onAppear {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") || ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { menuDestination = .account }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-editor") { menuDestination = .editor }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-store") { menuDestination = .store }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-settings") { menuDestination = .settings }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-guide") { menuDestination = .guide }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-champions") { menuDestination = .boards }
@@ -197,6 +209,7 @@ struct ContentView: View {
             }
             #endif
         }
+        .environment(\.sizeCategory, captureSizeCategory)
     }
 
     private func openAsk() {

@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -161,9 +163,11 @@ fun WorldCampaignScreen(session: GameSession) {
     var issueId by remember(game) { mutableStateOf(game.issues().first().id) }
     var rival by remember(game) { mutableStateOf("") }
     var day by remember(game) { mutableIntStateOf(1) }
+    var confirmEmptyWeek by remember(game) { mutableStateOf(false) }
     var showRecap by remember(game) { mutableStateOf(false) }
     var notice by remember(game) { mutableStateOf<String?>(null) }
     var showHistory by remember(game) { mutableStateOf(false) }
+    fun requestEndWeek() { if (game.plan().isEmpty()) confirmEmptyWeek = true else if (session.endWorldWeek()) showRecap = game.recap().isNotEmpty() }
     val unit = game.unitName()
     var lastShortcut by remember { mutableIntStateOf(session.shortcutSequence) }
     LaunchedEffect(session.shortcutSequence) {
@@ -173,9 +177,13 @@ fun WorldCampaignScreen(session: GameSession) {
         if (!game.hasPendingEvent() && !game.isOver() && !showRecap) {
             val index = session.shortcut.toIntOrNull()?.minus(1)
             if (index != null && index in game.actionTypes().indices) type = game.actionTypes()[index]
-            if (session.shortcut in listOf("enter", " ") && game.plan().isNotEmpty() && session.endWorldWeek()) showRecap = game.recap().isNotEmpty()
+            if (session.shortcut in listOf("enter", " ")) requestEndWeek()
         }
     }
+    if (confirmEmptyWeek) AlertDialog(onDismissRequest = { confirmEmptyWeek = false }, title = { Text("End week without moves?") },
+        text = { Text("You have no actions queued this week. Unspent slots win nothing. End the week anyway?") },
+        confirmButton = { TextButton(onClick = { confirmEmptyWeek = false; if (session.endWorldWeek()) showRecap = game.recap().isNotEmpty() }) { Text("End week") } },
+        dismissButton = { TextButton(onClick = { confirmEmptyWeek = false }) { Text("Keep planning") } })
     val regional = type in listOf("rally", "surrogate", "ground_game", "gotv", "canvass")
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
@@ -242,7 +250,7 @@ fun WorldCampaignScreen(session: GameSession) {
                 if (type == "broadcast") {
                     ChoicePicker("Broadcast mode", mode, listOf("positive", "contrast", "issue").map { it to actionName(it) }) { mode = it }
                     Text("Spend ${game.currency()}${number(spend.toDouble())}M")
-                    Slider(spend, { spend = it }, valueRange = 0.5f..10f)
+                    Slider(spend, { spend = it }, valueRange = 0.5f..10f, modifier = Modifier.semantics { contentDescription = "Campaign spend in millions" })
                     Text(if (regionId.isEmpty()) "National reaches every region where your party stands." else "Regional spending concentrates on this target.", style = MaterialTheme.typography.bodySmall)
                 }
                 if (type == "issue_pivot" || (type == "broadcast" && mode == "issue")) {
@@ -265,10 +273,11 @@ fun WorldCampaignScreen(session: GameSession) {
                     TextButton(onClick = { game.removeAction(action.index); session.campaignChanged() }) { Text("Remove") }
                 }
             }
-            item { Button(onClick = { if (session.endWorldWeek()) { showRecap = game.recap().isNotEmpty() } },
+            item { Button(onClick = { requestEndWeek() },
                 enabled = !game.hasPendingEvent(), modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("End week") } }
         } else {
             item { ScorePosting(session) }
+            if (game.isCustom()) item { Text("CUSTOM CAMPAIGN · CASUAL ONLY", color = MaterialTheme.colorScheme.primary) }
             item { game.resultSummary()?.let { summary -> Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("CAMPAIGN SCORE ${summary.score} / 1000", style = MaterialTheme.typography.titleMedium)
                 Text("${summary.difficulty.replaceFirstChar { it.uppercase() }} difficulty · $unit above majority: ${summary.unitMargin}")

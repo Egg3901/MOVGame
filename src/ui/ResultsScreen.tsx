@@ -3,6 +3,7 @@ import { useGameStore } from "@store/gameStore";
 import { useAuthStore } from "@store/authStore";
 import { GRID, SPLIT_UNITS, GRID_COLS, GRID_ROWS } from "@content/mapLayout";
 import { STATE_PATHS } from "@content/statePaths";
+import { isCustomScenarioId } from "@content/customScenario";
 import { SCENARIOS } from "@content/scenarios";
 import { US_NEXT_SCENARIO } from "@content/nextScenario";
 import type { Projection } from "@engine/index";
@@ -232,6 +233,7 @@ export function ResultsScreen() {
                         seed: String(Date.now()),
                         playerCandidate: game.playerCandidate,
                         scenario: game.scenarioId,
+                        customScenario: game.customScenario,
                         eventMode: game.eventMode,
                         difficulty,
                       })
@@ -343,21 +345,22 @@ function ScoreAndAchievements() {
   const openModal = useAuthStore((s) => s.openModal);
   const result = game.result!;
   const player = game.playerCandidate;
+  const custom = isCustomScenarioId(game.scenarioId);
   const scenarioId = `us-${SCENARIOS[game.scenarioId ?? "2020"]?.year ?? game.scenarioId}`;
 
   const facts = useMemo(() => usScoreFacts(result, player, difficulty), [result, player, difficulty]);
   const evMargin = usOpponentEvMargin(result, player);
   const score = computeScoreFromFacts(facts);
   const earned = useMemo(
-    () => checkAchievements({ result, game, player, difficulty }),
-    [result, game, player, difficulty],
+    () => custom ? [] : checkAchievements({ result, game, player, difficulty }),
+    [result, game, player, difficulty, custom],
   );
 
   const [postState, setPostState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [postNote, setPostNote] = useState("");
   // Only the Standard (9-week) campaign length is comparable across players,
   // so Short/Long games are casual only and can't be posted to the leaderboard.
-  const standardLength = game.totalTurns === 9;
+  const standardLength = game.totalTurns === 9 && !custom;
 
   // Persist achievements once per mount: server for accounts, local for guests.
   useEffect(() => {
@@ -369,6 +372,7 @@ function ScoreAndAchievements() {
   }, []);
 
   const post = async () => {
+    if (!standardLength) return;
     setPostState("busy");
     try {
       const out = await api.postScore({
@@ -435,7 +439,7 @@ function ScoreAndAchievements() {
           </div>
           <div style={{ textAlign: "right" }}>
             {!standardLength ? (
-              <span className="muted small">Short and Long games are casual only and don't post to the leaderboard</span>
+              <span className="muted small">{custom ? "Custom scenarios are casual only and do not post scores or earn ranked achievements" : "Short and Long games are casual only and do not post to the leaderboard"}</span>
             ) : user ? (
               <button className="primary" disabled={postState === "busy" || postState === "done" || serverDown} onClick={post}>
                 {postState === "done" ? "Posted ✓" : postState === "busy" ? "Posting…" : serverDown ? "Offline" : "Post to Leaderboard"}

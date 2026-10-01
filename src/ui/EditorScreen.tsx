@@ -385,7 +385,7 @@ export function EditorScreen({ onClose, onLaunch }: { onClose: () => void; onLau
       return;
     }
     registerCustomScenario(cs);
-    newGame({ scenario: cs.id, playerCandidate: "dem", difficulty: "normal", eventMode: cs.eventMode ?? "historical" });
+    newGame({ scenario: cs.id, customScenario: JSON.stringify(cs), playerCandidate: "dem", difficulty: "normal", eventMode: cs.eventMode ?? "historical" });
   };
 
   const saveAndPlay = async () => {

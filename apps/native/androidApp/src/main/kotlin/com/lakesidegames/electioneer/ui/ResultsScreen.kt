@@ -36,7 +36,7 @@ import androidx.compose.material3.TextButton
 @Composable
 fun ResultsScreen(session: GameSession) {
     val game by session.game.collectAsState()
-    val g = game ?: return
+    val g = game.state ?: return
     val result = g.result
     if (result == null) {
         Column(
@@ -95,6 +95,7 @@ fun ResultsScreen(session: GameSession) {
                 if (!info.standardLength) Text("Short and long campaigns are casual runs. Standard nine-week campaigns are comparable on the leaderboard.", style = MaterialTheme.typography.bodySmall)
             } }
         }
+        if (g.customScenario != null) Text("CUSTOM CAMPAIGN · CASUAL ONLY", color = MaterialTheme.colorScheme.primary)
         ScorePosting(session)
         if (achievements.isNotEmpty()) {
             Text("ACHIEVEMENTS EARNED", Modifier.fillMaxWidth().padding(top = 16.dp), color = MaterialTheme.colorScheme.primary)

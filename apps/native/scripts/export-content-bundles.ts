@@ -17,6 +17,8 @@ const WEB_REPO = path.resolve(HERE, "../../..");
 const OUT = path.resolve(HERE, "../shared/src/commonMain/resources/bundles");
 
 async function main() {
+  const editor = await import(`${WEB_REPO}/src/content/customScenario.ts`);
+  const { makeDefaultCustomScenario, makeDefaultMultiparty, validateCustomScenario } = editor;
   const { SOUND_CUES } = await import(`${WEB_REPO}/src/lib/sfxTones.ts`);
   const { BLOCS } = await import(`${WEB_REPO}/src/content/blocs.ts`);
   const { CANDIDATES, OPPONENT_OF } = await import(`${WEB_REPO}/src/content/candidates.ts`);
@@ -58,6 +60,22 @@ async function main() {
     })) };
 
   const bundles: Record<string, unknown> = {
+    "editor-defaults": Object.fromEntries(["US", "UK", "CA", "DE", "FR", "AU"].flatMap(country => {
+      const elections = country === "US" ? [undefined] : SCENARIO_REGISTRY.filter((m: any) => m.country === country).map((m: any) => m.nativeId);
+      return elections.map(election => {
+        const draft = country === "US" ? makeDefaultCustomScenario() : makeDefaultMultiparty(country === "UK" ? "uk" : "country", country === "UK" ? undefined : country);
+        if (draft.mp && election) {
+          // Export every base election through the same web defaults helper.
+          draft.year = SCENARIO_REGISTRY.find((m: any) => m.country === country && m.nativeId === election)!.year;
+          draft.mp.baseElection = election;
+          draft.mp.parties = editor.multipartyPartiesFor(draft.engine as "uk" | "country", draft.mp.countryId, election);
+        }
+        draft.id = "custom-default"; draft.createdAt = 0; draft.updatedAt = 0;
+        const validated = validateCustomScenario(draft);
+        if (!validated.ok) throw Error(validated.errors.join("\n"));
+        return [`${country}:${election ?? ""}`, validated.value];
+      });
+    })),
     "sound-cues": SOUND_CUES,
     "scenario-registry": SCENARIO_REGISTRY,
     "next-campaigns": Object.fromEntries(SCENARIO_REGISTRY.flatMap((meta: any) => {

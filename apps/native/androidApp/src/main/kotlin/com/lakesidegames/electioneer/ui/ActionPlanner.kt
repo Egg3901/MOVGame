@@ -29,6 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lakesidegames.electioneer.engine.ActionType
@@ -116,7 +118,7 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
                     }
                 }
                 Text("Spend: $${spend.toInt()}M", style = MaterialTheme.typography.labelMedium)
-                Slider(value = spend, onValueChange = { spend = it }, valueRange = 1f..30f, steps = 28)
+                Slider(value = spend, onValueChange = { spend = it }, valueRange = 1f..30f, steps = 28, modifier = Modifier.semantics { contentDescription = "Ad spend in millions" })
             }
             if (type == ActionType.ISSUE_PIVOT || (type == ActionType.ADVERTISE && adMode == AdMode.ISSUE)) {
                 Box {
@@ -134,7 +136,7 @@ fun ActionPlanner(session: GameSession, game: GameState, selectedId: String?) {
             }
             if (type == ActionType.ISSUE_PIVOT) {
                 Text("Position: ${"%.2f".format(position)}  ·  left −1 to right +1", style = MaterialTheme.typography.labelMedium)
-                Slider(value = position, onValueChange = { position = it }, valueRange = -1f..1f)
+                Slider(value = position, onValueChange = { position = it }, valueRange = -1f..1f, modifier = Modifier.semantics { contentDescription = "Issue position: ${game.issues[issue.serial]?.name ?: issue.serial}" })
             }
             Text("Add to day", style = MaterialTheme.typography.labelMedium)
             listOf(1, 2, 3, 4, 5, 6, 7).chunked(4).forEach { row ->

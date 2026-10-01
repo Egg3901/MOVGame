@@ -32,7 +32,8 @@ object NativeReveal {
                     state?.let { (row.winner == CandidateId.DEM) != (it.prior2020DemShare > 0.5) } ?: false)
             }
             val scenarioId = game.scenarioId ?: "2020"
-            return NativeRevealData("Election Night · ${SCENARIOS[scenarioId]?.year ?: scenarioId}", units.sumOf { it.units }, 270,
+            val title = customDocument(game.customScenario)?.label ?: (SCENARIOS[scenarioId]?.year ?: scenarioId).toString()
+            return NativeRevealData("Election Night · $title", units.sumOf { it.units }, 270,
                 listOf("dem", "rep").map { id -> game.candidates.getValue(id).let { NativeRevealParty(id, it.shortName, it.color) } },
                 units, game.playerCandidate.serial, "EV", "269-269: ELECTION GOES TO THE HOUSE", "reveal-${game.seed}-us-$scenarioId")
         }
@@ -40,7 +41,7 @@ object NativeReveal {
         val uk = world.uk
         val country = world.country
         if ((uk == null) == (country == null)) return null
-        val bundle = country?.let { getCountry(it.countryId) } ?: if (country != null) return null else null
+        val bundle = country?.let { countryForGame(it) } ?: if (country != null) return null else null
         val seatResults = uk?.result?.seatResults ?: country?.result?.seatResults ?: return null
         val seats = uk?.result?.seats ?: country!!.result!!.seats
         val regions = uk?.regions ?: country!!.regions

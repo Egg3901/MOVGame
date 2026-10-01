@@ -118,7 +118,7 @@ object NativeReplay {
         }
         val uk = source.uk
         val country = source.country
-        val bundle = country?.let { getCountry(it.countryId)!! }
+        val bundle = country?.let { countryForGame(it)!! }
         val majority = uk?.let(::majorityForUk) ?: majorityFor(country!!, bundle!!)
         val ids = uk?.parties ?: country!!.parties
         val log = NativeReplayLog(engine = if (uk != null) "uk" else "country",
@@ -197,7 +197,7 @@ object NativeReplay {
         val uk = source.uk
         val country = source.country
         val ukResult = uk?.let(::projectUk)
-        val countryResult = country?.let { projectCountry(it, getCountry(it.countryId)!!) }
+        val countryResult = country?.let { projectCountry(it, countryForGame(it)!!) }
         val player = uk?.playerParty ?: country!!.playerParty
         val standings = (uk?.parties ?: country!!.parties).map { id -> NativeReplayStanding(id,
             (ukResult?.voteShare ?: countryResult!!.voteShare)[id] ?: 0.0, (ukResult?.seats ?: countryResult!!.seats)[id] ?: 0) }

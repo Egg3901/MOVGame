@@ -1,9 +1,8 @@
 # Store billing adapters
 
-The native clients can be built and shipped today, but they cannot *sell*
-anything: the store channels deliberately disable the Lakeside checkout and
-nothing has replaced it. This is the contract for the three adapters that close
-that gap, and it is the gating item for pack sales on every native platform.
+The native beta offers the complete catalog for free. Store channels hide the
+Lakeside checkout, and their empty SKU tables cannot sell packs. This document
+describes the adapters and configuration needed before native paid sales.
 
 ## The seam that already exists
 
@@ -32,8 +31,12 @@ from.
   and are OR'd on top of platform purchases (`server/activation.ts`).
 - The client holds the result in `src/store/authStore.ts` (`unlocked`), and pack
   → scenario gating lives in `src/content/scenarioRegistry.ts`.
-- Two starter scenarios and the daily challenge are free. Anything else is a
-  paid pack.
+- The current open beta makes the complete catalog playable for free on web,
+  iOS and Android. The paid model below is planned release behavior. When paid
+  gating is enabled, two starter scenarios and the daily challenge stay free.
+- Both native SKU tables are empty. App Store Connect has no MOV IAP products
+  as of 2026-10-01. Play Console inventory is unverified. The app cannot sell
+  packs until actual products, mappings and validation are configured.
 
 ## Adapter surface (identical on all three stores)
 
@@ -56,20 +59,29 @@ Store specifics:
   read from Steamworks, and **the Steamworks partner setup and DLC SKUs do not
   exist yet**, so Steam pack sales cannot launch until they do.
 
-## Store policy constraint (decides the architecture)
+## Store purchases and existing account access
 
-Apple and Google require their own billing for digital content consumed in the
-app. So on ios/android, packs must be sold through the store, and a pack bought
-on the web must **not** unlock on mobile — that is why `externalStore: false` is
-correct and must stay. The pricing doc already states the same rule: a signed-in
-player may use an existing Lakeside entitlement on another platform only where
-store policy permits and the equivalent content is available through that
-platform's purchase system.
+Keep two decisions separate: selling digital packs inside a native app and
+recognizing content already bought on another platform.
 
-Consequence: the launch-safe position is
-- web + desktop-direct: Lakeside checkout, as today;
-- ios + android: store-only pack sales, store-scoped entitlements;
-- steam: DLC-only, after Steamworks DLC exists.
+- Native digital sales normally use StoreKit on iOS and Play Billing on Play,
+  subject to documented storefront/program exceptions. The existing
+  `externalStore: false` policy hides Lakeside checkout inside native builds.
+- [Apple guideline 3.1.3(b)](https://developer.apple.com/app-store/review/guidelines/#multiplatform-services)
+  allows access to previously acquired multiplatform content when the same
+  items are also available as in-app purchases in the app. The old blanket
+  prohibition on recognizing web-bought packs was incorrect.
+- [Google's Payments FAQ](https://support.google.com/googleplay/android-developer/answer/10281818?hl=en)
+  explicitly allows consumption-only access to content bought elsewhere.
+  Consumption-only apps offer no purchases inside the app. Apps offering
+  native digital sales follow the separate Play Billing requirements.
+- Existing-account access, receipt bridging, activation-code UI and regional
+  purchase links need explicit release decisions. Store-scoped ownership is
+  an architectural option, not a universal prohibition on shared ownership.
+
+The current beta stays free. Future in-app pack sales require configured
+store products and actual purchase/refund/restore verification. Desktop-direct
+and web retain their Lakeside policy; Steam paid DLC needs partner setup.
 
 ## Server-side bridge (open design question for the owner)
 
@@ -81,11 +93,11 @@ a mobile purchase would be device-scoped. Two options:
    recognition does not happen.
 2. **Receipt bridge.** Add a platform endpoint that accepts a validated store
    receipt and mints a Lakeside entitlement. Needed if a Play purchase should
-   ever appear on the web — but note store policy still forbids the reverse
-   direction on mobile.
+   ever appear on the web. Recognition of existing web purchases follows the
+   platform and product decisions above; it is not universally prohibited.
 
-Recommendation: ship (1) for the first store submission, then decide on (2) once
-Play sales exist. Do not block the Android launch on the bridge.
+Choose the ownership model before paid sales. The current free beta does not
+depend on this decision.
 
 ## Offline and refund behaviour (release gates)
 
@@ -102,9 +114,10 @@ One table, exported from MOVGame, mapping `packId` → per-store SKU, so the thr
 stores cannot drift. Add the SKU column when the first store product is created;
 until then the adapter has nothing to sell.
 
-## Order of work
+## Remaining configuration
 
-1. Play Billing on Android — the only store the ops host can build and test end
-   to end (SDK 35, NDK 27.2 installed).
-2. StoreKit on iOS — after the macOS/Xcode pipeline decision.
-3. Steam DLC — last: it needs Steamworks partner setup, not just code.
+Configure iOS and Android together: create the four canonical pack products,
+map their real IDs, set platform validation credentials, then exercise actual
+purchase, restore, refund, reinstall and offline behavior on both stores.
+Existing StoreKit and Play Billing adapters and Actions build pipelines do not
+replace those store exercises. Steam DLC additionally needs partner setup.

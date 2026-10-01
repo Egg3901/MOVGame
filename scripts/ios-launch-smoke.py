@@ -13,6 +13,7 @@ app = pathlib.Path(sys.argv[1]).resolve()
 output = pathlib.Path(sys.argv[2]).resolve()
 output.mkdir(parents=True, exist_ok=True)
 bundle = 'com.lakesidegames.electioneer'
+extra_arguments = ['--mov-capture-large-text'] if os.environ.get('MOV_CAPTURE_LARGE_TEXT') == '1' else []
 check_screen = runpy.run_path(str(pathlib.Path(__file__).with_name('ios-screen-ready.py')))['check_screen']
 
 
@@ -49,10 +50,9 @@ devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '--j
 requested = os.environ.get('SIMULATOR_UDID')
 phones = [dict(d, runtime=runtime)
           for runtime, group in devices['devices'].items() if 'iOS' in runtime
-          for d in group if d['name'].startswith('iPhone')
-          and (not requested or d['udid'] == requested)]
+          for d in group if (d['udid'] == requested if requested else d['name'].startswith('iPhone'))]
 if not phones:
-    raise SystemExit('No available iPhone simulator')
+    raise SystemExit('No matching available iOS simulator')
 device = phones[0]['udid']
 if os.environ.get('MOV_FRESH_SIMULATOR') == '1' and not requested:
     template = phones[0]
@@ -94,7 +94,7 @@ for attempt in range(24):
 else:
     raise SystemExit('FAIL: simulator never left Apple boot screen; app was not launched')
 run('xcrun', 'simctl', 'install', device, str(app), timeout=300)
-process, console = launch(device, bundle, output / 'launch-console.log')
+process, console = launch(device, bundle, output / 'launch-console.log', extra_arguments)
 try:
     for second in range(30):
         time.sleep(1)
@@ -115,8 +115,10 @@ try:
             ('replay', '--mov-capture-replay', 30),
             ('saves', '--mov-capture-saves', 30),
             ('account', '--mov-capture-account', 8),
+            ('store', '--mov-capture-store', 8),
             ('settings', '--mov-capture-settings', 8),
             ('guide', '--mov-capture-guide', 8),
+            ('editor', '--mov-capture-editor', 8),
             ('champions', '--mov-capture-champions', 20),
             ('lakeside-login', '--mov-capture-lakeside-login', 30),
             ('world-uk', '--mov-capture-world-uk', 20),
@@ -132,8 +134,11 @@ try:
             ('ask', '--mov-capture-ask', 20),
             ('ask-login', '--mov-capture-ask-login', 20),
         ]:
+            selected = os.environ.get('MOV_CAPTURE_NAMES')
+            if selected and name not in selected.split(','):
+                continue
             subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
-            preview, preview_console = launch(device, bundle, output / f'{name}-console.log', [argument])
+            preview, preview_console = launch(device, bundle, output / f'{name}-console.log', [argument, *extra_arguments])
             with preview_console:
                 try:
                     for second in range(seconds):
