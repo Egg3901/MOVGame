@@ -270,7 +270,7 @@ struct CampaignGuideView: View {
                 Text("HOW TO PLAY").font(.caption.bold()).foregroundStyle(CampaignStyle.gold)
                 ForEach(Array(NativeHelp.companion.guide().enumerated()), id: \.offset) { _, lesson in
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(lesson.title).font(.headline)
+                        Text(lesson.title).font(.headline).foregroundStyle(CampaignStyle.gold)
                         Text(lesson.body).font(.subheadline)
                     }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
