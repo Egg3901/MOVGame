@@ -9,6 +9,7 @@ import com.lakesidegames.electioneer.ui.Screen
 internal fun captureDebugFlow(session: GameSession, flow: String) {
     if (!BuildConfig.DEBUG) return
     val routes = mapOf("home" to Screen.HOME, "account" to Screen.ACCOUNT, "library" to Screen.LIBRARY,
+        "setup" to Screen.SETUP, "store" to Screen.STORE,
         "settings" to Screen.SETTINGS, "guide" to Screen.GUIDE, "editor" to Screen.EDITOR)
     if (flow in routes) { session.go(routes.getValue(flow)); return }
     if (flow == "resume") { session.resumeGame(); return }

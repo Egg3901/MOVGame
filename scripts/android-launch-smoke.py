@@ -52,7 +52,8 @@ try:
     adb('shell', 'settings', 'put', 'global', 'window_animation_scale', '0')
     adb('shell', 'settings', 'put', 'global', 'transition_animation_scale', '0')
     adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '0')
-    routes = [('account', 'YOUR ACCOUNT'), ('settings', 'Sound effects'), ('guide', 'HOW TO PLAY'),
+    routes = [('home', 'Margin of'), ('library', 'Choose your election'), ('setup', 'Choose your path'),
+              ('store', 'History is yours to play'), ('account', 'YOUR ACCOUNT'), ('settings', 'Sound effects'), ('guide', 'HOW TO PLAY'),
               ('editor', 'SCENARIO EDITOR'), ('saves', 'SAVED CAMPAIGNS'), ('analysis', 'Back to campaign'), ('replay', 'Campaign replay')]
     for flow, marker in routes:
         launch(flow)
