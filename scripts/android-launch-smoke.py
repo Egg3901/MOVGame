@@ -51,13 +51,15 @@ def launch(flow):
     adb('shell', 'am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity', '--es', 'mov_capture', flow)
 
 
-def tap_label(label, direction='down'):
+def tap_label(label, direction='down', suffix=False):
     width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
     for attempt in range(12):
         semantic_text(f'tap-{attempt}')
         nodes = ET.fromstring((output / f'tap-{attempt}.xml').read_text()).iter('node')
         for node in nodes:
-            if node.get('text', '').strip() != label or node.get('enabled') != 'true':
+            text = node.get('text', '').strip()
+            matches = text.endswith(label) if suffix else text == label
+            if not matches or node.get('enabled') != 'true':
                 continue
             bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
             if len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
@@ -126,7 +128,7 @@ try:
     capture('queue-added', '1 planned', 'ask')
     tap_label('Add to day 1')
     capture('queue-added-twice', '2 planned', 'ask')
-    tap_label('Fundraise  ×')
+    tap_label('Fundraise  ×', suffix=True)
     capture('queue-removed', '1 planned', 'ask')
     tap_label('Clear all', direction='up')
     capture('queue-cleared', '0 planned', 'ask')
