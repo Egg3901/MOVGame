@@ -6,7 +6,6 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import com.lakesidegames.electioneer.BuildConfig
 import com.lakesidegames.electioneer.billing.PlayBilling
 import com.lakesidegames.electioneer.billing.StoreProduct
 import com.lakesidegames.electioneer.content.CANDIDATES

@@ -132,6 +132,8 @@ class PlayBilling(
             try {
                 configure()
                 check(purchasesEnabled) { "Paid packs are not available yet." }
+                val owned = account.refreshStoreOwnership()
+                check(packId !in owned && "complete" !in owned) { "You already own this pack on your Lakeside account." }
                 val sku = skuToPack.entries.firstOrNull { it.value == packId }?.key ?: error("This pack is unavailable.")
                 queryProducts { products ->
                     if (products.any { it.sku == sku }) detailsBySku[sku]?.let { details -> launchFlow(activity, details) }

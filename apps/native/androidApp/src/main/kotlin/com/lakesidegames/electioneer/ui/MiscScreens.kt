@@ -33,10 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-// Phase 5 storefront (#8): lists Play products when the SKU table is
-// filled, sells through Play Billing, restores on demand. Until the first
-// Play Console product exists the table is empty and the screen keeps its
-// "nothing for sale yet" posture.
+// Shared account ownership and live store prices. The beta stays free.
 @Composable
 fun StoreScreen(session: GameSession, activity: Activity) {
     val products by session.products.collectAsState()

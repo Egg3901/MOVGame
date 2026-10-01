@@ -90,6 +90,8 @@ final class StoreKitAdapter: ObservableObject {
     func purchase(packId: String) async {
         do {
             try await configure()
+            try await refreshOwnership()
+            guard !owned.contains(packId), !owned.contains("complete") else { throw AccountError("You already own this pack on your Lakeside account.") }
             guard binding?.purchasesEnabled == true, let value = binding,
                   let token = UUID(uuidString: value.appAccountToken),
                   let sku = skuToPack.first(where: { $0.value == packId })?.key else { throw AccountError("Paid packs are not available yet.") }
