@@ -130,6 +130,7 @@ struct ContentView: View {
             }
             Button("Start a new campaign") { session.playScreen = .library }
             Button("Campaign library") { session.playScreen = .library }
+            Button("Store") { menuDestination = .store }
             Button("Scenario editor") { menuDestination = .editor }
             Button("Settings") { menuDestination = .settings }
             Button("How to play") { menuDestination = .guide }
@@ -194,6 +195,7 @@ struct ContentView: View {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-account") || ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { menuDestination = .account }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-editor") { menuDestination = .editor }
+            if ProcessInfo.processInfo.arguments.contains("--mov-capture-store") { menuDestination = .store }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-settings") { menuDestination = .settings }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-guide") { menuDestination = .guide }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-champions") { menuDestination = .boards }

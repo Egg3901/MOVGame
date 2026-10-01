@@ -115,6 +115,7 @@ try:
             ('replay', '--mov-capture-replay', 30),
             ('saves', '--mov-capture-saves', 30),
             ('account', '--mov-capture-account', 8),
+            ('store', '--mov-capture-store', 8),
             ('settings', '--mov-capture-settings', 8),
             ('guide', '--mov-capture-guide', 8),
             ('editor', '--mov-capture-editor', 8),
