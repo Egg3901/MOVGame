@@ -50,6 +50,32 @@ class NativeCloudQueueTest {
         queue.retry("alice")
         assertNotNull(queue.next("alice", 0))
     }
+    @Test fun anotherAccountsNewCampaignCannotReplaceAPendingAutosavePayload() {
+        val library = NativeSaveLibrary.empty()
+        val queue = NativeCloudQueue.empty()
+        val first = MobileGame.startGame("dem", "normal", 1).saveSnapshot()
+        val second = MobileGame.startGame("rep", "hard", 2).saveSnapshot()
+        val alice = NativeAutosave.slot("alice", "unused")
+        val bob = NativeAutosave.slot("bob", "unused")
+        assertTrue(library.save(alice, "Autosave", first, 1))
+        library.markSynced(alice, "alice", 10)
+        queue.offer(alice, "alice", 1)
+        assertTrue(library.save(bob, "Autosave", second, 2))
+        queue.offer(bob, "bob", 2)
+        val restored = NativeSaveLibrary.restore(library.json())!!
+        val pending = NativeCloudQueue.restore(queue.json())
+        assertEquals(alice, pending.next("alice", 0)?.id)
+        assertEquals(first, restored.get(alice)?.snapshot)
+        assertEquals(bob, pending.next("bob", 0)?.id)
+        assertEquals(second, restored.get(bob)?.snapshot)
+        assertNotEquals(restored.uploadJson(alice, "alice", 10), restored.uploadJson(bob, "bob", 10))
+    }
+    @Test fun guestsStartFreshSlotsAndSignedInSlotsAreStableForTheSameOwner() {
+        assertNotEquals(NativeAutosave.slot(null, "guest-one"), NativeAutosave.slot(null, "guest-two"))
+        assertEquals(NativeAutosave.slot("alice", "one"), NativeAutosave.slot("alice", "two"))
+        assertNotEquals(NativeAutosave.slot("alice", "one"), NativeAutosave.slot("bob", "one"))
+        assertFailsWith<IllegalArgumentException> { NativeAutosave.slot("../bad", "one") }
+    }
     @Test fun corruptAndFutureOutboxesDoNotCreateUploads() {
         assertEquals(0, NativeCloudQueue.restore("bad json").pending("alice"))
         assertEquals(0, NativeCloudQueue.restore("{\"version\":2,\"writes\":[]}").pending("alice"))
