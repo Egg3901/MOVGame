@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -151,11 +153,11 @@ fun SetupScreen(session: GameSession) {
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Mirror match · underdog boost", modifier = Modifier.weight(1f))
-                    Switch(checked = mirrorMatch, onCheckedChange = { mirrorMatch = it })
+                    Switch(checked = mirrorMatch, onCheckedChange = { mirrorMatch = it }, modifier = Modifier.semantics { contentDescription = "Mirror match, underdog boost" })
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Pandemic era issues", modifier = Modifier.weight(1f))
-                    Switch(checked = pandemic, onCheckedChange = { pandemic = it })
+                    Switch(checked = pandemic, onCheckedChange = { pandemic = it }, modifier = Modifier.semantics { contentDescription = "Pandemic era issues" })
                 }
                 OutlinedTextField(value = seed, onValueChange = { seed = it.take(32) }, label = { Text("Campaign seed") }, supportingText = { Text("Use the same seed to replay the same campaign") }, modifier = Modifier.fillMaxWidth())
             }

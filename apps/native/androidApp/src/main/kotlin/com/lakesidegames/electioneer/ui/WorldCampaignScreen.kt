@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -248,7 +250,7 @@ fun WorldCampaignScreen(session: GameSession) {
                 if (type == "broadcast") {
                     ChoicePicker("Broadcast mode", mode, listOf("positive", "contrast", "issue").map { it to actionName(it) }) { mode = it }
                     Text("Spend ${game.currency()}${number(spend.toDouble())}M")
-                    Slider(spend, { spend = it }, valueRange = 0.5f..10f)
+                    Slider(spend, { spend = it }, valueRange = 0.5f..10f, modifier = Modifier.semantics { contentDescription = "Campaign spend in millions" })
                     Text(if (regionId.isEmpty()) "National reaches every region where your party stands." else "Regional spending concentrates on this target.", style = MaterialTheme.typography.bodySmall)
                 }
                 if (type == "issue_pivot" || (type == "broadcast" && mode == "issue")) {

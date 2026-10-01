@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -64,15 +65,15 @@ fun NativeSettingsScreen(session: GameSession) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("SETTINGS", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
         Text("Sound effects")
-        Switch(settings.soundOn, settings::sound)
+        Switch(settings.soundOn, settings::sound, modifier = Modifier.semantics { contentDescription = "Sound effects" })
         Text("Volume: ${(settings.volume * 100).toInt()}%")
-        Slider(settings.volume, settings::volume, enabled = settings.soundOn)
+        Slider(settings.volume, settings::volume, enabled = settings.soundOn, modifier = Modifier.semantics { contentDescription = "Sound volume" })
         Button(onClick = { settings.play("turnAdvance") }, enabled = settings.soundOn) { Text("Preview sound") }
         Text("Reduce motion")
-        Switch(settings.reducedMotion, settings::motion)
+        Switch(settings.reducedMotion, settings::motion, modifier = Modifier.semantics { contentDescription = "Reduce motion" })
         Text("Election night uses instant results when this or your device's animation setting is on.", style = MaterialTheme.typography.bodySmall)
         Text("Hardware keyboard shortcuts")
-        Switch(settings.hotkeysOn, settings::hotkeys)
+        Switch(settings.hotkeysOn, settings::hotkeys, modifier = Modifier.semantics { contentDescription = "Keyboard shortcuts" })
         Text("Enter or Space ends the week, with confirmation if no moves are queued. 1 through 9 selects a move. Escape closes a recap or selection. ? opens Settings. Shortcuts pause while typing or resolving an event.", style = MaterialTheme.typography.bodySmall)
         Button(onClick = { settings.replayTutorial(); session.resumeGame() }, enabled = (session.game.value != null || session.campaign.value != null)) { Text("Replay tutorial") }
         OutlinedButton(onClick = { session.go(Screen.EDITOR) }) { Text("Scenario editor") }

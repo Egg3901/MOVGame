@@ -20,7 +20,7 @@ if not tablet:
 for label, device_type in [('small-phone', phone), ('tablet', tablet)]:
     device = subprocess.check_output(['xcrun', 'simctl', 'create', f'MOV {label}', device_type['identifier'], runtime], text=True).strip()
     try:
-        env = dict(os.environ, SIMULATOR_UDID=device, MOV_CAPTURE_SCREENS='1',
+        env = dict(os.environ, SIMULATOR_UDID=device, MOV_CAPTURE_SCREENS='1', MOV_CAPTURE_LARGE_TEXT='1',
                    MOV_CAPTURE_NAMES='setup,library,saves,settings,editor,world-de')
         subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name('ios-launch-smoke.py')), str(app), str(output / label)],
                        env=env, check=True, timeout=600)

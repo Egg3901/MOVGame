@@ -13,6 +13,7 @@ app = pathlib.Path(sys.argv[1]).resolve()
 output = pathlib.Path(sys.argv[2]).resolve()
 output.mkdir(parents=True, exist_ok=True)
 bundle = 'com.lakesidegames.electioneer'
+extra_arguments = ['--mov-capture-large-text'] if os.environ.get('MOV_CAPTURE_LARGE_TEXT') == '1' else []
 check_screen = runpy.run_path(str(pathlib.Path(__file__).with_name('ios-screen-ready.py')))['check_screen']
 
 
@@ -93,7 +94,7 @@ for attempt in range(24):
 else:
     raise SystemExit('FAIL: simulator never left Apple boot screen; app was not launched')
 run('xcrun', 'simctl', 'install', device, str(app), timeout=300)
-process, console = launch(device, bundle, output / 'launch-console.log')
+process, console = launch(device, bundle, output / 'launch-console.log', extra_arguments)
 try:
     for second in range(30):
         time.sleep(1)
@@ -136,7 +137,7 @@ try:
             if selected and name not in selected.split(','):
                 continue
             subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], check=False)
-            preview, preview_console = launch(device, bundle, output / f'{name}-console.log', [argument])
+            preview, preview_console = launch(device, bundle, output / f'{name}-console.log', [argument, *extra_arguments])
             with preview_console:
                 try:
                     for second in range(seconds):

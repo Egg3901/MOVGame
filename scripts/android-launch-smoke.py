@@ -63,7 +63,23 @@ try:
             launch(name)
             marker = 'CAMPAIGN DESK' if country == 'US' and kind != 'results' else 'ELECTION RESULT' if kind == 'results' and country != 'US' else 'CAMPAIGN SCORE' if kind == 'results' else 'WEEK'
             capture(name, marker)
+    # Check the actual accessibility tree, including each switch's name.
+    launch('settings')
+    capture('settings-accessibility', 'Sound effects', 'ask')
+    remaining = {'Sound effects', 'Reduce motion', 'Keyboard shortcuts'}
+    width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
+    for attempt in range(4):
+        name = f'settings-accessibility-{attempt}'
+        semantic_text(name)
+        nodes = ET.fromstring((output / f'{name}.xml').read_text()).iter('node')
+        remaining -= {node.get('content-desc') for node in nodes if node.get('checkable') == 'true'}
+        if not remaining:
+            break
+        adb('shell', 'input', 'swipe', str(width // 2), str(height * 3 // 4), str(width // 2), str(height // 3), '300')
+    if remaining:
+        raise RuntimeError(f'Settings switches have no accessible names: {sorted(remaining)}')
     # Use explicit dp widths for narrow phones and tablet navigation.
+    adb('shell', 'settings', 'put', 'system', 'font_scale', '1.3')
     for layout, size, density in [('small-phone', '640x1136', '320'), ('tablet', '1920x1200', '240')]:
         adb('shell', 'wm', 'size', size)
         adb('shell', 'wm', 'density', density)
@@ -71,6 +87,7 @@ try:
         for flow, marker in [('settings', 'Sound effects'), ('editor', 'SCENARIO EDITOR'), ('saves', 'SAVED CAMPAIGNS'), ('game-DE', 'WEEK')]:
             launch(flow)
             capture(f'{layout}-{flow}', marker, 'ask')
+    adb('shell', 'settings', 'put', 'system', 'font_scale', '1.0')
     adb('shell', 'wm', 'size', 'reset')
     adb('shell', 'wm', 'density', 'reset')
     # Verify a blank week's keyboard command asks before consuming the week.

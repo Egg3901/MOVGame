@@ -97,6 +97,13 @@ private struct AskWebView: UIViewRepresentable {
 
 struct ContentView: View {
     @ObservedObject var session: GameSession
+    @Environment(\.sizeCategory) private var systemSizeCategory
+    private var captureSizeCategory: ContentSizeCategory {
+        #if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--mov-capture-large-text") { return .accessibilityLarge }
+        #endif
+        return systemSizeCategory
+    }
     @State private var showingMenu = false
     @State private var showingAsk = false
     @StateObject private var askBrowser = AskBrowser()
@@ -200,6 +207,7 @@ struct ContentView: View {
             }
             #endif
         }
+        .environment(\.sizeCategory, captureSizeCategory)
     }
 
     private func openAsk() {
