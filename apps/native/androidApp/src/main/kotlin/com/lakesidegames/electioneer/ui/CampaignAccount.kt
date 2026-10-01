@@ -58,6 +58,8 @@ private class SessionToken(context: Context) {
     fun clear() { prefs.edit().clear().apply() }
 }
 
+private class CampaignRequestError(val status: Int, message: String, val conflict: Boolean = false) : RuntimeException(message)
+
 class CampaignAccount(context: Context, private val scope: CoroutineScope) {
     private val vault = SessionToken(context.applicationContext)
     @Volatile private var token = vault.read()
@@ -119,7 +121,7 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
         }
         check(credential == token) { "Account changed during the request. Try again." }
         if (status == 401 && credential != null && path !in listOf("/api/auth/login", "/api/auth/register", "/api/lakeside/exchange")) signOut()
-        check(status in 200..299) { response?.optString("error")?.takeIf { it.isNotBlank() } ?: "Account request failed ($status)" }
+        if (status !in 200..299) throw CampaignRequestError(status, response?.optString("error")?.takeIf { it.isNotBlank() } ?: "Account request failed ($status)", response?.optBoolean("conflict", false) == true)
         return response ?: error("The server returned an unreadable response.")
     }
 
@@ -247,6 +249,24 @@ class CampaignAccount(context: Context, private val scope: CoroutineScope) {
         if (daily) loadBoard(nativeUtcDay())
         _notice.value = if (response.getBoolean("posted")) "Score posted. Rank #${response.getInt("rank")}."
             else "Kept your personal best (${response.getInt("personalBest")}). Rank #${response.getInt("rank")}."
+    }
+
+    suspend fun mirrorSave(id: String, payload: String, owner: String): com.lakesidegames.electioneer.engine.NativeCloudOutcome {
+        if (_user.value?.id != owner || _busy.value) return com.lakesidegames.electioneer.engine.NativeCloudOutcome("retry", message = "Sign in to resume cloud sync.")
+        _busy.value = true
+        return try {
+            val list = call("/api/saves")
+            if (!list.optBoolean("versionPreconditions", false)) return com.lakesidegames.electioneer.engine.NativeCloudOutcome("unsupported", message = "Cloud save service needs an update.")
+            val response = call("/api/saves/$id", "PUT", JSONObject(payload))
+            check(_user.value?.id == owner) { "Account changed during sync." }
+            val version = response.getLong("updatedAt")
+            val record = JSONObject(payload)
+            _cloudSaves.value = (_cloudSaves.value.filterNot { it.id == id } + CloudSaveMeta(id, record.getString("name"), record.getInt("turn"), version)).sortedByDescending { it.updatedAt }
+            com.lakesidegames.electioneer.engine.NativeCloudOutcome("synced", version)
+        } catch (error: Exception) {
+            val status = (error as? CampaignRequestError)?.status
+            com.lakesidegames.electioneer.engine.NativeCloudOutcome(if ((error as? CampaignRequestError)?.conflict == true) "conflict" else if (status != null && status in 400..499 && status !in listOf(401, 408, 429)) "rejected" else "retry", message = error.message ?: "Cloud sync will retry.")
+        } finally { _busy.value = false }
     }
 
     private suspend fun readCloudList() {

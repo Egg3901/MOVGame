@@ -1,5 +1,6 @@
 import SwiftUI
 import shared
+import Combine
 
 // Phase 4 session (#22): mirrors androidApp GameSession. The Swift side
 // talks only to the MobileGame facade (string serials in, plain reads out)
@@ -102,6 +103,72 @@ final class GameSession: ObservableObject {
     private var didPrepareSimulatorCapture = false
     #endif
 
+    private var cloudQueue = NativeCloudQueue.companion.empty()
+    private var cloudTask: Task<Void, Never>?
+    private var cloudInFlight = false
+    private var cloudGeneration = 0
+    private var accountObserver: AnyCancellable?
+    @Published var cloudSyncNotice: String?
+    private func persistCloudQueue() { UserDefaults.standard.set(cloudQueue.json(), forKey: "mov_cloud_outbox_v1") }
+    private func offerCloud(_ id: String) {
+        guard let owner = account.user?.id, cloudQueue.offerSave(library: saveLibrary, id: id, owner: owner) else { return }
+        persistLibrary(); persistCloudQueue(); requestCloudSync()
+    }
+    func retryCloudSync() {
+        guard let owner = account.user?.id else { return }
+        for entry in saveLibrary.entries() where entry.document?.engine == "us" && (entry.cloudOwner == nil || entry.cloudOwner == owner) { _ = cloudQueue.offerSave(library: saveLibrary, id: entry.id, owner: owner) }
+        persistLibrary(); cloudQueue.retry(owner: owner); persistCloudQueue(); requestCloudSync(force: true)
+    }
+    func requestCloudSync(force: Bool = false) {
+        if cloudTask != nil {
+            guard force && !cloudInFlight else { return }
+            cloudTask?.cancel(); cloudTask = nil
+        }
+        cloudGeneration += 1
+        let generation = cloudGeneration
+        cloudTask = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: 1_000_000_000) } catch { return }
+            guard let self else { return }
+            defer { if self.cloudGeneration == generation { self.cloudTask = nil } }
+            while !Task.isCancelled {
+                guard let owner = self.account.user?.id, !self.account.busy else { return }
+                let now = Int64(Date().timeIntervalSince1970 * 1000)
+                guard let write = self.cloudQueue.next(owner: owner, now: now) else {
+                    if self.cloudQueue.conflicted(owner: owner) { self.cloudSyncNotice = "Cloud sync needs attention. Download the changed save or upload your local campaign as a new save. Local play is safe." }
+                    let wait = self.cloudQueue.delayMillis(owner: owner, now: now)
+                    guard wait >= 0 else { return }
+                    do { try await Task.sleep(nanoseconds: UInt64(max(1000, wait)) * 1_000_000) } catch { return }
+                    continue
+                }
+                guard let payload = self.saveLibrary.uploadJson(id: write.id, owner: owner, now: now) else { self.cloudQueue.removeOwned(id: write.id, owner: owner); self.persistCloudQueue(); continue }
+                self.cloudInFlight = true
+                let outcome = await self.account.mirrorSave(id: write.id, payload: payload, owner: owner)
+                self.cloudInFlight = false
+                guard self.account.user?.id == owner else { return }
+                if outcome.status == "synced" {
+                    self.saveLibrary.markSynced(id: write.id, owner: owner, version: outcome.version)
+                    self.persistLibrary(); self.cloudQueue.acknowledge(write: write)
+                    self.cloudSyncNotice = "Campaigns synced to the cloud."
+                } else {
+                    self.cloudQueue.fail(write: write, outcome: outcome, now: Int64(Date().timeIntervalSince1970 * 1000))
+                    self.cloudSyncNotice = outcome.message + " Your campaign is saved on this device."
+                }
+                self.persistCloudQueue()
+            }
+        }
+    }
+    private var activeAutosaveID = UserDefaults.standard.string(forKey: "mov_active_autosave_id") ?? "autosave"
+    private func beginAutosave(owner: String? = nil) {
+        activeAutosaveID = NativeAutosave.companion.slot(owner: owner ?? account.user?.id, nonce: UUID().uuidString)
+        UserDefaults.standard.set(activeAutosaveID, forKey: "mov_active_autosave_id")
+    }
+    private func mirrorAutosave(_ snapshot: String) {
+        let previous = saveLibrary.get(id: activeAutosaveID)
+        let stamp = max(Int64(Date().timeIntervalSince1970 * 1000), (previous?.updatedAt ?? -1) + 1)
+        if saveLibrary.save(id: activeAutosaveID, name: "Autosave", snapshot: snapshot, updatedAt: stamp) {
+            saveLibrary.setReplay(id: activeAutosaveID, json: replay.json()); persistLibrary(); offerCloud(activeAutosaveID)
+        }
+    }
     private var saveLibrary = NativeSaveLibrary.companion.empty()
     @Published var namedSaves: [NativeNamedSave] = []
     @Published var saveNotice: String?
@@ -133,19 +200,19 @@ final class GameSession: ObservableObject {
     @discardableResult func saveNamed(name: String, id: String = UUID().uuidString) -> Bool {
         guard let snapshot = currentSnapshot() else { return false }
         let saved = saveLibrary.save(id: id, name: name, snapshot: snapshot, updatedAt: Int64(Date().timeIntervalSince1970 * 1000))
-        if saved { saveLibrary.setReplay(id: id, json: replay.json()); persistLibrary(); saveNotice = "Saved on this device." }
+        if saved { saveLibrary.setReplay(id: id, json: replay.json()); persistLibrary(); offerCloud(id); saveNotice = "Saved on this device." }
         return saved
     }
     func renameSave(id: String, name: String) {
         guard let entry = saveLibrary.get(id: id) else { return }
-        if saveLibrary.save(id: id, name: name, snapshot: entry.snapshot, updatedAt: Int64(Date().timeIntervalSince1970 * 1000)) { persistLibrary() }
+        if saveLibrary.save(id: id, name: name, snapshot: entry.snapshot, updatedAt: max(Int64(Date().timeIntervalSince1970 * 1000), entry.updatedAt + 1)) { persistLibrary(); offerCloud(id) }
     }
-    func deleteLocalSave(id: String) { saveLibrary.remove(id: id); persistLibrary() }
+    func deleteLocalSave(id: String) { saveLibrary.remove(id: id); cloudQueue.remove(id: id); persistCloudQueue(); persistLibrary() }
     @discardableResult func loadNamed(id: String) -> Bool {
         guard let entry = saveLibrary.get(id: id) else { return false }
-        return importCampaign(json: entry.snapshot, replayJSON: entry.replay)
+        return importCampaign(json: entry.snapshot, replayJSON: entry.replay, owner: entry.cloudOwner)
     }
-    @discardableResult func importCampaign(json: String, replayJSON: String? = nil) -> Bool {
+    @discardableResult func importCampaign(json: String, replayJSON: String? = nil, owner: String? = nil) -> Bool {
         guard let document = NativeSaveTransfer.companion.inspect(json: json) else {
             saveNotice = "This file is not a supported campaign save."; return false
         }
@@ -154,8 +221,10 @@ final class GameSession: ObservableObject {
             _ = saveLibrary.save(id: backupID, name: "Before loading another campaign", snapshot: previous,
                 updatedAt: Int64(Date().timeIntervalSince1970 * 1000))
             saveLibrary.setReplay(id: backupID, json: replay.json())
+            if let previousOwner = saveLibrary.get(id: activeAutosaveID)?.cloudOwner { _ = saveLibrary.claimCloud(id: backupID, owner: previousOwner) }
             persistLibrary()
         }
+        beginAutosave(owner: owner)
         replay.restore(json: replayJSON ?? NativeReplay.shared.fileReplay(json: json), snapshot: document.snapshot)
         eventId = nil; eventResult = nil; showRecap = false; recapLines = []
         if document.engine == "world" {
@@ -170,10 +239,15 @@ final class GameSession: ObservableObject {
         return true
     }
     func uploadSave(id: String) async {
-        guard let owner = account.user?.id, let payload = saveLibrary.uploadJson(id: id, owner: owner,
-            now: Int64(Date().timeIntervalSince1970 * 1000)) else { return }
+        guard let owner = account.user?.id else { return }
+        guard saveLibrary.claimCloud(id: id, owner: owner) else {
+            saveNotice = "This save belongs to another account. Use Upload as new to sync a copy with this account."; return
+        }
+        persistLibrary()
+        guard let payload = saveLibrary.uploadJson(id: id, owner: owner, now: Int64(Date().timeIntervalSince1970 * 1000)) else { return }
+        let revision = saveLibrary.get(id: id)?.updatedAt ?? 0
         if let version = await account.uploadSave(id: id, payload: payload) {
-            saveLibrary.markSynced(id: id, owner: owner, version: version); persistLibrary()
+            saveLibrary.markSynced(id: id, owner: owner, version: version); cloudQueue.acknowledgeRevision(id: id, owner: owner, revision: revision); persistCloudQueue(); persistLibrary()
         }
     }
     func uploadSaveAsNew(id: String) async {
@@ -190,6 +264,7 @@ final class GameSession: ObservableObject {
             version: remote.updatedAt, backupId: UUID().uuidString) else {
             saveNotice = "This cloud save is not supported by this native client."; return
         }
+        cloudQueue.removeOwned(id: remote.id, owner: owner); cloudQueue.acknowledgeRevision(id: remote.id, owner: owner, revision: remote.updatedAt); persistCloudQueue()
         saveLibrary.setReplay(id: remote.id, json: remote.replay)
         persistLibrary(); saveNotice = "Downloaded. Any different local copy was kept as a backup."
     }
@@ -198,6 +273,16 @@ final class GameSession: ObservableObject {
         if let json = UserDefaults.standard.string(forKey: "mov_named_saves_v1"),
            let restored = NativeSaveLibrary.companion.restore(json: json) { saveLibrary = restored }
         namedSaves = saveLibrary.entries()
+        cloudQueue = NativeCloudQueue.companion.restore(json: UserDefaults.standard.string(forKey: "mov_cloud_outbox_v1"))
+        var lastOwner: String?
+        accountObserver = account.$user.combineLatest(account.$busy).sink { [weak self] user, busy in
+            guard let self else { return }
+            if user?.id != lastOwner {
+                lastOwner = user?.id
+                if let owner = user?.id { for entry in self.saveLibrary.entries() where entry.cloudOwner == nil || entry.cloudOwner == owner { self.offerCloud(entry.id) } }
+            }
+            if !busy { self.requestCloudSync() }
+        }
         if UserDefaults.standard.string(forKey: "mov_active_campaign") == "world",
            let snapshot = UserDefaults.standard.string(forKey: "mov_world_campaign_v1"),
            let restored = MobileCampaign.companion.restore(snapshot: snapshot) {
@@ -250,6 +335,7 @@ final class GameSession: ObservableObject {
     var savedCampaignLabel: String { campaign?.label() ?? game?.campaignLabel() ?? "Your campaign" }
 
     func newCampaign(countryId: String, electionId: String, partyId: String, difficulty: String, seed: String) {
+        beginAutosave()
         playScreen = .loading
         DispatchQueue.global(qos: .userInitiated).async {
             let started = MobileCampaign.companion.start(countryId: countryId, electionId: electionId,
@@ -319,6 +405,7 @@ final class GameSession: ObservableObject {
             UserDefaults.standard.set(game.saveSnapshot(), forKey: Self.saveKey)
             UserDefaults.standard.set("us", forKey: "mov_active_campaign")
             UserDefaults.standard.set(replay.json(), forKey: "mov_us_replay_v1")
+            mirrorAutosave(game.saveSnapshot())
             let previous = UserDefaults.standard.stringArray(forKey: "mov_achievement_ids") ?? []
             let earned = game.resultAchievements().map { $0.id }
             if !earned.isEmpty {
@@ -337,6 +424,7 @@ final class GameSession: ObservableObject {
     func staffChoices() -> [StaffChoice] { MobileGame.companion.staffChoices() }
 
     func newGame(scenarioId: String, playerSerial: String, mateId: String, staffIds: [String], difficulty: String, eventMode: String, totalTurns: Int, seed: String, whatIfState: String, mirrorMatch: Bool, pandemic: Bool) {
+        beginAutosave()
         playScreen = .loading
         DispatchQueue.global(qos: .userInitiated).async {
             let started = MobileGame.companion.startConfiguredGame(

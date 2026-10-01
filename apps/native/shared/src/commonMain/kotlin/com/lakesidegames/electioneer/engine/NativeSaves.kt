@@ -109,8 +109,16 @@ class NativeSaveLibrary private constructor(private var saves: List<NativeNamedS
     fun markSynced(id: String, owner: String, version: Long) {
         saves = saves.map { if (it.id == id) it.copy(cloudOwner = owner, cloudVersion = version) else it }
     }
+    // Ownership starts when a save is queued, including while offline.
+    fun claimCloud(id: String, owner: String): Boolean {
+        val entry = get(id) ?: return false
+        if (owner.isBlank() || (entry.cloudOwner != null && entry.cloudOwner != owner)) return false
+        saves = saves.map { if (it.id == id) it.copy(cloudOwner = owner) else it }
+        return true
+    }
     fun uploadJson(id: String, owner: String, now: Long): String? {
         val entry = get(id) ?: return null
+        if (owner.isBlank() || (entry.cloudOwner != null && entry.cloudOwner != owner)) return null
         val document = entry.document ?: return null
         // The web cloud library currently stores raw US campaigns.
         if (document.engine != "us") return null
@@ -129,6 +137,7 @@ class NativeSaveLibrary private constructor(private var saves: List<NativeNamedS
         if (previous != null && previous.snapshot != document.snapshot) {
             save(backupId, "${previous.name} (local backup)", previous.snapshot, previous.updatedAt)
             setReplay(backupId, previous.replay)
+            previous.cloudOwner?.let { claimCloud(backupId, it) }
         }
         if (!save(id, name, document.snapshot, version)) return false
         markSynced(id, owner, version)

@@ -111,7 +111,8 @@ savesRouter.put("/:id", requireAuth, (req: AuthedRequest, res) => {
 
   // Native clients retain the version they loaded. Reject stale uploads so a
   // second device cannot silently replace a newer campaign. Existing clients
-  // that omit the precondition keep their current write behavior.
+  // that omit the precondition can still write, but every mutation advances
+  // the version even if another device's clock is behind.
   if ("expectedUpdatedAt" in body) {
     const expected = body.expectedUpdatedAt;
     if (expected !== null && (typeof expected !== "number" || !Number.isSafeInteger(expected) || expected < 0)) {
@@ -123,7 +124,7 @@ savesRouter.put("/:id", requireAuth, (req: AuthedRequest, res) => {
     }
   }
 
-  if ("expectedUpdatedAt" in body) updatedAt = Math.max(updatedAt, (existing?.updated_at ?? -1) + 1);
+  updatedAt = Math.max(updatedAt, (existing?.updated_at ?? -1) + 1);
 
   const nextReplay = "replay" in body ? replayJson : existing?.replay ?? null;
   const size = byteLen(stateJson) + (nextReplay ? byteLen(nextReplay) : 0);
@@ -169,8 +170,8 @@ savesRouter.put("/:id/replay", requireAuth, (req: AuthedRequest, res) => {
 
   const db = getDb();
   const row = db.prepare(
-    "SELECT state FROM cloud_saves WHERE user_id = ? AND save_id = ?",
-  ).get(userId, saveId) as { state: string } | undefined;
+    "SELECT state, updated_at FROM cloud_saves WHERE user_id = ? AND save_id = ?",
+  ).get(userId, saveId) as { state: string; updated_at: number } | undefined;
   if (!row) return res.status(404).json({ error: "Save not found" });
 
   const replayJson = JSON.stringify(body.log);
@@ -181,7 +182,8 @@ savesRouter.put("/:id/replay", requireAuth, (req: AuthedRequest, res) => {
     });
   }
 
-  const updatedAt = Number.isFinite(Number(body.updatedAt)) ? Math.trunc(Number(body.updatedAt)) : Date.now();
+  const requestedAt = Number.isFinite(Number(body.updatedAt)) ? Math.trunc(Number(body.updatedAt)) : Date.now();
+  const updatedAt = Math.max(requestedAt, row.updated_at + 1);
   db.prepare(
     "UPDATE cloud_saves SET replay = ?, updated_at = ? WHERE user_id = ? AND save_id = ?",
   ).run(replayJson, updatedAt, userId, saveId);

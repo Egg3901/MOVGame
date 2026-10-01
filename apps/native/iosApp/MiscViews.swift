@@ -291,8 +291,32 @@ final class CampaignAccount: ObservableObject {
         guard let http = response as? HTTPURLResponse else { throw AccountError("Could not reach account server") }
         guard credential == readToken() else { throw AccountError("Account changed during the request. Try again.") }
         if http.statusCode == 401, credential != nil, path != "/api/lakeside/exchange" { signOut() }
-        guard (200..<300).contains(http.statusCode) else { throw AccountError(serverMessage(data)) }
+        guard (200..<300).contains(http.statusCode) else { throw AccountError(serverMessage(data), status: http.statusCode, conflict: ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["conflict"] as? Bool == true) }
         return data
+    }
+
+    func mirrorSave(id: String, payload: String, owner: String) async -> NativeCloudOutcome {
+        guard user?.id == owner, !busy else { return NativeCloudOutcome(status: "retry", version: -1, message: "Sign in to resume cloud sync.") }
+        busy = true
+        defer { busy = false }
+        do {
+            let list = try await call(path: "/api/saves")
+            guard let capabilities = try JSONSerialization.jsonObject(with: list) as? [String: Any], capabilities["versionPreconditions"] as? Bool == true else {
+                return NativeCloudOutcome(status: "unsupported", version: -1, message: "Cloud save service needs an update.")
+            }
+            let data = try await call(path: "/api/saves/\(id)", method: "PUT", body: Data(payload.utf8))
+            guard user?.id == owner, let response = try JSONSerialization.jsonObject(with: data) as? [String: Any], let version = response["updatedAt"] as? NSNumber else {
+                return NativeCloudOutcome(status: "retry", version: -1, message: "Account changed during sync.")
+            }
+            if let record = try JSONSerialization.jsonObject(with: Data(payload.utf8)) as? [String: Any], let name = record["name"] as? String, let turn = record["turn"] as? NSNumber {
+                cloudSaves = (cloudSaves.filter { $0.id != id } + [CloudSaveMeta(id: id, name: name, turn: turn.intValue, updatedAt: version.int64Value)]).sorted { $0.updatedAt > $1.updatedAt }
+            }
+            return NativeCloudOutcome(status: "synced", version: version.int64Value, message: "")
+        } catch {
+            let code = (error as? AccountError)?.status
+            let rejected = code.map { (400..<500).contains($0) && ![401, 408, 429].contains($0) } ?? false
+            return NativeCloudOutcome(status: (error as? AccountError)?.conflict == true ? "conflict" : rejected ? "rejected" : "retry", version: -1, message: error.localizedDescription)
+        }
     }
 
     func activate(code: String) async {
@@ -481,7 +505,9 @@ struct ScorePosting: View {
 
 private struct AccountError: LocalizedError {
     let detail: String
-    init(_ detail: String) { self.detail = detail }
+    let status: Int?
+    let conflict: Bool
+    init(_ detail: String, status: Int? = nil, conflict: Bool = false) { self.detail = detail; self.status = status; self.conflict = conflict }
     var errorDescription: String? { detail }
 }
 
