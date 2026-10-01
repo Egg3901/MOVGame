@@ -171,15 +171,13 @@ class GameSession : ViewModel() {
     private fun persistCloudQueue() { savePrefs?.edit()?.putString("cloud_outbox_v1", cloudQueue.json())?.apply() }
     private fun offerCloud(id: String) {
         val owner = account.user.value?.id ?: return
-        val entry = saveLibrary.get(id) ?: return
-        if (entry.document?.engine != "us") return
-        cloudQueue.offer(id, owner, entry.updatedAt)
-        persistCloudQueue(); requestCloudSync()
+        if (!cloudQueue.offerSave(saveLibrary, id, owner)) return
+        persistLibrary(); persistCloudQueue(); requestCloudSync()
     }
     fun retryCloudSync() {
         account.user.value?.id?.let { owner ->
-            saveLibrary.entries().filter { it.document?.engine == "us" && (it.cloudOwner == null || it.cloudOwner == owner) }.forEach { cloudQueue.offer(it.id, owner, it.updatedAt) }
-            cloudQueue.retry(owner); persistCloudQueue(); requestCloudSync(force = true)
+            saveLibrary.entries().filter { it.document?.engine == "us" && (it.cloudOwner == null || it.cloudOwner == owner) }.forEach { cloudQueue.offerSave(saveLibrary, it.id, owner) }
+            persistLibrary(); cloudQueue.retry(owner); persistCloudQueue(); requestCloudSync(force = true)
         }
     }
     fun requestCloudSync(force: Boolean = false) {
@@ -201,7 +199,7 @@ class GameSession : ViewModel() {
                     delay(maxOf(1000, wait)); continue
                 }
                 val payload = saveLibrary.uploadJson(write.id, owner, now)
-                if (payload == null) { cloudQueue.remove(write.id); persistCloudQueue(); continue }
+                if (payload == null) { cloudQueue.removeOwned(write.id, owner); persistCloudQueue(); continue }
                 cloudInFlight = true
                 val outcome = try { account.mirrorSave(write.id, payload, owner) } finally { cloudInFlight = false }
                 if (account.user.value?.id != owner) break
@@ -275,6 +273,7 @@ class GameSession : ViewModel() {
             val backupId = UUID.randomUUID().toString()
             saveLibrary.save(backupId, "Before loading another campaign", it, System.currentTimeMillis())
             saveLibrary.setReplay(backupId, replay.json())
+            saveLibrary.get(activeAutosaveId)?.cloudOwner?.let { previousOwner -> saveLibrary.claimCloud(backupId, previousOwner) }
             persistLibrary()
         }
         beginAutosave(owner)
@@ -294,6 +293,10 @@ class GameSession : ViewModel() {
     }
     fun uploadSave(id: String) {
         val owner = account.user.value?.id ?: return
+        if (!saveLibrary.claimCloud(id, owner)) {
+            _saveNotice.value = "This save belongs to another account. Use Upload as new to sync a copy with this account."; return
+        }
+        persistLibrary()
         val revision = saveLibrary.get(id)?.updatedAt ?: return
         val payload = saveLibrary.uploadJson(id, owner, System.currentTimeMillis()) ?: return
         account.uploadSave(id, payload) { user, version -> saveLibrary.markSynced(id, user, version); cloudQueue.acknowledgeRevision(id, user, revision); persistCloudQueue(); persistLibrary() }
@@ -307,7 +310,7 @@ class GameSession : ViewModel() {
     }
     fun downloadSave(id: String) = account.downloadSave(id) { key, name, json, owner, version, replayJson ->
         check(saveLibrary.receiveCloud(key, name, json, owner, version, UUID.randomUUID().toString())) { "This cloud save is not supported by this native client." }
-        cloudQueue.remove(key); cloudQueue.acknowledgeRevision(key, owner, version); persistCloudQueue()
+        cloudQueue.removeOwned(key, owner); cloudQueue.acknowledgeRevision(key, owner, version); persistCloudQueue()
         saveLibrary.setReplay(key, replayJson)
         persistLibrary()
     }

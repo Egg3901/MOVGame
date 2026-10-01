@@ -116,14 +116,13 @@ final class GameSession: ObservableObject {
     @Published var cloudSyncNotice: String?
     private func persistCloudQueue() { UserDefaults.standard.set(cloudQueue.json(), forKey: "mov_cloud_outbox_v1") }
     private func offerCloud(_ id: String) {
-        guard let owner = account.user?.id, let entry = saveLibrary.get(id: id), entry.document?.engine == "us" else { return }
-        cloudQueue.offer(id: id, owner: owner, revision: entry.updatedAt)
-        persistCloudQueue(); requestCloudSync()
+        guard let owner = account.user?.id, cloudQueue.offerSave(library: saveLibrary, id: id, owner: owner) else { return }
+        persistLibrary(); persistCloudQueue(); requestCloudSync()
     }
     func retryCloudSync() {
         guard let owner = account.user?.id else { return }
-        for entry in saveLibrary.entries() where entry.document?.engine == "us" && (entry.cloudOwner == nil || entry.cloudOwner == owner) { cloudQueue.offer(id: entry.id, owner: owner, revision: entry.updatedAt) }
-        cloudQueue.retry(owner: owner); persistCloudQueue(); requestCloudSync(force: true)
+        for entry in saveLibrary.entries() where entry.document?.engine == "us" && (entry.cloudOwner == nil || entry.cloudOwner == owner) { _ = cloudQueue.offerSave(library: saveLibrary, id: entry.id, owner: owner) }
+        persistLibrary(); cloudQueue.retry(owner: owner); persistCloudQueue(); requestCloudSync(force: true)
     }
     func requestCloudSync(force: Bool = false) {
         if cloudTask != nil {
@@ -146,7 +145,7 @@ final class GameSession: ObservableObject {
                     do { try await Task.sleep(nanoseconds: UInt64(max(1000, wait)) * 1_000_000) } catch { return }
                     continue
                 }
-                guard let payload = self.saveLibrary.uploadJson(id: write.id, owner: owner, now: now) else { self.cloudQueue.remove(id: write.id); self.persistCloudQueue(); continue }
+                guard let payload = self.saveLibrary.uploadJson(id: write.id, owner: owner, now: now) else { self.cloudQueue.removeOwned(id: write.id, owner: owner); self.persistCloudQueue(); continue }
                 self.cloudInFlight = true
                 let outcome = await self.account.mirrorSave(id: write.id, payload: payload, owner: owner)
                 self.cloudInFlight = false
@@ -227,6 +226,7 @@ final class GameSession: ObservableObject {
             _ = saveLibrary.save(id: backupID, name: "Before loading another campaign", snapshot: previous,
                 updatedAt: Int64(Date().timeIntervalSince1970 * 1000))
             saveLibrary.setReplay(id: backupID, json: replay.json())
+            if let previousOwner = saveLibrary.get(id: activeAutosaveID)?.cloudOwner { _ = saveLibrary.claimCloud(id: backupID, owner: previousOwner) }
             persistLibrary()
         }
         beginAutosave(owner: owner)
@@ -244,8 +244,12 @@ final class GameSession: ObservableObject {
         return true
     }
     func uploadSave(id: String) async {
-        guard let owner = account.user?.id, let payload = saveLibrary.uploadJson(id: id, owner: owner,
-            now: Int64(Date().timeIntervalSince1970 * 1000)) else { return }
+        guard let owner = account.user?.id else { return }
+        guard saveLibrary.claimCloud(id: id, owner: owner) else {
+            saveNotice = "This save belongs to another account. Use Upload as new to sync a copy with this account."; return
+        }
+        persistLibrary()
+        guard let payload = saveLibrary.uploadJson(id: id, owner: owner, now: Int64(Date().timeIntervalSince1970 * 1000)) else { return }
         let revision = saveLibrary.get(id: id)?.updatedAt ?? 0
         if let version = await account.uploadSave(id: id, payload: payload) {
             saveLibrary.markSynced(id: id, owner: owner, version: version); cloudQueue.acknowledgeRevision(id: id, owner: owner, revision: revision); persistCloudQueue(); persistLibrary()
@@ -265,7 +269,7 @@ final class GameSession: ObservableObject {
             version: remote.updatedAt, backupId: UUID().uuidString) else {
             saveNotice = "This cloud save is not supported by this native client."; return
         }
-        cloudQueue.remove(id: remote.id); cloudQueue.acknowledgeRevision(id: remote.id, owner: owner, revision: remote.updatedAt); persistCloudQueue()
+        cloudQueue.removeOwned(id: remote.id, owner: owner); cloudQueue.acknowledgeRevision(id: remote.id, owner: owner, revision: remote.updatedAt); persistCloudQueue()
         saveLibrary.setReplay(id: remote.id, json: remote.replay)
         persistLibrary(); saveNotice = "Downloaded. Any different local copy was kept as a backup."
     }
