@@ -1,24 +1,8 @@
 import Foundation
 import StoreKit
-
-// StoreKit 2 adapter (Phase 5, #8): the billing.md surface
-// listProducts / purchase / restore / entitlements for non-consumables.
-//
-// Product IDs come from the SKU table (docs/billing.md); the table is
-// exported from MOVGame, so this starts EMPTY and the campaign library keeps its
-// "nothing for sale yet" posture until the first App Store Connect product
-// exists. Entitlements are the on-device verified set
-// (Transaction.currentEntitlements, Apple-signed, no server needed) plus a
-// timestamped cache for offline grace; refunds vanish from
-// currentEntitlements, so they drop out on the next refresh. Server
-// notifications and the receipt-bridge endpoint are web-repo work (#23).
-
-// Mirror of SkuTable on Android; fill from the MOVGame SKU export.
-let storeSkuTable: [(packId: String, sku: String)] = []
-
-private let cacheDefaultsKey = "mov.entitlements"
-private let cacheDateKey = "mov.entitlements.confirmedAt"
-private let graceDays = 7.0
+import Security
+import Combine
+import shared
 
 struct StoreProduct: Identifiable {
     var id: String { packId }
@@ -27,174 +11,157 @@ struct StoreProduct: Identifiable {
     let title: String
     let price: String
 }
+private struct StoreMapping: Decodable { let packId: String; let appleSku: String? }
+private struct StoreBinding: Decodable {
+    let owner: String
+    let appAccountToken: String
+    let purchasesEnabled: Bool
+    let products: [StoreMapping]
+}
+private struct StoreDelivery: Decodable { let verified: Bool; let status: String; let environment: String }
+private struct StoreOwnership: Decodable { let owner: String }
 
 @MainActor
 final class StoreKitAdapter: ObservableObject {
     @Published var products: [StoreProduct] = []
     @Published var owned: Set<String> = []
-    @Published var notice: String? = nil
+    @Published var notice: String?
+    private let account: CampaignAccount
+    private let wallet: NativeStoreWallet
+    private var updatesTask: Task<Void, Never>?
+    private var accountChanges: AnyCancellable?
+    private var skuToPack: [String: String] = [:]
+    private var binding: StoreBinding?
+    private var bindingSession: String?
+    private static let cacheService = "net.lakesidegames.marginofvictory.store-wallet"
 
-    private var updatesTask: Task<Void, Never>? = nil
-
-    init() {
-        updatesTask = Task { await self.listenForTransactions() }
-        refresh()
+    init(account: CampaignAccount) {
+        self.account = account
+        wallet = NativeStoreWallet.companion.restore(json: Self.readCache())
+        owned = Set(wallet.packs(sessionKey: account.storeSessionKey(), nowMillis: Self.now()))
+        updatesTask = Task { [weak self] in
+            for await update in Transaction.updates {
+                guard !Task.isCancelled else { return }
+                await self?.deliver(update)
+            }
+        }
+        accountChanges = account.$user.sink { [weak self] _ in
+            // @Published sends before assignment. Clear displayed products and
+            // rights immediately, then read the new authenticated session.
+            self?.products = []; self?.owned = []
+            Task { [weak self] in await self?.refreshAll() }
+        }
     }
-
-    deinit {
-        updatesTask?.cancel()
-    }
-
-    func refresh() {
-        Task {
+    deinit { updatesTask?.cancel() }
+    private static func now() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
+    func refresh() { Task { await refreshAll() } }
+    private func refreshAll() async {
+        owned = Set(wallet.packs(sessionKey: account.storeSessionKey(), nowMillis: Self.now()))
+        guard account.user?.ahdLinked == true else { products = []; return }
+        do {
+            try await configure()
+            try await refreshOwnership()
             await loadProducts()
-            await refreshEntitlements()
-        }
+            guard !skuToPack.isEmpty else { return }
+            for await result in Transaction.currentEntitlements { await deliver(result, refresh: false) }
+            try await refreshOwnership()
+        } catch { notice = error.localizedDescription }
     }
-
-    // listProducts: App Store details for every SKU in the table.
-    func loadProducts() async {
-        let skus = storeSkuTable.map { $0.sku }
-        guard !skus.isEmpty else {
-            products = []
-            return
-        }
+    private func configure() async throws {
+        guard account.user?.ahdLinked == true, let owner = account.user?.id,
+              let session = account.storeSessionKey() else { throw AccountError("Sign in with your Lakeside account to manage shared purchases.") }
+        let data = try await account.call(path: "/api/store/binding", method: "POST", body: Data("{}".utf8))
+        let value = try JSONDecoder().decode(StoreBinding.self, from: data)
+        guard value.owner == owner, account.user?.id == owner, session == account.storeSessionKey(),
+              UUID(uuidString: value.appAccountToken) != nil else { throw AccountError("Shared account setup could not be verified.") }
+        binding = value; bindingSession = session
+        skuToPack = Dictionary(uniqueKeysWithValues: value.products.compactMap { p in p.appleSku.map { ($0, p.packId) } })
+    }
+    private func loadProducts() async {
+        guard binding?.purchasesEnabled == true, !skuToPack.isEmpty else { products = []; return }
+        let session = bindingSession
         do {
-            let storeProducts = try await Product.products(for: skus)
-            let packFor = Dictionary(uniqueKeysWithValues: storeSkuTable.map { ($0.sku, $0.packId) })
-            products = storeProducts.compactMap { p in
-                guard let packId = packFor[p.id] else { return nil }
-                return StoreProduct(
-                    packId: packId,
-                    sku: p.id,
-                    title: p.displayName,
-                    price: p.displayPrice
-                )
+            let result = try await Product.products(for: Array(skuToPack.keys))
+            guard session == account.storeSessionKey() else { products = []; return }
+            products = result.compactMap { p in
+                guard let pack = skuToPack[p.id] else { return nil }
+                return StoreProduct(packId: pack, sku: p.id, title: p.displayName, price: p.displayPrice)
             }
-        } catch {
-            notice = "Product lookup failed."
-        }
+        } catch { products = []; notice = "Product lookup failed." }
     }
-
-    // purchase: StoreKit 2 flow for a pack.
     func purchase(packId: String) async {
-        guard let sku = storeSkuTable.first(where: { $0.packId == packId })?.sku else { return }
         do {
-            let storeProducts = try await Product.products(for: [sku])
-            guard let product = storeProducts.first else { return }
-            let result = try await product.purchase()
-            switch result {
-            case .success(let verification):
-                await finish(verification: verification)
-            case .userCancelled:
-                notice = "Purchase canceled."
-            case .pending:
-                notice = "Purchase pending."
-            @unknown default:
-                notice = "Purchase failed."
+            try await configure()
+            try await refreshOwnership()
+            guard !owned.contains(packId), !owned.contains("complete") else { throw AccountError("You already own this pack on your Lakeside account.") }
+            guard binding?.purchasesEnabled == true, let value = binding,
+                  let token = UUID(uuidString: value.appAccountToken),
+                  let sku = skuToPack.first(where: { $0.value == packId })?.key else { throw AccountError("Paid packs are not available yet.") }
+            let found = try await Product.products(for: [sku])
+            guard let product = found.first, bindingSession == account.storeSessionKey() else { throw AccountError("Refresh your Lakeside account before purchasing.") }
+            switch try await product.purchase(options: [.appAccountToken(token)]) {
+            case .success(let verification): await deliver(verification)
+            case .userCancelled: notice = "Purchase canceled."
+            case .pending: notice = "Purchase pending."
+            @unknown default: notice = "Purchase failed."
             }
-        } catch {
-            notice = "Purchase failed."
-        }
+        } catch { notice = error.localizedDescription }
     }
-
-    // restore: re-read the verified on-device entitlement set.
     func restore() async {
-        await refreshEntitlements()
+        do {
+            try await configure()
+            try await refreshOwnership()
+            guard !skuToPack.isEmpty else { notice = "Shared purchases refreshed."; return }
+            try await AppStore.sync()
+            for await result in Transaction.currentEntitlements { await deliver(result, refresh: false) }
+            try await refreshOwnership()
+        } catch { notice = error.localizedDescription }
     }
-
-    private func listenForTransactions() async {
-        for await update in Transaction.updates {
-            await finish(verification: update)
+    private func deliver(_ verification: VerificationResult<Transaction>, refresh: Bool = true) async {
+        guard case .verified(let transaction) = verification, skuToPack[transaction.productID] != nil else { return }
+        do {
+            let fields = ["store": "apple", "signedTransaction": verification.jwsRepresentation]
+            let data = try await account.call(path: "/api/store/verify", method: "POST", body: JSONSerialization.data(withJSONObject: fields))
+            let result = try JSONDecoder().decode(StoreDelivery.self, from: data)
+            guard result.verified else { throw AccountError("Purchase delivery could not be verified.") }
+            // Interrupted or rejected delivery stays unfinished for StoreKit
+            // to redeliver. Finish only after the server's durable receipt.
+            await transaction.finish()
+            notice = result.status != "paid" ? "Purchase is not active." : result.environment == "Sandbox"
+                ? "Test purchase verified. Production ownership is unchanged." : "Purchase delivered to your Lakeside account."
+            if refresh { try await refreshOwnership() }
+        } catch { notice = error.localizedDescription }
+    }
+    private func refreshOwnership() async throws {
+        guard let session = account.storeSessionKey() else { owned = []; throw AccountError("Sign in to refresh shared purchases.") }
+        let data = try await account.call(path: "/api/store/ownership", method: "POST", body: Data("{}".utf8))
+        let owner = try JSONDecoder().decode(StoreOwnership.self, from: data).owner
+        guard session == account.storeSessionKey(), account.user?.id == owner,
+              let json = String(data: data, encoding: .utf8),
+              wallet.accept(responseJson: json, sessionKey: session, expectedOwner: owner, nowMillis: Self.now()) else {
+            throw AccountError("Shared account ownership could not be read.")
         }
+        try Self.saveCache(wallet.json())
+        owned = Set(wallet.packs(sessionKey: session, nowMillis: Self.now()))
     }
-
-    private func finish(verification: VerificationResult<Transaction>) async {
-        guard case .verified(let transaction) = verification else { return }
-        if transaction.revocationDate == nil {
-            saveCache(packIds: await verifiedPackIds())
-        }
-        await transaction.finish()
-        await refreshEntitlements()
-        notice = "Purchase complete."
+    private static func cacheQuery() -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: cacheService, kSecAttrAccount as String: "wallet"]
     }
-
-    private func skuToPack() -> [String: String] {
-        Dictionary(uniqueKeysWithValues: storeSkuTable.map { ($0.sku, $0.packId) })
+    private static func readCache() -> String? {
+        var query = cacheQuery(); query[kSecReturnData as String] = true; query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
     }
-
-    private func verifiedPackIds() async -> Set<String> {
-        var out = Set<String>()
-        let map = skuToPack()
-        for await result in Transaction.currentEntitlements {
-            guard case .verified(let transaction) = result else { continue }
-            if transaction.revocationDate != nil { continue }
-            if let packId = map[transaction.productID] {
-                out.insert(packId)
-            }
-        }
-        return out
-    }
-
-    // entitlements: the verified live set plus the fresh cache, minus
-    // packs with a known revocation. The live read is authoritative when it
-    // succeeds; the cache covers offline gaps inside the grace window. A
-    // refund Apple reports (revocationDate) drops the pack immediately and
-    // stays dropped via the persisted revoked set.
-    func refreshEntitlements() async {
-        let live = await verifiedPackIds()
-        let revoked = await revokedPackIds()
-        var revokedStillOut = revoked.subtracting(live)
-        var merged = live
-        if let cached = loadCache() {
-            let age = Date().timeIntervalSince(cached.confirmedAt)
-            if age <= graceDays * 86_400 {
-                merged.formUnion(cached.packs.subtracting(revokedStillOut))
-            }
-        }
-        revokedStillOut.formUnion(await revokedPackIds())
-        saveRevoked(revokedStillOut.subtracting(live))
-        saveCache(packIds: merged)
-        owned = merged
-    }
-
-    private func revokedPackIds() async -> Set<String> {
-        var out = Set(loadRevoked())
-        let map = skuToPack()
-        for await result in Transaction.currentEntitlements {
-            guard case .verified(let transaction) = result else { continue }
-            if transaction.revocationDate != nil, let packId = map[transaction.productID] {
-                out.insert(packId)
-            }
-        }
-        return out
-    }
-
-    private struct CachedPacks {
-        let packs: Set<String>
-        let confirmedAt: Date
-    }
-
-    private func loadCache() -> CachedPacks? {
-        let defaults = UserDefaults.standard
-        guard let packs = defaults.stringArray(forKey: cacheDefaultsKey) else { return nil }
-        let at = defaults.object(forKey: cacheDateKey) as? Date ?? Date.distantPast
-        return CachedPacks(packs: Set(packs), confirmedAt: at)
-    }
-
-    private func saveCache(packIds: Set<String>) {
-        let defaults = UserDefaults.standard
-        defaults.set(Array(packIds), forKey: cacheDefaultsKey)
-        defaults.set(Date(), forKey: cacheDateKey)
-    }
-
-    private let revokedDefaultsKey = "mov.entitlements.revoked"
-
-    private func loadRevoked() -> [String] {
-        UserDefaults.standard.stringArray(forKey: revokedDefaultsKey) ?? []
-    }
-
-    private func saveRevoked(_ packIds: Set<String>) {
-        UserDefaults.standard.set(Array(packIds), forKey: revokedDefaultsKey)
+    private static func saveCache(_ json: String?) throws {
+        guard let json else { return }
+        let query = cacheQuery()
+        let update = [kSecValueData as String: Data(json.utf8)]
+        let status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if status == errSecItemNotFound {
+            var add = query; add[kSecValueData as String] = Data(json.utf8)
+            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            guard SecItemAdd(add as CFDictionary, nil) == errSecSuccess else { throw AccountError("Purchase cache could not be saved.") }
+        } else if status != errSecSuccess { throw AccountError("Purchase cache could not be saved.") }
     }
 }

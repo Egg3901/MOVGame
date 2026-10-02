@@ -111,8 +111,11 @@ struct AccountPurchaseHistory: View {
         }
     }
     private func amount(_ purchase: AccountPurchase) -> String {
-        if purchase.amountCents == 0 { return "Code" }
-        return (Double(purchase.amountCents) / 100).formatted(.currency(code: purchase.currency.uppercased()))
+        if purchase.provider == "apple" { return "App Store" }
+        if purchase.provider == "google" { return "Google Play" }
+        guard let cents = purchase.amountCents, let currency = purchase.currency else { return "Purchase" }
+        if cents == 0 { return "Code" }
+        return (Double(cents) / 100).formatted(.currency(code: currency.uppercased()))
     }
 }
 

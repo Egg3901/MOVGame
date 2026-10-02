@@ -64,6 +64,7 @@ final class GameSession: ObservableObject {
     @Published var version = 0
     @Published var dailySetup: NativeDailyAssignment?
     let account = CampaignAccount()
+    lazy var store = StoreKitAdapter(account: account)
     let settings = NativePreferences()
     @Published var shortcutSequence = 0
     private(set) var shortcut = ""
@@ -275,6 +276,7 @@ final class GameSession: ObservableObject {
     }
 
     init() {
+        _ = store
         if let json = UserDefaults.standard.string(forKey: "mov_named_saves_v1"),
            let restored = NativeSaveLibrary.companion.restore(json: json) { saveLibrary = restored }
         namedSaves = saveLibrary.entries()

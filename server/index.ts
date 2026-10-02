@@ -14,8 +14,9 @@ import { leaderboardRouter, achievementsRouter } from "./routes/leaderboard.js";
 import { dailyRouter } from "./routes/daily.js";
 import { savesRouter } from "./routes/saves.js";
 import { lakesideRouter } from "./routes/lakeside.js";
+import { storeRouter } from "./routes/store.js";
 import { requireAuth, type AuthedRequest } from "./auth.js";
-import { fetchPlatformPurchases, identityForUser } from "./entitlements.js";
+import { fetchPlatformPurchaseHistory, identityForUser } from "./entitlements.js";
 import { getCatalog } from "./catalog.js";
 import { PACKS_BY_ID } from "../src/content/packs.js";
 
@@ -46,6 +47,7 @@ app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/achievements", achievementsRouter);
 app.use("/api/daily", dailyRouter);
 app.use("/api/saves", savesRouter);
+app.use("/api/store", storeRouter);
 app.use(lakesideRouter);   // /api/lakeside/*, /api/internal/*
 
 // Same-origin proxy so the client can list the current user's platform
@@ -53,13 +55,14 @@ app.use(lakesideRouter);   // /api/lakeside/*, /api/internal/*
 // Lakeside platform now; this game only reads.
 app.get("/api/my-entitlements", requireAuth, async (req: AuthedRequest, res) => {
   const identity = identityForUser(req.auth!.userId);
-  const purchases = identity ? await fetchPlatformPurchases(identity) : [];
+  res.set("Cache-Control", "private, no-store");
+  const purchases = identity ? await fetchPlatformPurchaseHistory(identity) : [];
   res.json({
     purchases: purchases.map((p) => ({
       packId: p.productId,
       packName: p.name ?? PACKS_BY_ID[p.productId]?.name ?? p.productId,
       scenarioId: null,
-      provider: p.amountCents > 0 ? ("stripe" as const) : ("code" as const),
+      provider: p.provider,
       amountCents: p.amountCents,
       currency: p.currency,
       status: p.status === "refunded" ? "refunded" : "paid",

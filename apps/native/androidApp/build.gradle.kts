@@ -6,9 +6,6 @@ plugins {
 
 fun String.asBuildConfigString(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-val playPublicKey = providers.gradleProperty("MOV_PLAY_PUBLIC_KEY")
-    .orElse(providers.environmentVariable("MOV_PLAY_PUBLIC_KEY"))
-    .orElse("")
 val sentryDsn = providers.gradleProperty("MOV_SENTRY_DSN")
     .orElse(providers.environmentVariable("MOV_SENTRY_DSN"))
     .orElse("")
@@ -25,7 +22,6 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         // Empty until the store and crash reporting are configured.
-        buildConfigField("String", "PLAY_PUBLIC_KEY", playPublicKey.get().asBuildConfigString())
         buildConfigField("String", "SENTRY_DSN", sentryDsn.get().asBuildConfigString())
     }
 

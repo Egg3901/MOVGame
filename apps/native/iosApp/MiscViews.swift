@@ -1,11 +1,13 @@
 import SwiftUI
 import Security
+import CryptoKit
 import shared
 
 struct StoreView: View {
     @ObservedObject var session: GameSession
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var store = StoreKitAdapter()
+    @ObservedObject private var store: StoreKitAdapter
+    init(session: GameSession) { self.session = session; self.store = session.store }
 
     var body: some View {
         ScrollView {
@@ -51,11 +53,11 @@ struct StoreView: View {
                     HStack {
                         VStack(alignment: .leading) {
                             Text(product.title).font(.headline)
-                            Text(store.owned.contains(product.packId) ? "Owned" : product.price)
+                            Text((store.owned.contains(product.packId) || store.owned.contains("complete")) ? "Owned" : product.price)
                                 .font(.caption)
                         }
                         Spacer()
-                        if !store.owned.contains(product.packId) {
+                        if !(store.owned.contains(product.packId) || store.owned.contains("complete")) {
                             Button("Buy") {
                                 Task { await store.purchase(packId: product.packId) }
                             }
@@ -63,7 +65,8 @@ struct StoreView: View {
                         }
                     }
                 }
-                if !store.products.isEmpty {
+                if session.account.user?.ahdLinked == true {
+                    Text("Pack ownership follows your Lakeside account across web, iOS and Android.").font(.caption)
                     Button("Restore purchases") { Task { await store.restore() } }
                 }
             }
@@ -197,7 +200,7 @@ private struct AccountUnlocked: Decodable { let scenarioIds: [String] }
 struct BoardEntry: Decodable { let rank: Int; let username: String; let score: Int }
 struct PersonalDailyRank: Decodable { let rank: Int; let score: Int }
 private struct BoardResponse: Decodable { let entries: [BoardEntry]; let me: PersonalDailyRank? }
-struct AccountPurchase: Decodable { let packName: String?; let packId: String?; let amountCents: Int; let currency: String; let status: String; let createdAt: Double }
+struct AccountPurchase: Decodable { let packName: String?; let packId: String?; let amountCents: Int?; let currency: String?; let provider: String?; let status: String; let createdAt: Double }
 private struct PurchasesResponse: Decodable { let purchases: [AccountPurchase] }
 private struct ScorePostResponse: Decodable { let rank: Int; let posted: Bool; let personalBest: Int }
 
@@ -285,12 +288,16 @@ final class CampaignAccount: ObservableObject {
         message = nil
     }
 
+    func storeSessionKey() -> String? {
+        readToken().map { SHA256.hash(data: Data($0.utf8)).map { String(format: "%02x", $0) }.joined() }
+    }
+
     func call(path: String, method: String = "GET", body: Data? = nil) async throws -> Data {
         guard let url = URL(string: "https://sim.ahousedividedgame.com\(path)") else { throw AccountError("Account service is unavailable") }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.httpBody = body
-        request.timeoutInterval = 20
+        request.timeoutInterval = path.hasPrefix("/api/store/") ? 75 : 20
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let credential = readToken()
         if let token = credential { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
@@ -441,7 +448,7 @@ final class CampaignAccount: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 20
+        request.timeoutInterval = path.hasPrefix("/api/store/") ? 75 : 20
         request.httpBody = try JSONSerialization.data(withJSONObject: fields)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AccountError("Could not reach account server") }
@@ -510,7 +517,7 @@ struct ScorePosting: View {
     }
 }
 
-private struct AccountError: LocalizedError {
+struct AccountError: LocalizedError {
     let detail: String
     let status: Int?
     let conflict: Bool

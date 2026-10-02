@@ -64,8 +64,9 @@ export interface PlatformPurchase {
   game: string;
   productId: string;
   name: string | null;
-  amountCents: number;
-  currency: string;
+  provider: "stripe" | "code" | "apple" | "google";
+  amountCents: number | null;
+  currency: string | null;
   status: string;
   createdAt: number;
 }
@@ -91,10 +92,10 @@ export function identityForUser(userId: string): Identity | null {
  * Fetch the platform's Margin of Victory purchases for an identity. Cached ~30s per
  * identity. Returns [] on any failure.
  */
-export async function fetchPlatformPurchases(identity: Identity): Promise<PlatformPurchase[]> {
+export async function fetchPlatformPurchaseHistory(identity: Identity): Promise<PlatformPurchase[]> {
   const ahdUserId = identity.ahdUserId ?? "";
   const email = (identity.email ?? "").toLowerCase();
-  if (!ahdUserId && !email) return [];
+  if (!ahdUserId) return [];
 
   const token = process.env.INTERNAL_TOKEN;
   if (!token) return [];
@@ -120,13 +121,15 @@ export async function fetchPlatformPurchases(identity: Identity): Promise<Platfo
     const raw = Array.isArray(body.purchases) ? body.purchases : [];
     const purchases: PlatformPurchase[] = raw
       .map((p) => p as Record<string, unknown>)
-      .filter((p) => p && p.game === GAME && p.status !== "refunded")
+      .filter((p) => p && p.game === GAME && ["paid", "refunded"].includes(String(p.status)))
       .map((p) => ({
         game: GAME,
         productId: String(p.productId ?? p.packId ?? ""),
         name: (p.name ?? p.packName ?? null) as string | null,
-        amountCents: Number(p.amountCents ?? 0),
-        currency: String(p.currency ?? "usd"),
+        provider: ["apple", "google", "code", "stripe"].includes(String(p.provider))
+          ? p.provider as PlatformPurchase["provider"] : Number(p.amountCents ?? 0) > 0 ? "stripe" : "code",
+        amountCents: typeof p.amountCents === "number" && Number.isSafeInteger(p.amountCents) ? p.amountCents : null,
+        currency: typeof p.currency === "string" ? p.currency : null,
         status: String(p.status ?? "paid"),
         createdAt: Number(p.createdAt ?? now),
       }))
@@ -138,6 +141,10 @@ export async function fetchPlatformPurchases(identity: Identity): Promise<Platfo
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function fetchPlatformPurchases(identity: Identity): Promise<PlatformPurchase[]> {
+  return (await fetchPlatformPurchaseHistory(identity)).filter(p => p.status === "paid");
 }
 
 /** The distinct Margin of Victory product (pack) ids the identity owns. */
