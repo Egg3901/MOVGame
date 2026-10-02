@@ -133,6 +133,8 @@ try:
             ('reveal', '--mov-capture-reveal', 20),
             ('ask', '--mov-capture-ask', 20),
             ('ask-login', '--mov-capture-ask-login', 20),
+            ('ask-offline', '--mov-capture-ask-offline', 8),
+            ('ask-blank', '--mov-capture-ask-blank', 8),
         ]:
             selected = os.environ.get('MOV_CAPTURE_NAMES')
             if selected and name not in selected.split(','):

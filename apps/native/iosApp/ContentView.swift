@@ -2,6 +2,29 @@ import shared
 import SwiftUI
 import WebKit
 
+#if targetEnvironment(simulator)
+private final class AskSmokeTransport: NSObject, WKURLSchemeHandler {
+    static var mode: String? {
+        if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-offline") { return "offline" }
+        if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-blank") { return "blank" }
+        return nil
+    }
+    private let mode: String
+    init(mode: String) { self.mode = mode }
+    func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+        if mode == "offline" {
+            task.didFailWithError(NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet))
+        } else {
+            let response = URLResponse(url: task.request.url!, mimeType: "text/html", expectedContentLength: -1, textEncodingName: "utf-8")
+            task.didReceive(response)
+            task.didReceive(Data("<!doctype html><html><body></body></html>".utf8))
+            task.didFinish()
+        }
+    }
+    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
+}
+#endif
+
 private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
     let webView: WKWebView
     private var campaignURL: URL?
@@ -19,6 +42,11 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
     override init() {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        #if targetEnvironment(simulator)
+        if let mode = AskSmokeTransport.mode {
+            configuration.setURLSchemeHandler(AskSmokeTransport(mode: mode), forURLScheme: "mov-ask-smoke")
+        }
+        #endif
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
         webView.navigationDelegate = self
@@ -37,12 +65,24 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
         }
         guard refresh || campaignURL != url || webView.url == nil || selectedGame != "electioneer" else { return }
         campaignURL = url
+        #if targetEnvironment(simulator)
+        if AskSmokeTransport.mode != nil {
+            webView.load(URLRequest(url: URL(string: "mov-ask-smoke://fixture/?game=electioneer")!))
+            return
+        }
+        #endif
         webView.load(URLRequest(url: url))
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url else { decisionHandler(.cancel); return }
+        #if targetEnvironment(simulator)
+        if AskSmokeTransport.mode != nil && url.scheme == "mov-ask-smoke" && url.host == "fixture" {
+            decisionHandler(.allow)
+            return
+        }
+        #endif
         if url.scheme == "https", let host = url.host?.lowercased(), allowedHosts.contains(host) {
             decisionHandler(.allow)
         } else {
@@ -63,7 +103,23 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
     }
 
     #if targetEnvironment(simulator)
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        NSLog("[DEBUG-ios-ask] navigation started")
+    }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        NSLog("[DEBUG-ios-ask] provisional failure domain=%@ code=%ld", (error as NSError).domain, (error as NSError).code)
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        NSLog("[DEBUG-ios-ask] navigation failure domain=%@ code=%ld", (error as NSError).domain, (error as NSError).code)
+    }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        NSLog("[DEBUG-ios-ask] content process terminated")
+    }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        NSLog("[DEBUG-ios-ask] navigation finished")
+        webView.evaluateJavaScript("document.body?.innerText?.trim().length ?? 0") { result, error in
+            NSLog("[DEBUG-ios-ask] document text length=%@ evaluation failed=%@", String(describing: result), String(describing: error != nil))
+        }
         guard let url = webView.url else { return }
         if url.host == "auth.lakesidegames.net" {
             NSLog("MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH")
@@ -203,7 +259,9 @@ struct ContentView: View {
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-analysis") { menuDestination = .analysis }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-replay") { menuDestination = .replay }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") ||
-                ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login") {
+                ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login") ||
+                ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-offline") ||
+                ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-blank") {
                 session.prepareSimulatorCaptureIfRequested()
                 openAsk()
             }
