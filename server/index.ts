@@ -53,9 +53,11 @@ app.use(lakesideRouter);   // /api/lakeside/*, /api/internal/*
 // Same-origin proxy so the client can list the current user's platform
 // purchases without ever seeing INTERNAL_TOKEN. Commerce is owned by the
 // Lakeside platform now; this game only reads.
-app.get("/api/my-entitlements", requireAuth, async (req: AuthedRequest, res) => {
-  const identity = identityForUser(req.auth!.userId);
+app.get("/api/my-entitlements", (_req, res, next) => {
   res.set("Cache-Control", "private, no-store");
+  next();
+}, requireAuth, async (req: AuthedRequest, res) => {
+  const identity = identityForUser(req.auth!.userId);
   const purchases = identity ? await fetchPlatformPurchaseHistory(identity) : [];
   res.json({
     purchases: purchases.map((p) => ({
