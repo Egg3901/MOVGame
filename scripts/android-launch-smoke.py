@@ -51,6 +51,20 @@ def launch(flow):
     adb('shell', 'am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity', '--es', 'mov_capture', flow)
 
 
+def wait_ask(marker, name):
+    deadline = time.monotonic() + 70
+    while time.monotonic() < deadline:
+        log = adb('logcat', '-d', '-s', 'MOVAsk:I', '*:S')
+        if marker in log:
+            (output / f'{name}-console.log').write_text(log)
+            return log
+        if not adb('shell', 'pidof', PACKAGE).strip():
+            raise RuntimeError(f'App exited during {name}')
+        time.sleep(1)
+    (output / f'{name}-console.log').write_text(log)
+    raise RuntimeError(f'{name} never reached {marker}')
+
+
 def tap_label(label, direction='down', suffix=False):
     width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
     for attempt in range(12):
@@ -94,6 +108,33 @@ try:
             launch(name)
             marker = 'CAMPAIGN DESK' if country == 'US' and kind != 'results' else 'ELECTION RESULT' if kind == 'results' and country != 'US' else 'CAMPAIGN SCORE' if kind == 'results' else 'WEEK'
             capture(name, marker)
+    # Ask is an embedded page with the same bounded campaign handoff as iOS.
+    adb('logcat', '-c')
+    launch('home')
+    capture('ask-home-entry', 'Ask about', 'ask')
+    launch('game-US')
+    capture('ask-campaign-entry', 'CAMPAIGN DESK')
+    tap_label('Ask about this campaign')
+    wait_ask('MOV_ASK_DOCUMENT_READY', 'ask-live')
+    wait_ask('MOV_ASK_SNAPSHOT_READY', 'ask-snapshot')
+    capture('ask-live', 'Margin of Victory', 'ask')
+    tap_label('Sign in')
+    capture('ask-signin', 'Lakeside', 'ask')
+    wait_ask('MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH', 'ask-signin-form')
+    text = semantic_text('ask-signin-form')
+    if 'PASSWORD' not in text or ('EMAIL' not in text and 'USERNAME' not in text):
+        raise RuntimeError('Ask sign-in did not show the embedded identity form')
+    for flow in ('ask-offline', 'ask-blank', 'ask-retry'):
+        adb('logcat', '-c')
+        launch(flow)
+        log = wait_ask('MOV_ASK_ERROR_SHOWN', flow)
+        if log.count('MOV_ASK_AUTOMATIC_RETRY') != 1 or 'MOV_ASK_DOCUMENT_READY' in log:
+            raise RuntimeError(f'{flow} did not show a bounded failure')
+        capture(flow, 'Try again', 'ask')
+        if flow == 'ask-retry':
+            tap_label('Try again')
+            wait_ask('MOV_ASK_DOCUMENT_READY', 'ask-retried')
+            capture('ask-retried', 'Ask recovered', 'ask')
     # Check the actual accessibility tree, including each switch's name.
     launch('settings')
     capture('settings-accessibility', 'Sound effects', 'ask')

@@ -25,6 +25,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.TextButton
+import com.lakesidegames.electioneer.ui.AskDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -88,6 +94,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
     val screen by session.screen.collectAsState()
+    var askUrl by remember { mutableStateOf<String?>(null) }
+    val capture = if (BuildConfig.DEBUG) activity.intent.getStringExtra("mov_capture") else null
+    LaunchedEffect(capture) { if (capture?.startsWith("ask") == true) askUrl = session.askUrl() }
     BackHandler(enabled = screen != Screen.HOME && screen != Screen.REVEAL) {
         if (screen in listOf(Screen.SETTINGS, Screen.GUIDE, Screen.BOARDS, Screen.SAVES, Screen.EDITOR)) session.go(Screen.ACCOUNT)
         else if (screen in listOf(Screen.ANALYSIS, Screen.REPLAY)) session.resumeGame()
@@ -100,7 +109,16 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
         onSurfaceVariant = Color(0xFFA8B5C2), primaryContainer = Color(0xFF35402D),
     )) {
         Surface {
+            if (askUrl != null) AskDialog(askUrl!!, onRefresh = session::askUrl,
+                onClose = { askUrl = null }, smoke = capture?.takeIf { it in listOf("ask-offline", "ask-blank", "ask-retry") })
             Scaffold(
+                topBar = {
+                    if (screen in listOf(Screen.HOME, Screen.GAME, Screen.WORLD_GAME, Screen.RESULTS)) {
+                        TextButton(onClick = { askUrl = session.askUrl() }) {
+                            Text(if (session.hasSave()) "Ask about this campaign" else "Ask about Margin of Victory")
+                        }
+                    }
+                },
                 bottomBar = {
                     NavigationBar {
                         NavigationBarItem(
