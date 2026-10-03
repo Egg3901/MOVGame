@@ -32,6 +32,7 @@ import com.lakesidegames.electioneer.engine.loadGame
 import com.lakesidegames.electioneer.engine.saveGame
 import com.lakesidegames.electioneer.engine.MobileGame
 import com.lakesidegames.electioneer.engine.MobileCampaign
+import com.lakesidegames.electioneer.engine.NativeCustomScenario
 import com.lakesidegames.electioneer.engine.NativeResultsJourney
 import com.lakesidegames.electioneer.engine.NativeResults
 import com.lakesidegames.electioneer.engine.NativeDaily

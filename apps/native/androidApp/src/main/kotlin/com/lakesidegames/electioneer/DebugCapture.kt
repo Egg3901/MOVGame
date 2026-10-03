@@ -3,8 +3,7 @@ package com.lakesidegames.electioneer
 import com.lakesidegames.electioneer.engine.*
 import com.lakesidegames.electioneer.ui.GameSession
 import com.lakesidegames.electioneer.ui.Screen
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import org.json.JSONObject
 
 // Only debug APKs accept capture routes. Runtime checks use real Compose
 // screens and persisted campaigns; release builds ignore these intent extras.
@@ -53,7 +52,7 @@ internal fun captureDebugFlow(session: GameSession, flow: String) {
     if (flow == "custom-US") {
         val fragment = requireNotNull(android.net.Uri.parse(session.askUrl()).fragment).substringAfter("mov=")
         val json = android.util.Base64.decode(fragment, android.util.Base64.URL_SAFE).toString(Charsets.UTF_8)
-        val label = EngineJson.parseToJsonElement(json).jsonObject.getValue("scenario").jsonPrimitive.content
+        val label = JSONObject(json).getString("scenario")
         check(label == MobileGame.restore(snapshot)!!.campaignLabel()) { "Ask lost the custom campaign label" }
         android.util.Log.i("MOVCapture", "MOV_ASK_CUSTOM_LABEL_READY")
     }
