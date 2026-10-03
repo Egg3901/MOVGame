@@ -24,7 +24,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.lakesidegames.electioneer.BuildConfig
 import java.util.concurrent.atomic.AtomicInteger
 
-private enum class AskPhase { LOADING, READY, FAILED }
+private enum class AskPhase { LOADING, RETRYING, READY, FAILED }
 
 private class AskBrowser(private val context: Context, private val smoke: String?) {
     var phase by mutableStateOf(AskPhase.LOADING)
@@ -67,6 +67,7 @@ private class AskBrowser(private val context: Context, private val smoke: String
                 return true
             }
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                if (phase == AskPhase.RETRYING) return
                 activeUrl = url
                 generation++
                 phase = AskPhase.LOADING
@@ -95,6 +96,7 @@ private class AskBrowser(private val context: Context, private val smoke: String
                 if (!BuildConfig.DEBUG || smoke == null || request.url.host != "mov-ask.invalid" || !request.isForMainFrame) return null
                 val count = fixtureRequests.incrementAndGet()
                 val failed = smoke == "ask-retry" && count <= 2
+                android.util.Log.i("MOVAsk", if (failed) "MOV_ASK_FIXTURE_RESPONSE_503" else "MOV_ASK_FIXTURE_RESPONSE_200")
                 val html = if (smoke == "ask-blank") "<html><body></body></html>" else """
                     <html><body style="background:#10131c;color:white;font:24px sans-serif;padding:32px">
                     <h1>Ask recovered</h1><p>This document loaded after navigation recovery. Campaign questions are ready inside the app.</p>
@@ -143,6 +145,7 @@ private class AskBrowser(private val context: Context, private val smoke: String
         handler.removeCallbacksAndMessages(null)
         generation++
         activeUrl = ""
+        phase = AskPhase.RETRYING
         view.stopLoading()
         if (retries == 0 && mayRetry) {
             retries++
@@ -205,7 +208,7 @@ fun AskDialog(url: String, onRefresh: () -> String, onClose: () -> Unit, smoke: 
                             update = { it.visibility = if (browser.phase == AskPhase.READY) android.view.View.VISIBLE else android.view.View.INVISIBLE })
                     }
                     when (browser.phase) {
-                        AskPhase.LOADING -> Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        AskPhase.LOADING, AskPhase.RETRYING -> Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             CircularProgressIndicator()
                             Text("Opening Ask…")
                         }

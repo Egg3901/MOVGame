@@ -134,8 +134,12 @@ try:
             raise RuntimeError(f'{flow} did not show a bounded failure')
         capture(flow, 'Try again', 'ask')
         if flow == 'ask-retry':
+            if log.count('MOV_ASK_FIXTURE_RESPONSE_503') != 2:
+                raise RuntimeError('Ask retry did not preserve both failed HTTP responses')
             tap_label('Try again')
-            wait_ask('MOV_ASK_DOCUMENT_READY', 'ask-retried')
+            retried = wait_ask('MOV_ASK_DOCUMENT_READY', 'ask-retried')
+            if retried.count('MOV_ASK_FIXTURE_RESPONSE_200') != 1:
+                raise RuntimeError('Try again did not load the successful third HTTP response')
             capture('ask-retried', 'Ask recovered', 'ask')
     routes = [('home', 'Margin of'), ('library', 'Choose your election'), ('setup', 'Choose your path'),
               ('store', 'History is yours to play'), ('account', 'YOUR ACCOUNT'), ('settings', 'Sound effects'), ('guide', 'HOW TO PLAY'),
