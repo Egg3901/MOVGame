@@ -24,10 +24,21 @@ def adb(*args, binary=False):
 
 
 def semantic_text(name):
-    adb('shell', 'uiautomator', 'dump', '/sdcard/mov-ui.xml')
-    xml = adb('shell', 'cat', '/sdcard/mov-ui.xml')
-    (output / f'{name}.xml').write_text(xml)
-    return ' '.join(node.get('text', '') + ' ' + node.get('content-desc', '') for node in ET.fromstring(xml).iter('node')).upper()
+    path = output / f'{name}.xml'
+    path.unlink(missing_ok=True)
+    try:
+        # A null-root dump exits successfully but leaves the old device file.
+        # Remove it first so every assertion uses the current window's tree.
+        adb('shell', 'rm', '-f', '/sdcard/mov-ui.xml')
+        adb('shell', 'uiautomator', 'dump', '/sdcard/mov-ui.xml')
+        xml = adb('shell', 'cat', '/sdcard/mov-ui.xml')
+        nodes = ET.fromstring(xml).iter('node')
+        text = ' '.join(node.get('text', '') + ' ' + node.get('content-desc', '') for node in nodes).upper()
+        path.write_text(xml)
+        return text
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ET.ParseError):
+        print(f'Accessibility tree not ready for {name}; waiting for a fresh dump', flush=True)
+        return ''
 
 
 def capture(name, marker, mode='game'):
@@ -68,7 +79,9 @@ def wait_ask(marker, name):
 def tap_label(label, direction='down', suffix=False, prefix=False):
     width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
     for attempt in range(12):
-        semantic_text(f'tap-{attempt}')
+        if not semantic_text(f'tap-{attempt}'):
+            time.sleep(1)
+            continue
         nodes = ET.fromstring((output / f'tap-{attempt}.xml').read_text()).iter('node')
         for node in nodes:
             text = node.get('text', '').strip()
@@ -96,18 +109,6 @@ try:
     adb('shell', 'settings', 'put', 'global', 'window_animation_scale', '0')
     adb('shell', 'settings', 'put', 'global', 'transition_animation_scale', '0')
     adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '0')
-    routes = [('home', 'Margin of'), ('library', 'Choose your election'), ('setup', 'Choose your path'),
-              ('store', 'History is yours to play'), ('account', 'YOUR ACCOUNT'), ('settings', 'Sound effects'), ('guide', 'HOW TO PLAY'),
-              ('editor', 'SCENARIO EDITOR'), ('saves', 'SAVED CAMPAIGNS'), ('analysis', 'CAMPAIGN ANALYSIS'), ('replay', 'CAMPAIGN REPLAY AND REPORT')]
-    for flow, marker in routes:
-        launch(flow)
-        capture(flow, marker, 'ask')
-    for country in ('US', 'UK', 'CA', 'DE', 'FR', 'AU'):
-        for kind in ('game', 'custom', 'results'):
-            name = f'{kind}-{country}'
-            launch(name)
-            marker = 'CAMPAIGN DESK' if country == 'US' and kind != 'results' else 'ELECTION RESULT' if kind == 'results' and country != 'US' else 'CAMPAIGN SCORE' if kind == 'results' else 'WEEK'
-            capture(name, marker)
     # Ask is an embedded page with the same bounded campaign handoff as iOS.
     adb('logcat', '-c')
     launch('home')
@@ -119,9 +120,10 @@ try:
     wait_ask('MOV_ASK_SNAPSHOT_READY', 'ask-snapshot')
     capture('ask-live', 'Margin of Victory', 'ask')
     tap_label('Sign in', prefix=True)
-    capture('ask-signin', 'Lakeside', 'ask')
     wait_ask('MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH', 'ask-signin-form')
-    text = semantic_text('ask-signin-form')
+    capture('ask-signin', 'Password', 'ask')
+    text = ' '.join(node.get('text', '') + ' ' + node.get('content-desc', '')
+                    for node in ET.fromstring((output / 'ask-signin.xml').read_text()).iter('node')).upper()
     if 'PASSWORD' not in text or ('EMAIL' not in text and 'USERNAME' not in text):
         raise RuntimeError('Ask sign-in did not show the embedded identity form')
     for flow in ('ask-offline', 'ask-blank', 'ask-retry'):
@@ -135,6 +137,18 @@ try:
             tap_label('Try again')
             wait_ask('MOV_ASK_DOCUMENT_READY', 'ask-retried')
             capture('ask-retried', 'Ask recovered', 'ask')
+    routes = [('home', 'Margin of'), ('library', 'Choose your election'), ('setup', 'Choose your path'),
+              ('store', 'History is yours to play'), ('account', 'YOUR ACCOUNT'), ('settings', 'Sound effects'), ('guide', 'HOW TO PLAY'),
+              ('editor', 'SCENARIO EDITOR'), ('saves', 'SAVED CAMPAIGNS'), ('analysis', 'CAMPAIGN ANALYSIS'), ('replay', 'CAMPAIGN REPLAY AND REPORT')]
+    for flow, marker in routes:
+        launch(flow)
+        capture(flow, marker, 'ask')
+    for country in ('US', 'UK', 'CA', 'DE', 'FR', 'AU'):
+        for kind in ('game', 'custom', 'results'):
+            name = f'{kind}-{country}'
+            launch(name)
+            marker = 'CAMPAIGN DESK' if country == 'US' and kind != 'results' else 'ELECTION RESULT' if kind == 'results' and country != 'US' else 'CAMPAIGN SCORE' if kind == 'results' else 'WEEK'
+            capture(name, marker)
     # Check the actual accessibility tree, including each switch's name.
     launch('settings')
     capture('settings-accessibility', 'Sound effects', 'ask')
@@ -142,7 +156,8 @@ try:
     width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
     for attempt in range(4):
         name = f'settings-accessibility-{attempt}'
-        semantic_text(name)
+        if not semantic_text(name):
+            continue
         remaining -= ui_semantics.named_toggles((output / f'{name}.xml').read_text())
         if not remaining:
             break
