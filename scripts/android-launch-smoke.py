@@ -48,10 +48,12 @@ def capture(name, marker, mode='game'):
         alive = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True, timeout=25)
         if alive.returncode != 0 or not alive.stdout.strip():
             raise RuntimeError(f'App exited during {name}')
+        if marker.upper() not in semantic_text(name):
+            continue
         path = output / f'{name}.png'
         path.write_bytes(adb('exec-out', 'screencap', '-p', binary=True))
         ready, coverage = probe.check_screen(path, mode)
-        if ready and marker.upper() in semantic_text(name):
+        if ready:
             print(f'PASS {name}: {marker}; {coverage}', flush=True)
             return
     raise RuntimeError(f'{name} did not render its expected content: {marker}')
@@ -133,6 +135,10 @@ try:
         if log.count('MOV_ASK_AUTOMATIC_RETRY') != 1 or 'MOV_ASK_DOCUMENT_READY' in log:
             raise RuntimeError(f'{flow} did not show a bounded failure')
         capture(flow, 'Try again', 'ask')
+        log = adb('logcat', '-d', '-s', 'MOVAsk:I', '*:S')
+        if log.count('MOV_ASK_ERROR_SHOWN') != 1 or 'MOV_ASK_DOCUMENT_READY' in log:
+            raise RuntimeError(f'{flow} did not preserve its terminal failure state')
+        (output / f'{flow}-console.log').write_text(log)
         if flow == 'ask-retry':
             if log.count('MOV_ASK_FIXTURE_RESPONSE_503') != 2:
                 raise RuntimeError('Ask retry did not preserve both failed HTTP responses')

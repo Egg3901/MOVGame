@@ -67,7 +67,7 @@ private class AskBrowser(private val context: Context, private val smoke: String
                 return true
             }
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
-                if (phase == AskPhase.RETRYING) return
+                if (phase == AskPhase.RETRYING || phase == AskPhase.FAILED) return
                 activeUrl = url
                 generation++
                 phase = AskPhase.LOADING
