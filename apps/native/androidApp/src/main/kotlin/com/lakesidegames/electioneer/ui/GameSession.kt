@@ -486,7 +486,8 @@ class GameSession : ViewModel() {
     fun hasSave() = _game.value != null || _campaign.value != null
     fun savedCampaignLabel(): String? = _campaign.value?.label() ?: _game.value?.let { game ->
         val id = game.scenarioId ?: "2020"
-        MobileGame.campaigns().firstOrNull { it.id == id }?.label
+        game.customScenario?.let { NativeCustomScenario.entry(it)?.label }
+            ?: MobileGame.campaigns().firstOrNull { it.id == id }?.label
     }
 
     fun resumeGame() {
