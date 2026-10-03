@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import android.app.Activity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -114,7 +115,7 @@ fun MarginOfVictoryApp(session: GameSession, activity: Activity) {
             Scaffold(
                 topBar = {
                     if (screen in listOf(Screen.HOME, Screen.GAME, Screen.WORLD_GAME, Screen.RESULTS)) {
-                        TextButton(onClick = { askUrl = session.askUrl() }) {
+                        TextButton(onClick = { askUrl = session.askUrl() }, modifier = Modifier.statusBarsPadding()) {
                             Text(if (session.hasSave()) "Ask about this campaign" else "Ask about Margin of Victory")
                         }
                     }
