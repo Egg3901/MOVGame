@@ -24,10 +24,21 @@ def adb(*args, binary=False):
 
 
 def semantic_text(name):
-    adb('shell', 'uiautomator', 'dump', '/sdcard/mov-ui.xml')
-    xml = adb('shell', 'cat', '/sdcard/mov-ui.xml')
-    (output / f'{name}.xml').write_text(xml)
-    return ' '.join(node.get('text', '') + ' ' + node.get('content-desc', '') for node in ET.fromstring(xml).iter('node')).upper()
+    path = output / f'{name}.xml'
+    path.unlink(missing_ok=True)
+    try:
+        # A null-root dump exits successfully but leaves the old device file.
+        # Remove it first so every assertion uses the current window's tree.
+        adb('shell', 'rm', '-f', '/sdcard/mov-ui.xml')
+        adb('shell', 'uiautomator', 'dump', '/sdcard/mov-ui.xml')
+        xml = adb('shell', 'cat', '/sdcard/mov-ui.xml')
+        nodes = ET.fromstring(xml).iter('node')
+        text = ' '.join(node.get('text', '') + ' ' + node.get('content-desc', '') for node in nodes).upper()
+        path.write_text(xml)
+        return text
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ET.ParseError):
+        print(f'Accessibility tree not ready for {name}; waiting for a fresh dump', flush=True)
+        return ''
 
 
 def capture(name, marker, mode='game'):
@@ -37,10 +48,12 @@ def capture(name, marker, mode='game'):
         alive = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True, timeout=25)
         if alive.returncode != 0 or not alive.stdout.strip():
             raise RuntimeError(f'App exited during {name}')
+        if marker.upper() not in semantic_text(name):
+            continue
         path = output / f'{name}.png'
         path.write_bytes(adb('exec-out', 'screencap', '-p', binary=True))
         ready, coverage = probe.check_screen(path, mode)
-        if ready and marker.upper() in semantic_text(name):
+        if ready:
             print(f'PASS {name}: {marker}; {coverage}', flush=True)
             return
     raise RuntimeError(f'{name} did not render its expected content: {marker}')
@@ -51,14 +64,30 @@ def launch(flow):
     adb('shell', 'am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity', '--es', 'mov_capture', flow)
 
 
-def tap_label(label, direction='down', suffix=False):
+def wait_ask(marker, name):
+    deadline = time.monotonic() + 70
+    while time.monotonic() < deadline:
+        log = adb('logcat', '-d', '-s', 'MOVAsk:I', '*:S')
+        if marker in log:
+            (output / f'{name}-console.log').write_text(log)
+            return log
+        if not adb('shell', 'pidof', PACKAGE).strip():
+            raise RuntimeError(f'App exited during {name}')
+        time.sleep(1)
+    (output / f'{name}-console.log').write_text(log)
+    raise RuntimeError(f'{name} never reached {marker}')
+
+
+def tap_label(label, direction='down', suffix=False, prefix=False):
     width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
     for attempt in range(12):
-        semantic_text(f'tap-{attempt}')
+        if not semantic_text(f'tap-{attempt}'):
+            time.sleep(1)
+            continue
         nodes = ET.fromstring((output / f'tap-{attempt}.xml').read_text()).iter('node')
         for node in nodes:
             text = node.get('text', '').strip()
-            matches = text.endswith(label) if suffix else text == label
+            matches = text.endswith(label) if suffix else text.startswith(label) if prefix else text == label
             if not matches or node.get('enabled') != 'true':
                 continue
             bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
@@ -82,6 +111,42 @@ try:
     adb('shell', 'settings', 'put', 'global', 'window_animation_scale', '0')
     adb('shell', 'settings', 'put', 'global', 'transition_animation_scale', '0')
     adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '0')
+    # Ask is an embedded page with the same bounded campaign handoff as iOS.
+    adb('logcat', '-c')
+    launch('home')
+    capture('ask-home-entry', 'Ask about', 'ask')
+    launch('game-US')
+    capture('ask-campaign-entry', 'CAMPAIGN DESK')
+    tap_label('Ask about this campaign')
+    wait_ask('MOV_ASK_DOCUMENT_READY', 'ask-live')
+    wait_ask('MOV_ASK_SNAPSHOT_READY', 'ask-snapshot')
+    capture('ask-live', 'Margin of Victory', 'ask')
+    tap_label('Sign in', prefix=True)
+    wait_ask('MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH', 'ask-signin-form')
+    capture('ask-signin', 'Password', 'ask')
+    text = ' '.join(node.get('text', '') + ' ' + node.get('content-desc', '')
+                    for node in ET.fromstring((output / 'ask-signin.xml').read_text()).iter('node')).upper()
+    if 'PASSWORD' not in text or ('EMAIL' not in text and 'USERNAME' not in text):
+        raise RuntimeError('Ask sign-in did not show the embedded identity form')
+    for flow in ('ask-offline', 'ask-blank', 'ask-retry'):
+        adb('logcat', '-c')
+        launch(flow)
+        log = wait_ask('MOV_ASK_ERROR_SHOWN', flow)
+        if log.count('MOV_ASK_AUTOMATIC_RETRY') != 1 or 'MOV_ASK_DOCUMENT_READY' in log:
+            raise RuntimeError(f'{flow} did not show a bounded failure')
+        capture(flow, 'Try again', 'ask')
+        log = adb('logcat', '-d', '-s', 'MOVAsk:I', '*:S')
+        if log.count('MOV_ASK_ERROR_SHOWN') != 1 or 'MOV_ASK_DOCUMENT_READY' in log:
+            raise RuntimeError(f'{flow} did not preserve its terminal failure state')
+        (output / f'{flow}-console.log').write_text(log)
+        if flow == 'ask-retry':
+            if log.count('MOV_ASK_FIXTURE_RESPONSE_503') != 2:
+                raise RuntimeError('Ask retry did not preserve both failed HTTP responses')
+            tap_label('Try again')
+            retried = wait_ask('MOV_ASK_DOCUMENT_READY', 'ask-retried')
+            if retried.count('MOV_ASK_FIXTURE_RESPONSE_200') != 1:
+                raise RuntimeError('Try again did not load the successful third HTTP response')
+            capture('ask-retried', 'Ask recovered', 'ask')
     routes = [('home', 'Margin of'), ('library', 'Choose your election'), ('setup', 'Choose your path'),
               ('store', 'History is yours to play'), ('account', 'YOUR ACCOUNT'), ('settings', 'Sound effects'), ('guide', 'HOW TO PLAY'),
               ('editor', 'SCENARIO EDITOR'), ('saves', 'SAVED CAMPAIGNS'), ('analysis', 'CAMPAIGN ANALYSIS'), ('replay', 'CAMPAIGN REPLAY AND REPORT')]
@@ -101,7 +166,8 @@ try:
     width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
     for attempt in range(4):
         name = f'settings-accessibility-{attempt}'
-        semantic_text(name)
+        if not semantic_text(name):
+            continue
         remaining -= ui_semantics.named_toggles((output / f'{name}.xml').read_text())
         if not remaining:
             break

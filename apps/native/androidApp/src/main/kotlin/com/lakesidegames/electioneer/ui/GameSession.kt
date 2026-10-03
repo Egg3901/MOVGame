@@ -472,6 +472,17 @@ class GameSession : ViewModel() {
     fun mates(scenario: String, player: CandidateId) = MobileGame.mates(scenario, player.serial)
     fun staffChoices() = MobileGame.staffChoices()
 
+    fun askUrl(): String {
+        val fallback = "https://ask.lakesidegames.net/?game=electioneer"
+        val game = _game.value ?: return fallback
+        val snapshot = com.lakesidegames.electioneer.engine.askCampaignSnapshot(game, savedCampaignLabel() ?: "United States")
+            .toByteArray(Charsets.UTF_8)
+        if (snapshot.size > 8_000) return fallback
+        val fragment = android.util.Base64.encodeToString(snapshot,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+        return "https://ask.lakesidegames.net/from-mov#mov=$fragment"
+    }
+
     fun hasSave() = _game.value != null || _campaign.value != null
     fun savedCampaignLabel(): String? = _campaign.value?.label() ?: _game.value?.let { game ->
         val id = game.scenarioId ?: "2020"

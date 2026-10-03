@@ -12,6 +12,7 @@ internal fun captureDebugFlow(session: GameSession, flow: String) {
         "setup" to Screen.SETUP, "store" to Screen.STORE,
         "settings" to Screen.SETTINGS, "guide" to Screen.GUIDE, "editor" to Screen.EDITOR)
     if (flow in routes) { session.go(routes.getValue(flow)); return }
+    if (flow.startsWith("ask")) { captureDebugFlow(session, "game-US"); return }
     if (flow == "resume") { session.resumeGame(); return }
     val country = flow.substringAfter('-', "US")
     require(country in listOf("US", "UK", "CA", "DE", "FR", "AU"))
