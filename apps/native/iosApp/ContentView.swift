@@ -237,6 +237,15 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
             NSLog("MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH")
         } else if url.host == "ask.lakesidegames.net" || url.scheme == "mov-ask-smoke" {
             NSLog("MOV_ASK_DOCUMENT_READY")
+            if url.host == "ask.lakesidegames.net" {
+                let current = generation
+                webView.evaluateJavaScript("(() => { try { const s = JSON.parse(sessionStorage.getItem('ask.movSnapshot')); return s?.version === 1 && s?.game === 'electioneer' && typeof s?.scenario === 'string' ? s.country : null; } catch { return null; } })()") { [weak self] result, _ in
+                    guard let self, self.generation == current, self.phase == .ready,
+                          let country = result as? String,
+                          ["US", "UK", "CA", "DE", "FR", "AU"].contains(country) else { return }
+                    NSLog("MOV_ASK_SNAPSHOT_COUNTRY_%@", country)
+                }
+            }
             if openSignInForSmokeTest, url.path == "/", !checkingSignInForSmokeTest {
                 checkingSignInForSmokeTest = true
                 clickSignInWhenReady(attempts: 30)
@@ -404,6 +413,7 @@ struct ContentView: View {
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-analysis") { menuDestination = .analysis }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-replay") { menuDestination = .replay }
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-ask") ||
+                ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-de") ||
                 ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-login") ||
                 ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-offline") ||
                 ProcessInfo.processInfo.arguments.contains("--mov-capture-ask-blank") ||

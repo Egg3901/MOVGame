@@ -157,6 +157,21 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
     fun slotsLeft(): Int = ((uk?.resources?.getValue(playerParty())?.actions
         ?: country!!.resources.getValue(playerParty()).actions) - plan().size).coerceAtLeast(0)
     fun saveSnapshot(): String = EngineJson.encodeToString(NativeCampaignSave(uk = uk, country = country))
+    fun askSnapshot(): String {
+        val seats = uk?.let { (it.result ?: projectUk(it)).seats }
+            ?: country!!.let { (it.result ?: projectCountry(it, bundle()!!)).seats }
+        val names = (uk?.regions ?: country!!.regions).associate { it.id to it.name }
+        fun target(id: String?) = id?.let { names[it] ?: it } ?: "National"
+        val planned = uk?.queuedActions?.map { AskCampaignPlan(it.type.serial, target(it.regionId)) }
+            ?: country!!.queuedActions.map { AskCampaignPlan(it.type.serial, target(it.regionId)) }
+        return EngineJson.encodeToString(AskSeatCampaignSnapshot(
+            scenario = label(), country = countryId(), turn = turn(), totalTurns = totalTurns(),
+            player = playerParty(), fundsMillions = funds(), momentum = momentum(), actionsLeft = slotsLeft(),
+            seatPlayer = seats[playerParty()] ?: 0, seatTotal = seats.values.sum(),
+            regions = regions().map { AskSeatRegion(it.name, it.totalUnits, it.playerUnits) },
+            planned = planned,
+        ))
+    }
     fun plannedSpend(): Double = plan().sumOf { it.cost }
     fun availableFunds(): Double = (funds() - plannedSpend()).coerceAtLeast(0.0)
     fun majority(): Int = uk?.let { majorityForUk(it).threshold } ?: majorityFor(country!!, bundle()!!).threshold

@@ -474,9 +474,9 @@ class GameSession : ViewModel() {
 
     fun askUrl(): String {
         val fallback = "https://ask.lakesidegames.net/?game=electioneer"
-        val game = _game.value ?: return fallback
-        val snapshot = com.lakesidegames.electioneer.engine.askCampaignSnapshot(game, savedCampaignLabel() ?: "United States")
-            .toByteArray(Charsets.UTF_8)
+        val snapshot = (_campaign.value?.askSnapshot() ?: _game.value?.let { game ->
+            com.lakesidegames.electioneer.engine.askCampaignSnapshot(game, savedCampaignLabel() ?: "United States")
+        })?.toByteArray(Charsets.UTF_8) ?: return fallback
         if (snapshot.size > 8_000) return fallback
         val fragment = android.util.Base64.encodeToString(snapshot,
             android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
