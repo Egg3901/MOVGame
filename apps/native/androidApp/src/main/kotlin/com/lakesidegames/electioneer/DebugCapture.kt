@@ -3,6 +3,7 @@ package com.lakesidegames.electioneer
 import com.lakesidegames.electioneer.engine.*
 import com.lakesidegames.electioneer.ui.GameSession
 import com.lakesidegames.electioneer.ui.Screen
+import org.json.JSONObject
 
 // Only debug APKs accept capture routes. Runtime checks use real Compose
 // screens and persisted campaigns; release builds ignore these intent extras.
@@ -12,7 +13,11 @@ internal fun captureDebugFlow(session: GameSession, flow: String) {
         "setup" to Screen.SETUP, "store" to Screen.STORE,
         "settings" to Screen.SETTINGS, "guide" to Screen.GUIDE, "editor" to Screen.EDITOR)
     if (flow in routes) { session.go(routes.getValue(flow)); return }
-    if (flow.startsWith("ask")) { captureDebugFlow(session, "game-US"); return }
+    if (flow.startsWith("ask")) {
+        val country = flow.substringAfter('-', "US").takeIf { it in listOf("US", "UK", "CA", "DE", "FR", "AU") } ?: "US"
+        captureDebugFlow(session, "game-$country")
+        return
+    }
     if (flow == "resume") { session.resumeGame(); return }
     val country = flow.substringAfter('-', "US")
     require(country in listOf("US", "UK", "CA", "DE", "FR", "AU"))
@@ -44,6 +49,13 @@ internal fun captureDebugFlow(session: GameSession, flow: String) {
         }
     }
     check(session.importCampaign(snapshot, NativeReplay.json(replay)))
+    if (flow == "custom-US") {
+        val fragment = requireNotNull(android.net.Uri.parse(session.askUrl()).fragment).substringAfter("mov=")
+        val json = android.util.Base64.decode(fragment, android.util.Base64.URL_SAFE).toString(Charsets.UTF_8)
+        val label = JSONObject(json).getString("scenario")
+        check(label == MobileGame.restore(snapshot)!!.campaignLabel()) { "Ask lost the custom campaign label" }
+        android.util.Log.i("MOVCapture", "MOV_ASK_CUSTOM_LABEL_READY")
+    }
     when (flow) {
         "analysis" -> session.go(Screen.ANALYSIS)
         "replay" -> session.go(Screen.REPLAY)

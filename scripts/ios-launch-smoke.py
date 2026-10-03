@@ -132,6 +132,7 @@ try:
             ('results', '--mov-capture-results', 20),
             ('reveal', '--mov-capture-reveal', 20),
             ('ask', '--mov-capture-ask', 20),
+            ('ask-de', '--mov-capture-ask-de', 20),
             ('ask-login', '--mov-capture-ask-login', 20),
             ('ask-offline', '--mov-capture-ask-offline', 8),
             ('ask-blank', '--mov-capture-ask-blank', 8),
@@ -151,8 +152,8 @@ try:
                             preview_console.flush()
                             print((output / f'{name}-console.log').read_text())
                             raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
-                    if name in ('ask', 'ask-offline', 'ask-blank', 'ask-retry', 'ask-stalled'):
-                        marker = 'MOV_ASK_ERROR_SHOWN' if name in ('ask-offline', 'ask-blank', 'ask-stalled') else 'MOV_ASK_DOCUMENT_READY'
+                    if name in ('ask', 'ask-de', 'ask-offline', 'ask-blank', 'ask-retry', 'ask-stalled'):
+                        marker = 'MOV_ASK_SNAPSHOT_COUNTRY_Germany' if name == 'ask-de' else 'MOV_ASK_ERROR_SHOWN' if name in ('ask-offline', 'ask-blank', 'ask-stalled') else 'MOV_ASK_DOCUMENT_READY'
                         deadline = time.monotonic() + 70
                         log = output / f'{name}-console.log'
                         while marker not in log.read_text() and time.monotonic() < deadline:
@@ -162,7 +163,7 @@ try:
                         if marker not in log.read_text():
                             screenshot(device, output / f'{name}.png')
                             raise SystemExit(f'FAIL: {name} never reached {marker}')
-                        if name != 'ask' and log.read_text().count('MOV_ASK_AUTOMATIC_RETRY') != 1:
+                        if name not in ('ask', 'ask-de') and log.read_text().count('MOV_ASK_AUTOMATIC_RETRY') != 1:
                             raise SystemExit(f'FAIL: {name} did not perform exactly one automatic retry')
                         if name in ('ask-offline', 'ask-blank', 'ask-stalled') and 'MOV_ASK_DOCUMENT_READY' in log.read_text():
                             raise SystemExit(f'FAIL: {name} incorrectly accepted a failed document as ready')

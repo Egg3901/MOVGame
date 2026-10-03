@@ -171,8 +171,14 @@ private class AskBrowser(private val context: Context, private val smoke: String
                     android.util.Log.i("MOVAsk", if (Uri.parse(activeUrl).host == "auth.lakesidegames.net")
                         "MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH" else "MOV_ASK_DOCUMENT_READY")
                     if (Uri.parse(activeUrl).host == "ask.lakesidegames.net") view.evaluateJavascript(
-                        "(() => { try { const s = JSON.parse(sessionStorage.getItem('ask.movSnapshot')); return s?.version === 1 && s?.game === 'electioneer' && typeof s?.scenario === 'string'; } catch { return false; } })()"
-                    ) { if (it == "true") android.util.Log.i("MOVAsk", "MOV_ASK_SNAPSHOT_READY") }
+                        "(() => { try { const s = JSON.parse(sessionStorage.getItem('ask.movSnapshot')); return s?.version === 1 && s?.game === 'electioneer' && typeof s?.scenario === 'string' ? s.country : null; } catch { return null; } })()"
+                    ) {
+                        val country = it.trim('"')
+                        if (country in listOf("US", "UK", "Canada", "Germany", "France", "Australia")) {
+                            android.util.Log.i("MOVAsk", "MOV_ASK_SNAPSHOT_READY")
+                            android.util.Log.i("MOVAsk", "MOV_ASK_SNAPSHOT_COUNTRY_$country")
+                        }
+                    }
                 }
             } else if (attempts > 1) {
                 handler.postDelayed({ checkDocument(current, attempts - 1) }, 1000)

@@ -128,6 +128,10 @@ try:
                     for node in ET.fromstring((output / 'ask-signin.xml').read_text()).iter('node')).upper()
     if 'PASSWORD' not in text or ('EMAIL' not in text and 'USERNAME' not in text):
         raise RuntimeError('Ask sign-in did not show the embedded identity form')
+    adb('logcat', '-c')
+    launch('ask-DE')
+    wait_ask('MOV_ASK_SNAPSHOT_COUNTRY_Germany', 'ask-de-snapshot')
+    capture('ask-de', 'Margin of Victory', 'ask')
     for flow in ('ask-offline', 'ask-blank', 'ask-retry'):
         adb('logcat', '-c')
         launch(flow)

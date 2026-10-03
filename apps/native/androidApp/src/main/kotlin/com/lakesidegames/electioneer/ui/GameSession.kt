@@ -32,6 +32,7 @@ import com.lakesidegames.electioneer.engine.loadGame
 import com.lakesidegames.electioneer.engine.saveGame
 import com.lakesidegames.electioneer.engine.MobileGame
 import com.lakesidegames.electioneer.engine.MobileCampaign
+import com.lakesidegames.electioneer.engine.NativeCustomScenario
 import com.lakesidegames.electioneer.engine.NativeResultsJourney
 import com.lakesidegames.electioneer.engine.NativeResults
 import com.lakesidegames.electioneer.engine.NativeDaily
@@ -474,9 +475,9 @@ class GameSession : ViewModel() {
 
     fun askUrl(): String {
         val fallback = "https://ask.lakesidegames.net/?game=electioneer"
-        val game = _game.value ?: return fallback
-        val snapshot = com.lakesidegames.electioneer.engine.askCampaignSnapshot(game, savedCampaignLabel() ?: "United States")
-            .toByteArray(Charsets.UTF_8)
+        val snapshot = (_campaign.value?.askSnapshot() ?: _game.value?.let { game ->
+            com.lakesidegames.electioneer.engine.askCampaignSnapshot(game, savedCampaignLabel() ?: "United States")
+        })?.toByteArray(Charsets.UTF_8) ?: return fallback
         if (snapshot.size > 8_000) return fallback
         val fragment = android.util.Base64.encodeToString(snapshot,
             android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
@@ -486,7 +487,8 @@ class GameSession : ViewModel() {
     fun hasSave() = _game.value != null || _campaign.value != null
     fun savedCampaignLabel(): String? = _campaign.value?.label() ?: _game.value?.let { game ->
         val id = game.scenarioId ?: "2020"
-        MobileGame.campaigns().firstOrNull { it.id == id }?.label
+        game.customScenario?.let { NativeCustomScenario.entry(it)?.label }
+            ?: MobileGame.campaigns().firstOrNull { it.id == id }?.label
     }
 
     fun resumeGame() {

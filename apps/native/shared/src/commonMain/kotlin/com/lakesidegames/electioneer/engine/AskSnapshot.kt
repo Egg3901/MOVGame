@@ -9,6 +9,27 @@ data class AskCampaignState(val name: String, val ev: Int, val playerMargin: Dou
 @Serializable
 data class AskCampaignPlan(val move: String, val target: String)
 
+@Serializable
+data class AskSeatRegion(val name: String, val totalSeats: Int, val playerSeats: Int)
+
+@Serializable
+data class AskSeatCampaignSnapshot(
+    val version: Int = 1,
+    val game: String = "electioneer",
+    val scenario: String,
+    val country: String,
+    val turn: Int,
+    val totalTurns: Int,
+    val player: String,
+    val fundsMillions: Double,
+    val momentum: Double,
+    val actionsLeft: Int,
+    val seatPlayer: Int,
+    val seatTotal: Int,
+    val regions: List<AskSeatRegion>,
+    val planned: List<AskCampaignPlan>,
+)
+
 /** Read-only, bounded facts that a player deliberately sends to Ask. */
 @Serializable
 data class AskCampaignSnapshot(

@@ -316,6 +316,14 @@ final class GameSession: ObservableObject {
             playScreen = .library
         } else if arguments.contains("--mov-capture-daily") {
             openDaily(restart: true)
+        } else if arguments.contains("--mov-capture-ask-de") {
+            guard let election = MobileCampaign.companion.elections(countryId: "DE").first,
+                  let party = MobileCampaign.companion.parties(countryId: "DE", electionId: election.nativeId).first else { return }
+            campaign = MobileCampaign.companion.start(countryId: "DE", electionId: election.nativeId,
+                partyId: party.id, difficulty: "normal", seed: "native-ask-capture")
+            game = nil
+            playScreen = .worldGame
+            touch()
         } else if let countryId = ["UK", "CA", "DE", "FR", "AU"].first(where: {
             arguments.contains("--mov-capture-world-\($0.lowercased())") || ($0 == "DE" && arguments.contains("--mov-capture-world-results"))
         }) {
@@ -372,8 +380,8 @@ final class GameSession: ObservableObject {
 
     func askURL() -> URL {
         let base = "https://ask.lakesidegames.net/from-mov"
-        guard let game,
-              let data = game.askSnapshot().data(using: .utf8),
+        guard let snapshot = campaign?.askSnapshot() ?? game?.askSnapshot(),
+              let data = snapshot.data(using: .utf8),
               data.count <= 8_000 else {
             return URL(string: "https://ask.lakesidegames.net/?game=electioneer")!
         }
