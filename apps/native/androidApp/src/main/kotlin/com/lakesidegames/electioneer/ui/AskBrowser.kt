@@ -174,7 +174,7 @@ private class AskBrowser(private val context: Context, private val smoke: String
                         "(() => { try { const s = JSON.parse(sessionStorage.getItem('ask.movSnapshot')); return s?.version === 1 && s?.game === 'electioneer' && typeof s?.scenario === 'string' ? s.country : null; } catch { return null; } })()"
                     ) {
                         val country = it.trim('"')
-                        if (country in listOf("US", "UK", "CA", "DE", "FR", "AU")) {
+                        if (country in listOf("US", "UK", "Canada", "Germany", "France", "Australia")) {
                             android.util.Log.i("MOVAsk", "MOV_ASK_SNAPSHOT_READY")
                             android.util.Log.i("MOVAsk", "MOV_ASK_SNAPSHOT_COUNTRY_$country")
                         }

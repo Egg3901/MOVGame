@@ -19,7 +19,7 @@ for (const [id, election] of [["UK", "2024"], ["CA", "2021"], ["DE", "2025"], ["
         { type: "fundraise", party: player, day: 2 }];
       const projection = id === "UK" ? projectUk(game) : projectCountry(game, country);
       vectors.push({ country: id, election, player, seed, target: target.id, planned,
-        snapshot: movSeatAskSnapshot(game, projection, id) });
+        snapshot: movSeatAskSnapshot(game, projection, id === "UK" ? "UK" : country.label) });
     }
   }
 }

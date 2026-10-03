@@ -165,7 +165,7 @@ class MobileCampaign private constructor(private var uk: UkGameState?, private v
         val planned = uk?.queuedActions?.map { AskCampaignPlan(it.type.serial, target(it.regionId)) }
             ?: country!!.queuedActions.map { AskCampaignPlan(it.type.serial, target(it.regionId)) }
         return EngineJson.encodeToString(AskSeatCampaignSnapshot(
-            scenario = label(), country = countryId(), turn = turn(), totalTurns = totalTurns(),
+            scenario = label(), country = bundle()?.label ?: "UK", turn = turn(), totalTurns = totalTurns(),
             player = playerParty(), fundsMillions = funds(), momentum = momentum(), actionsLeft = slotsLeft(),
             seatPlayer = seats[playerParty()] ?: 0, seatTotal = seats.values.sum(),
             regions = regions().map { AskSeatRegion(it.name, it.totalUnits, it.playerUnits) },

@@ -242,7 +242,7 @@ private final class AskBrowser: NSObject, ObservableObject, WKNavigationDelegate
                 webView.evaluateJavaScript("(() => { try { const s = JSON.parse(sessionStorage.getItem('ask.movSnapshot')); return s?.version === 1 && s?.game === 'electioneer' && typeof s?.scenario === 'string' ? s.country : null; } catch { return null; } })()") { [weak self] result, _ in
                     guard let self, self.generation == current, self.phase == .ready,
                           let country = result as? String,
-                          ["US", "UK", "CA", "DE", "FR", "AU"].contains(country) else { return }
+                          ["US", "UK", "Canada", "Germany", "France", "Australia"].contains(country) else { return }
                     NSLog("MOV_ASK_SNAPSHOT_COUNTRY_%@", country)
                 }
             }

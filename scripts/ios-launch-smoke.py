@@ -153,7 +153,7 @@ try:
                             print((output / f'{name}-console.log').read_text())
                             raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
                     if name in ('ask', 'ask-de', 'ask-offline', 'ask-blank', 'ask-retry', 'ask-stalled'):
-                        marker = 'MOV_ASK_SNAPSHOT_COUNTRY_DE' if name == 'ask-de' else 'MOV_ASK_ERROR_SHOWN' if name in ('ask-offline', 'ask-blank', 'ask-stalled') else 'MOV_ASK_DOCUMENT_READY'
+                        marker = 'MOV_ASK_SNAPSHOT_COUNTRY_Germany' if name == 'ask-de' else 'MOV_ASK_ERROR_SHOWN' if name in ('ask-offline', 'ask-blank', 'ask-stalled') else 'MOV_ASK_DOCUMENT_READY'
                         deadline = time.monotonic() + 70
                         log = output / f'{name}-console.log'
                         while marker not in log.read_text() and time.monotonic() < deadline:

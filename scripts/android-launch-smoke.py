@@ -130,7 +130,7 @@ try:
         raise RuntimeError('Ask sign-in did not show the embedded identity form')
     adb('logcat', '-c')
     launch('ask-DE')
-    wait_ask('MOV_ASK_SNAPSHOT_COUNTRY_DE', 'ask-de-snapshot')
+    wait_ask('MOV_ASK_SNAPSHOT_COUNTRY_Germany', 'ask-de-snapshot')
     capture('ask-de', 'Margin of Victory', 'ask')
     for flow in ('ask-offline', 'ask-blank', 'ask-retry'):
         adb('logcat', '-c')
