@@ -65,14 +65,14 @@ def wait_ask(marker, name):
     raise RuntimeError(f'{name} never reached {marker}')
 
 
-def tap_label(label, direction='down', suffix=False):
+def tap_label(label, direction='down', suffix=False, prefix=False):
     width, height = map(int, adb('shell', 'wm', 'size').strip().split()[-1].split('x'))
     for attempt in range(12):
         semantic_text(f'tap-{attempt}')
         nodes = ET.fromstring((output / f'tap-{attempt}.xml').read_text()).iter('node')
         for node in nodes:
             text = node.get('text', '').strip()
-            matches = text.endswith(label) if suffix else text == label
+            matches = text.endswith(label) if suffix else text.startswith(label) if prefix else text == label
             if not matches or node.get('enabled') != 'true':
                 continue
             bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
@@ -118,7 +118,7 @@ try:
     wait_ask('MOV_ASK_DOCUMENT_READY', 'ask-live')
     wait_ask('MOV_ASK_SNAPSHOT_READY', 'ask-snapshot')
     capture('ask-live', 'Margin of Victory', 'ask')
-    tap_label('Sign in')
+    tap_label('Sign in', prefix=True)
     capture('ask-signin', 'Lakeside', 'ask')
     wait_ask('MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH', 'ask-signin-form')
     text = semantic_text('ask-signin-form')
