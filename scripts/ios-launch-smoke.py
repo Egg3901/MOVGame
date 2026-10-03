@@ -36,7 +36,7 @@ def capture_ready(name, process, attempts=3):
         try:
             subprocess.run(['sips', '--resampleWidth', '320', str(capture), '--out', str(probe)],
                            check=True, capture_output=True, timeout=30)
-            ready, summary = check_screen(probe, 'ask' if name == 'ask' else 'game')
+            ready, summary = check_screen(probe, 'ask' if name.startswith('ask') else 'game')
         finally:
             probe.unlink(missing_ok=True)
         print(f'{name} capture {attempt + 1}: {summary}', flush=True)
@@ -133,6 +133,10 @@ try:
             ('reveal', '--mov-capture-reveal', 20),
             ('ask', '--mov-capture-ask', 20),
             ('ask-login', '--mov-capture-ask-login', 20),
+            ('ask-offline', '--mov-capture-ask-offline', 8),
+            ('ask-blank', '--mov-capture-ask-blank', 8),
+            ('ask-retry', '--mov-capture-ask-retry', 8),
+            ('ask-stalled', '--mov-capture-ask-stalled', 8),
         ]:
             selected = os.environ.get('MOV_CAPTURE_NAMES')
             if selected and name not in selected.split(','):
@@ -147,6 +151,21 @@ try:
                             preview_console.flush()
                             print((output / f'{name}-console.log').read_text())
                             raise SystemExit(f'FAIL: app exited during {name} capture after {second + 1}s')
+                    if name in ('ask', 'ask-offline', 'ask-blank', 'ask-retry', 'ask-stalled'):
+                        marker = 'MOV_ASK_ERROR_SHOWN' if name in ('ask-offline', 'ask-blank', 'ask-stalled') else 'MOV_ASK_DOCUMENT_READY'
+                        deadline = time.monotonic() + 70
+                        log = output / f'{name}-console.log'
+                        while marker not in log.read_text() and time.monotonic() < deadline:
+                            if preview.poll() is not None:
+                                raise SystemExit(f'FAIL: app exited while waiting for {name}')
+                            time.sleep(1)
+                        if marker not in log.read_text():
+                            screenshot(device, output / f'{name}.png')
+                            raise SystemExit(f'FAIL: {name} never reached {marker}')
+                        if name != 'ask' and log.read_text().count('MOV_ASK_AUTOMATIC_RETRY') != 1:
+                            raise SystemExit(f'FAIL: {name} did not perform exactly one automatic retry')
+                        if name in ('ask-offline', 'ask-blank', 'ask-stalled') and 'MOV_ASK_DOCUMENT_READY' in log.read_text():
+                            raise SystemExit(f'FAIL: {name} incorrectly accepted a failed document as ready')
                     if name in ('ask-login', 'lakeside-login'):
                         marker = 'MOV_ASK_SIGNIN_REACHED_EMBEDDED_AUTH' if name == 'ask-login' else 'MOV_LAKESIDE_SIGNIN_REACHED_AUTH'
                         deadline = time.monotonic() + 90
