@@ -100,7 +100,7 @@ struct AccountPurchaseHistory: View {
             if !account.purchasesLoaded {
                 Text(account.busy ? "Loading purchase history…" : "Refresh your account to load purchase history.").font(.caption)
             } else if account.purchases.isEmpty {
-                Text("No purchases yet. Campaigns are free to play during the open beta.").font(.caption)
+                Text("No purchases yet. Country bundles unlock from the Store.").font(.caption)
             }
             ForEach(Array(account.purchases.enumerated()), id: \.offset) { _, purchase in
                 VStack(alignment: .leading, spacing: 3) {

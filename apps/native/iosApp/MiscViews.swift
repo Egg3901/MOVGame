@@ -7,72 +7,58 @@ struct StoreView: View {
     @ObservedObject var session: GameSession
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var store: StoreKitAdapter
+    @State private var showingAccount = false
     init(session: GameSession) { self.session = session; self.store = session.store }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Choose an election").font(.title2.bold())
-                Text("All 49 elections across six countries are free to play during the open beta.")
+                Text("Country bundles").font(.title2.bold())
+                Text("US 2024, US 2020 and the daily challenge are free. Each country is a one-time bundle, or get every country with the Complete Collection.")
                     .font(.subheadline).foregroundStyle(CampaignStyle.muted)
+                if let notice = store.notice {
+                    Text(notice).font(.caption).foregroundStyle(CampaignStyle.muted)
+                }
+                if session.account.user?.ahdLinked != true {
+                    Text("Sign in with your Lakeside Games account to buy bundles. Purchases follow that account across web, iOS and Android.")
+                        .font(.caption).foregroundStyle(CampaignStyle.muted)
+                    Button("Sign in to buy") { showingAccount = true }.buttonStyle(.borderedProminent)
+                } else if store.products.isEmpty {
+                    Text(store.gating ? "Loading bundles…" : "Bundles are not on sale in the app yet. Every election is playable.")
+                        .font(.caption).foregroundStyle(CampaignStyle.muted)
+                }
+                ForEach(store.products) { product in
+                    let owned = NativeAccess.shared.covers(packId: product.packId, ownedPacks: Array(store.owned))
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(product.title).font(.headline)
+                            Text(owned ? "Owned" : product.price).font(.caption).foregroundStyle(CampaignStyle.muted)
+                        }
+                        Spacer()
+                        if !owned {
+                            Button("Buy") { Task { await store.purchase(packId: product.packId) } }
+                                .buttonStyle(.borderedProminent)
+                        }
+                    }
+                    .padding(14)
+                    .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                }
+                if session.account.user?.ahdLinked == true {
+                    Button("Restore purchases") { Task { await store.restore() } }
+                }
                 Button("Browse all elections") {
                     session.dailySetup = nil
                     session.playScreen = .library
                     dismiss()
                 }
-                .buttonStyle(.borderedProminent)
-                Text("U.S. elections").font(.headline).foregroundStyle(CampaignStyle.gold)
-                ForEach(session.campaigns(), id: \.id) { campaign in
-                    Button {
-                        session.setupScenarioId = campaign.id
-                        session.playScreen = .setup
-                        dismiss()
-                    } label: {
-                        HStack(spacing: 14) {
-                            Text(String(campaign.year))
-                                .font(.system(size: 27, weight: .bold, design: .serif))
-                                .foregroundStyle(CampaignStyle.gold)
-                                .frame(width: 70, alignment: .leading)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(campaign.label).font(.subheadline.bold()).foregroundStyle(.white)
-                                Text("\(campaign.demName) vs. \(campaign.repName)")
-                                    .font(.caption).foregroundStyle(CampaignStyle.muted)
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right").foregroundStyle(CampaignStyle.coral)
-                        }
-                        .padding(14)
-                        .background(CampaignStyle.card, in: RoundedRectangle(cornerRadius: 14))
-                    }
-                    .buttonStyle(.plain)
-                }
-                if let notice = store.notice {
-                    Text(notice).font(.caption).foregroundStyle(CampaignStyle.muted)
-                }
-                ForEach(store.products) { product in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(product.title).font(.headline)
-                            Text((store.owned.contains(product.packId) || store.owned.contains("complete")) ? "Owned" : product.price)
-                                .font(.caption)
-                        }
-                        Spacer()
-                        if !(store.owned.contains(product.packId) || store.owned.contains("complete")) {
-                            Button("Buy") {
-                                Task { await store.purchase(packId: product.packId) }
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    }
-                }
-                if session.account.user?.ahdLinked == true {
-                    Text("Pack ownership follows your Lakeside account across web, iOS and Android.").font(.caption)
-                    Button("Restore purchases") { Task { await store.restore() } }
-                }
+                .buttonStyle(.bordered)
+                .padding(.top, 6)
             }
             .padding(20)
         }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
+        .sheet(isPresented: $showingAccount) { NavigationStack { AccountView(session: session) } }
+        .onAppear { store.refresh() }
     }
 }
 
@@ -83,8 +69,8 @@ struct AccountView: View {
     @State private var password = ""
     @State private var username = ""
     @State private var registering = false
-    @State private var code = ""
     @State private var showingLakeside = false
+    @State private var confirmingDelete = false
 
     init(session: GameSession) { self.session = session; self.account = session.account }
 
@@ -101,10 +87,9 @@ struct AccountView: View {
                     AccountPurchaseHistory(account: account)
                     Button("Sign out") { account.signOut() }.disabled(account.busy)
                         .foregroundStyle(CampaignStyle.coral)
-                    Text("\(account.unlocked.count) campaigns activated on this account").font(.caption)
-                    TextField("Activation code", text: $code).textInputAutocapitalization(.characters)
-                    Button("Activate code") { Task { await account.activate(code: code) } }
-                        .disabled(account.busy || code.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button("Delete account", role: .destructive) { confirmingDelete = true }.disabled(account.busy)
+                    Text("Deleting removes this Margin of Victory account, its cloud saves, scores and achievements. Bundles bought on your Lakeside account stay with that account.")
+                        .font(.caption).foregroundStyle(CampaignStyle.muted)
                 } else {
                     Text(registering ? "Create an account" : "Sign in")
                         .font(.title2.bold())
@@ -174,6 +159,12 @@ struct AccountView: View {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--mov-capture-lakeside-login") { showingLakeside = true }
             #endif
+        }
+        .confirmationDialog("Delete your Margin of Victory account?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete account", role: .destructive) { Task { await account.deleteAccount() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes the account, its cloud saves, scores and achievements. It cannot be undone.")
         }
         .background(CampaignStyle.background).preferredColorScheme(.dark)
     }
@@ -275,6 +266,17 @@ final class CampaignAccount: ObservableObject {
         } catch {
             message = "Account could not be refreshed: \(error.localizedDescription)"
         }
+    }
+
+    /// Permanently deletes the game account on the server, then clears this device.
+    func deleteAccount() async {
+        busy = true
+        defer { busy = false }
+        do {
+            _ = try await call(path: "/api/auth/account", method: "DELETE")
+            signOut()
+            message = "Your account was deleted."
+        } catch { message = error.localizedDescription }
     }
 
     func signOut() {
