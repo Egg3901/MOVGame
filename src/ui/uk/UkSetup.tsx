@@ -25,12 +25,11 @@ function UkBeginButton({ election, party, seed, year, onBegin }: {
   void seed;
   const canPlay = useAuthStore((s) => s.canPlay);
   const openModal = useAuthStore((s) => s.openModal);
-  const user = useAuthStore((s) => s.user);
   const unlocked = canPlay(`uk-${election}`);
   return (
     <button
       className="primary su-next"
-      onClick={() => (unlocked ? onBegin() : openModal(user ? "activate" : "login", `uk-${election}`))}
+      onClick={() => (unlocked ? onBegin() : openModal("activate", `uk-${election}`))}
     >
       <Flag size={15} /> {unlocked ? `Begin ${year} as ${partyShort(party)}` : "🔒 Unlock to play"}
     </button>

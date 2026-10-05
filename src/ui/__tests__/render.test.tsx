@@ -126,7 +126,9 @@ describe("App renders without crashing", () => {
     await m.flush(); // AuthModals is lazy-loaded
     const html = m.html();
     if (PAYWALL_ENABLED) {
-      expect(html).toContain("Log In"); // signed-out click routes to login
+      expect(html).toContain("Unlock this election"); // signed-out click opens the unlock prompt
+      expect(html).toContain("Buy United States");
+      expect(html).toContain("Buy everything");
       expect(m.html()).not.toContain("The War Room"); // no setup wizard
     } else {
       expect(html).toContain("The Election"); // setup wizard, no gate

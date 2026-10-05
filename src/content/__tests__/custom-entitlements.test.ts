@@ -41,7 +41,7 @@ describe("custom base-election entitlement mapping", () => {
     const cs = makeDefaultMultiparty("country", "DE");
     const id = baseScenarioIdForCustom(cs);
     expect(id).toBe(`de-${cs.mp!.baseElection}`);
-    expect(packForScenario(id!)?.id).toBe("global");
+    expect(packForScenario(id!)?.id).toBe("germany");
   });
 
   it("baseScenarioId handles missing parts safely", () => {
@@ -83,5 +83,38 @@ describe("import of a paid-base custom", () => {
     // ...and the base gate follows the paywall flag (locked when it is on).
     expect(useAuthStore.getState().canPlay(id)).toBe(guestCanPlay(id));
     expect(packForScenario(id)?.name).toBeTruthy();
+  });
+});
+
+describe("release bundles", () => {
+  it("sells six $0.99 country bundles and a $3.99 Complete Collection", async () => {
+    const { STORE_PACKS, ALL_PAID } = await import("@content/packs");
+    const prices = Object.fromEntries(STORE_PACKS.map((p) => [p.id, p.price]));
+    expect(prices).toEqual({
+      "us-historical": 99, "uk-elections": 99, canada: 99, germany: 99, france: 99, australia: 99, complete: 399,
+    });
+    const countryTotal = STORE_PACKS.filter((p) => p.id !== "complete").reduce((n, p) => n + p.price, 0);
+    expect(countryTotal).toBeGreaterThan(prices.complete);
+    // Every paid scenario sits in exactly one country bundle.
+    const covered = STORE_PACKS.filter((p) => p.id !== "complete").flatMap((p) => p.scenarios);
+    expect(new Set(covered).size).toBe(covered.length);
+    expect([...covered].sort()).toEqual([...ALL_PAID].sort());
+  });
+
+  it("keeps the retired Global pack as an entitlement for existing owners", async () => {
+    const { PACKS_BY_ID, STORE_PACKS, packCovered } = await import("@content/packs");
+    expect(STORE_PACKS.some((p) => p.id === "global")).toBe(false);
+    expect(PACKS_BY_ID.global.scenarios).toContain("de-2025");
+    for (const id of ["canada", "germany", "france", "australia"]) expect(packCovered(id, ["global"])).toBe(true);
+    expect(packCovered("us-historical", ["global"])).toBe(false);
+    expect(packCovered("france", ["complete"])).toBe(true);
+  });
+
+  it("assigns every paid registry scenario to the bundle that contains it", async () => {
+    const { SCENARIO_REGISTRY } = await import("@content/scenarioRegistry");
+    const { PACKS_BY_ID } = await import("@content/packs");
+    for (const s of SCENARIO_REGISTRY.filter((x) => !x.free)) {
+      expect(PACKS_BY_ID[s.packId!]?.scenarios, s.scenarioId).toContain(s.scenarioId);
+    }
   });
 });

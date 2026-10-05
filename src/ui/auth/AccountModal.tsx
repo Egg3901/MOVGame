@@ -97,7 +97,7 @@ export function AccountModal() {
             </div>
             {purchases.length === 0 ? (
               <p className="muted small" style={{ margin: "4px 0 0" }}>
-                No purchases yet. Everything is free to play during the open beta.
+                No purchases yet. US 2024, US 2020 and the daily challenge are free; other countries unlock from any locked election.
               </p>
             ) : (
               <div>

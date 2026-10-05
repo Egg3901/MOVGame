@@ -287,21 +287,25 @@ export interface DailyChampions {
 // CURRENT page (any allowed origin) with a one-time ?lakeside_code=, which the
 // SPA exchanges for its normal token. Works identically whether the app is
 // served from sim.ahousedividedgame.com or the /games/electioneer mount.
-export function lakesideLoginUrl(): string {
+export function lakesideLoginUrl(returnParams: Record<string, string> = {}): string {
   const loc = window.location;
   // Same-origin relative endpoint on sim (and in dev, where Vite proxies /api);
   // cross to sim explicitly from the lakesidegames.net mount.
   const endpoint = `${apiBase()}/api/lakeside/login`;
+  const search = new URLSearchParams(loc.search);
+  for (const [k, v] of Object.entries(returnParams)) search.set(k, v);
+  const query = search.toString() ? `?${search}` : "";
   const ret = loc.hostname === "sim.ahousedividedgame.com"
-    ? loc.pathname + loc.search
-    : loc.origin + loc.pathname + loc.search;
+    ? loc.pathname + query
+    : loc.origin + loc.pathname + query;
   return `${endpoint}?return=${encodeURIComponent(ret)}`;
 }
 
 // ── Lakeside platform checkout ───────────────────────────────────────────────
-// Commerce lives on the platform. The Buy button navigates here; the platform
-// requires its own session (bouncing to sign-in if needed), takes payment, and
-// returns to the game with ?purchase=success. Override at build time with
+// Commerce lives on the platform. The Buy button navigates here once the game
+// account is linked to a Lakeside identity (purchases are keyed on it); the
+// platform requires its own session (bouncing to sign-in if needed), takes
+// payment, and returns to the game with ?purchase=success&pack=<id>. Override at build time with
 // VITE_LAKESIDE_BASE if the platform host ever changes.
 export const LAKESIDE_BASE = (import.meta.env.VITE_LAKESIDE_BASE as string | undefined)?.replace(/\/+$/, "")
   || "https://lakesidegames.net";

@@ -52,7 +52,7 @@ export function UserMenu() {
           )}
           <div className="tag muted small">MY ACTIVATIONS</div>
           {unlocked.packIds.length === 0 && unlocked.scenarioIds.length === 0 ? (
-            <p className="muted small" style={{ margin: "6px 0 10px" }}>Free scenarios only. Redeem a code to unlock more.</p>
+            <p className="muted small" style={{ margin: "6px 0 10px" }}>Free scenarios only. Unlock a country for $0.99, or everything for $3.99.</p>
           ) : (
             <div style={{ margin: "6px 0 10px" }}>
               {unlocked.packIds.map((p) => (

@@ -1,17 +1,17 @@
 # Pricing and entitlement policy
 
-## Recommended launch pricing
+## Release pricing
 
 | Edition | Price | Included content |
 | --- | ---: | --- |
-| Web | Free | Two scenarios and the daily challenge |
-| Web packs | $4.99 to $7.99 each | Existing regional scenario packs |
-| Web complete collection | $9.99 | Every current paid scenario |
-| Direct desktop | Free | Two scenarios and the daily challenge |
-| Steam | Free | Two scenarios and the daily challenge |
-| iOS and Android | Free | Two scenarios and the daily challenge |
-| Native scenario packs | Match web pack tiers | Storefront IAP or Steam DLC |
-| Native complete collection | Match the $9.99 web value where storefront tiers permit | Every current paid scenario |
+| Base game, every platform | Free | US 2024, US 2020 and the daily challenge |
+| Country bundle | $0.99 each | United States (15), United Kingdom (18), Canada (4), Germany (3), France (4), Australia (3) |
+| Complete Collection | $3.99 | Every country bundle, including scenarios added later |
+
+Bundle ids: `us-historical`, `uk-elections`, `canada`, `germany`, `france`,
+`australia`, `complete`. The retired `global` pack is no longer sold; players who
+own it keep Canada, Germany, France and Australia. Native store SKUs mirror the
+same ids and the same US price tiers.
 
 These are one-time prices. There is no subscription because the game does not
 yet deliver enough recurring value to justify one.

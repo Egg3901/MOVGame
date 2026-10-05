@@ -72,12 +72,24 @@ export class AccountLinkConflictError extends Error {
   constructor() { super("An existing account needs ownership verification before linking. Sign in using its existing method."); }
 }
 
-export function linkOrCreateUser(identity: LakesideIdentity): UserRow {
+/**
+ * Resolve a Lakeside identity to a local user. `signedInUserId` is the local
+ * account whose session made the request: holding that session and the fresh
+ * Lakeside identity together proves ownership of both, so an unlinked local
+ * account is linked in place instead of tripping the email-collision guard.
+ */
+export function linkOrCreateUser(identity: LakesideIdentity, signedInUserId?: string | null): UserRow {
   const db = getDb();
   const email = identity.email.toLowerCase();
 
   const byAhd = db.prepare("SELECT * FROM users WHERE ahd_user_id = ?").get(identity.ahdUserId) as UserRow | undefined;
   if (byAhd) return byAhd;
+
+  if (signedInUserId) {
+    const linked = db.prepare("UPDATE users SET ahd_user_id = ? WHERE id = ? AND ahd_user_id IS NULL")
+      .run(identity.ahdUserId, signedInUserId);
+    if (linked.changes === 1) return db.prepare("SELECT * FROM users WHERE id = ?").get(signedInUserId) as UserRow;
+  }
 
   // A random unusable password: nothing bcrypt-verifies against it, so the
   // local password door is closed until the player deliberately sets one.

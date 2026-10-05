@@ -90,7 +90,6 @@ export function SetupScreen({ initialScenarioId, initialSeed, initialParty, onEx
   const newGame = useGameStore((s) => s.newGame);
   const canPlay = useAuthStore((s) => s.canPlay);
   const openModal = useAuthStore((s) => s.openModal);
-  const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState<StepId>(0);
   const [scenarioId, setScenarioId] = useState<string>(initialScenarioId ?? "2024");
   const [pick, setPick] = useState<CandidateId>(initialParty === "rep" ? "rep" : "dem");
@@ -117,7 +116,7 @@ export function SetupScreen({ initialScenarioId, initialSeed, initialParty, onEx
 
   const chooseScenario = (id: string) => {
     if (!canPlay(globalId(id))) {
-      openModal(user ? "activate" : "login", globalId(id));
+      openModal("activate", globalId(id));
       return;
     }
     setScenarioId(id);
@@ -149,7 +148,7 @@ export function SetupScreen({ initialScenarioId, initialSeed, initialParty, onEx
 
   const begin = () => {
     if (!unlocked) {
-      openModal(user ? "activate" : "login", globalId(scenarioId));
+      openModal("activate", globalId(scenarioId));
       return;
     }
     newGame({
@@ -223,7 +222,7 @@ export function SetupScreen({ initialScenarioId, initialSeed, initialParty, onEx
               </div>
               {PAYWALL_ENABLED && (
                 <p className="muted small" style={{ marginTop: 8 }}>
-                  🔒 Locked years are part of the <strong>US Historical Elections</strong> pack. Redeem a code to unlock.
+                  🔒 Locked years are part of the <strong>United States</strong> bundle. Pick one to buy it or redeem a code.
                 </p>
               )}
             </div>

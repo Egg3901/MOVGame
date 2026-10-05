@@ -183,7 +183,7 @@ export function UkResults() {
                 ctaLabel: `Play ${nextData.year} →`,
                 lockLabel: `🔒 Unlock ${nextData.year}`,
                 onPlay: () => newGame(next.id, nextParty, String(Date.now()), difficulty),
-                onUnlock: () => openModal(user ? "activate" : "login", `uk-${next.id}`),
+                onUnlock: () => openModal("activate", `uk-${next.id}`),
                 mapPreview: <UkMiniMap seats={r.seats} />,
               }
             : null

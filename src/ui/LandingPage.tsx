@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { PAYWALL_ENABLED, SCENARIO_REGISTRY, type CountryCode, type ScenarioMeta } from "@content/scenarioRegistry";
-import { PACKS } from "@content/packs";
+import { packCovered, STORE_PACKS } from "@content/packs";
 import { countryCover } from "@content/covers";
 import { useAuthStore } from "@store/authStore";
 import { usePackPrices } from "@lib/usePackPrices";
@@ -181,19 +181,19 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "What do I get if I pay?",
-    a: "Scenario packs unlock more elections (extra US years, the UK, Canada, Germany, France, Australia). It's a one time purchase per pack through the Lakeside store, not a subscription.",
+    a: "Each country is a $0.99 bundle: the rest of the US elections back to 1960, the UK, Canada, Germany, France, and Australia. The Complete Collection unlocks every country for $3.99. Both are one time purchases, not subscriptions.",
   },
   {
-    q: "Where do I buy packs?",
-    a: `Through lakesidegames.net/account/store. After checkout the pack unlocks automatically on your account, or you can redeem a code from the "Unlock with a code" prompt on a locked scenario.`,
+    q: "Where do I buy bundles?",
+    a: "Press Buy on any bundle or locked election. You sign in with your Lakeside account and pay through Stripe; the bundle unlocks on that account on every device. Activation codes are redeemed from the same prompt.",
   },
   {
     q: "Can I play offline or without an account?",
-    a: "Yes for the free scenarios and daily challenge: progress saves in your browser. An account is only needed to keep a purchased pack across devices and to appear on leaderboards.",
+    a: "Yes for the free scenarios and daily challenge: progress saves in your browser. An account is only needed to buy a bundle and to appear on leaderboards.",
   },
   {
     q: "What's your refund policy?",
-    a: "Refunds for scenario packs follow the Lakeside store's standard policy. Contact Lakeside support through the store or reach us directly if a purchase didn't unlock correctly.",
+    a: "Refunds for bundles follow the Lakeside store's standard policy. Contact Lakeside support through the store or reach us directly if a purchase didn't unlock correctly.",
   },
   {
     q: "What platforms does this run on?",
@@ -247,7 +247,9 @@ function NoticeBanner() {
         ? "Checkout cancelled. Nothing was charged."
         : notice.kind === "lakeside-signed-in"
           ? `Signed in as ${notice.username} with your Lakeside Games account.`
-          : "That sign in link expired. Try again from the login screen.";
+          : notice.kind === "lakeside-link-needs-login"
+            ? "A game account already uses that email. Log in with its password first, then link your Lakeside account from Your Account."
+            : "That sign in link expired. Try again from the login screen.";
   return (
     <div className={`notice-banner${good ? " good" : ""}`} role="status">
       {good ? <Check size={14} /> : null}
@@ -269,7 +271,6 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
   const canPlay = useAuthStore((s) => s.canPlay);
   const unlocked = useAuthStore((s) => s.unlocked);
   const openModal = useAuthStore((s) => s.openModal);
-  const user = useAuthStore((s) => s.user);
   const buyPack = useAuthStore((s) => s.buyPack);
   const packPrices = usePackPrices();
   const [country, setCountry] = useState<CountryCode | null>(null);
@@ -281,7 +282,6 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
   const [buyError, setBuyError] = useState<string | null>(null);
 
   const buy = async (packId: string) => {
-    if (!user) { openModal("register"); return; }
     setBuyBusy(packId);
     setBuyError(null);
     const err = await buyPack(packId);
@@ -345,7 +345,7 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
   };
 
   const locked = (s: ScenarioMeta) => {
-    openModal(user ? "activate" : "login", s.scenarioId);
+    openModal("activate", s.scenarioId);
   };
 
   const playRandom = () => {
@@ -386,7 +386,7 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
               Run a real campaign turn by turn: allocate a budget, target battlegrounds, survive debates,
               and watch the map move. {SCENARIO_REGISTRY.length} elections across {new Set(SCENARIO_REGISTRY.map((s) => s.country)).size} countries.
               {PAYWALL_ENABLED
-                ? " Two complete scenarios and the daily challenge are free forever."
+                ? " Two full scenarios and the daily challenge are free forever. Every other country is $0.99, or $3.99 for everything."
                 : " All of them are free to play right now."}
             </p>
             <div className="landing-hero-actions">
@@ -595,9 +595,10 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
             </div>
             <div className="pricing-card">
               <h3>Scenario packs</h3>
-              <p className="pricing-price">{PAYWALL_ENABLED ? "Priced per pack" : "Free for now"}</p>
+              <p className="pricing-price">{PAYWALL_ENABLED ? `$${((packPrices["us-historical"] ?? 99) / 100).toFixed(2)} per country` : "Free for now"}</p>
               <ul className="pricing-list">
-                <li><Check size={13} /> {SCENARIO_REGISTRY.length - free.length} additional elections across {PACKS.length} packs</li>
+                <li><Check size={13} /> {SCENARIO_REGISTRY.length - free.length} additional elections across {STORE_PACKS.length - 1} country bundles</li>
+                <li><Check size={13} /> Complete Collection: every country for ${((packPrices.complete ?? 399) / 100).toFixed(2)}</li>
                 {PAYWALL_ENABLED ? (
                   <>
                     <li><Check size={13} /> One time purchase, yours to keep, no subscription</li>
@@ -622,10 +623,10 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
 
         {/* Packs strip: text-led, no cover art */}
         <div className="field" style={{ textAlign: "left", margin: "36px 0 0" }}>
-          <label>{PAYWALL_ENABLED ? "Scenario packs" : "Scenario packs: free for now, every scenario is playable while we finish the paid tiers"}</label>
+          <label>{PAYWALL_ENABLED ? "Country bundles" : "Scenario packs: free for now, every scenario is playable while we finish the paid tiers"}</label>
           <div className="scenario-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
-            {PACKS.map((p) => {
-              const owned = unlocked.packIds.includes(p.id);
+            {STORE_PACKS.map((p) => {
+              const owned = packCovered(p.id, unlocked.packIds);
               return (
                 <div key={p.id} className={`scenario-card pack-card${owned ? " sel" : ""}`}
                   style={{ textAlign: "left", alignItems: "flex-start" }}>

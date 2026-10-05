@@ -294,7 +294,7 @@ function MultipartyForm({
         </div>
         {currentLock && (
           <div className="ed-errors" style={{ marginTop: 8 }}>
-            <Lock size={12} style={{ verticalAlign: "-1px" }} /> This election needs the {currentLock.packName} pack. Get it from the Lakeside store, then come back and play.{" "}
+            <Lock size={12} style={{ verticalAlign: "-1px" }} /> This election needs the {currentLock.packName} bundle. Buy it or redeem a code, then come back and play.{" "}
             <button className="ghost small" onClick={() => onUnlock(currentLock.scenarioId)}>Unlock</button>
           </div>
         )}
@@ -320,7 +320,6 @@ export function EditorScreen({ onClose, onLaunch }: { onClose: () => void; onLau
   const startUk = useUkStore((s) => s.startCustom);
   const startCountry = useCountryStore((s) => s.startCustom);
   const canPlay = useAuthStore((s) => s.canPlay);
-  const user = useAuthStore((s) => s.user);
   const openModal = useAuthStore((s) => s.openModal);
   const [draft, setDraft] = useState<CustomScenario>(() => makeDefaultCustomScenario());
   const [saved, setSaved] = useState<CustomScenario[]>([]);
@@ -361,13 +360,13 @@ export function EditorScreen({ onClose, onLaunch }: { onClose: () => void; onLau
     return pack ? { scenarioId: id, packName: pack.name } : null;
   };
 
-  const unlock = (scenarioId: string) => openModal(user ? "activate" : "login", scenarioId);
+  const unlock = (scenarioId: string) => openModal("activate", scenarioId);
 
   const play = (cs: CustomScenario) => {
     // Free path stays open (US customs, free bases). A paid base needs its pack.
     const lock = baseLock(cs);
     if (lock) {
-      setErrors([`This campaign is built on a locked election. Needs the ${lock.packName} pack. Get it from the Lakeside store, then redeem your code here.`]);
+      setErrors([`This campaign is built on a locked election. Needs the ${lock.packName} bundle. Buy it or redeem a code, then launch again.`]);
       unlock(lock.scenarioId);
       return;
     }
@@ -476,7 +475,7 @@ export function EditorScreen({ onClose, onLaunch }: { onClose: () => void; onLau
                   <span className="scenario-match">{subtitle(cs)}</span>
                   {lock && (
                     <span className="muted small" style={{ marginTop: 4 }}>
-                      <Lock size={11} style={{ verticalAlign: "-1px" }} /> Locked. Needs the {lock.packName} pack.
+                      <Lock size={11} style={{ verticalAlign: "-1px" }} /> Locked. Needs the {lock.packName} bundle.
                     </span>
                   )}
                   <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: "wrap" }}>

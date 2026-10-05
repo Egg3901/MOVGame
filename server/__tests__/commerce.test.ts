@@ -132,6 +132,28 @@ describe("lakeside identity", () => {
   });
 });
 
+describe("signed-in account linking", () => {
+  it("links the signed-in unlinked account in place, even with a different email", () => {
+    const local = makeUser({ email: "signed-in@example.com", ahd: null });
+    const u = lakeside.linkOrCreateUser({ ahdUserId: "ahd_signed_1", email: "lakeside@example.com", username: "x" }, local.id);
+    expect(u.id).toBe(local.id);
+    expect(u.ahd_user_id).toBe("ahd_signed_1");
+  });
+
+  it("links the signed-in account when its email matches the identity", () => {
+    const local = makeUser({ email: "same@example.com", ahd: null });
+    expect(lakeside.linkOrCreateUser({ ahdUserId: "ahd_signed_2", email: "SAME@example.com", username: "x" }, local.id).id).toBe(local.id);
+  });
+
+  it("never re-links an account that already has a provider link", () => {
+    const local = makeUser({ email: "taken@example.com", ahd: "ahd_existing" });
+    expect(() => lakeside.linkOrCreateUser({ ahdUserId: "ahd_other", email: "taken@example.com", username: "x" }, local.id))
+      .toThrow(lakeside.AccountLinkConflictError);
+    const row = dbMod.getDb().prepare("SELECT ahd_user_id FROM users WHERE id = ?").get(local.id) as { ahd_user_id: string };
+    expect(row.ahd_user_id).toBe("ahd_existing");
+  });
+});
+
 describe("handoff codes", () => {
   const identity = { ahdUserId: "ahd_h1", email: "h@example.com", username: "handoff" };
 

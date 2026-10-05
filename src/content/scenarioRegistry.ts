@@ -129,85 +129,85 @@ export const SCENARIO_REGISTRY: ScenarioMeta[] = [
   // ── New countries ──
   {
     scenarioId: "ca-2025", country: "CA", engine: "country", nativeId: "2025", year: 2025,
-    free: false, packId: "global", difficulty: "easy", flag: "🇨🇦",
+    free: false, packId: "canada", difficulty: "easy", flag: "🇨🇦",
     label: "2025 · Carney v. Poilievre",
     description: "A tariff war with the neighbour, a Liberal comeback for the ages, and 343 seats from coast to coast to coast.",
   },
   {
     scenarioId: "ca-2021", country: "CA", engine: "country", nativeId: "2021", year: 2021,
-    free: false, packId: "global", difficulty: "easy", flag: "🇨🇦",
+    free: false, packId: "canada", difficulty: "easy", flag: "🇨🇦",
     label: "2021 · Trudeau v. O'Toole",
     description: "A pandemic snap election nobody asked for. Gravel on the trail, a fourth wave rising, and 338 seats in play.",
   },
   {
     scenarioId: "ca-2019", country: "CA", engine: "country", nativeId: "2019", year: 2019,
-    free: false, packId: "global", difficulty: "hard", flag: "🇨🇦",
+    free: false, packId: "canada", difficulty: "hard", flag: "🇨🇦",
     label: "2019 · Trudeau v. Scheer",
     description: "SNC-Lavalin, the blackface photos, and a Liberal government that loses the popular vote but keeps the keys. A minority, 338 seats.",
   },
   {
     scenarioId: "ca-2015", country: "CA", engine: "country", nativeId: "2015", year: 2015,
-    free: false, packId: "global", difficulty: "hard", flag: "🇨🇦",
+    free: false, packId: "canada", difficulty: "hard", flag: "🇨🇦",
     label: "2015 · Trudeau v. Harper",
     description: "A decade of Harper, a 78-day marathon, and a third-place party that wakes up in a majority. Sunny ways over a tired throne.",
   },
   {
     scenarioId: "de-2025", country: "DE", engine: "country", nativeId: "2025", year: 2025,
-    free: false, packId: "global", difficulty: "hard", flag: "🇩🇪",
+    free: false, packId: "germany", difficulty: "hard", flag: "🇩🇪",
     label: "2025 · Merz v. Scholz",
     description: "The traffic-light coalition collapses. Five-plus parties, a firewall under strain, and 630 Bundestag seats.",
   },
   {
     scenarioId: "de-2021", country: "DE", engine: "country", nativeId: "2021", year: 2021,
-    free: false, packId: "global", difficulty: "hard", flag: "🇩🇪",
+    free: false, packId: "germany", difficulty: "hard", flag: "🇩🇪",
     label: "2021 · Scholz v. Laschet",
     description: "Merkel departs, a flood reshapes the race, and six parties fight over a 735-seat Bundestag.",
   },
   {
     scenarioId: "de-2017", country: "DE", engine: "country", nativeId: "2017", year: 2017,
-    free: false, packId: "global", difficulty: "hard", flag: "🇩🇪",
+    free: false, packId: "germany", difficulty: "hard", flag: "🇩🇪",
     label: "2017 · Merkel v. Schulz",
     description: "The Schulz train runs out of track and the AfD storms the Bundestag. Merkel's fourth term, a re-entering FDP, and 709 seats.",
   },
   {
     scenarioId: "fr-2027", country: "FR", engine: "country", nativeId: "2027", year: 2027,
-    free: false, packId: "global", difficulty: "hard", flag: "🇫🇷",
+    free: false, packId: "france", difficulty: "hard", flag: "🇫🇷",
     label: "2027 · The Republic's runoff",
     description: "Macron is term-limited. The centre defends the Élysée against the RN in a two-round fight for France.",
   },
   {
     scenarioId: "fr-2022", country: "FR", engine: "country", nativeId: "2022", year: 2022,
-    free: false, packId: "global", difficulty: "hard", flag: "🇫🇷",
+    free: false, packId: "france", difficulty: "hard", flag: "🇫🇷",
     label: "2022 · Macron v. Le Pen",
     description: "The rematch. Pouvoir d'achat against the front républicain, and a far narrower runoff than last time.",
   },
   {
     scenarioId: "fr-2017", country: "FR", engine: "country", nativeId: "2017", year: 2017,
-    free: false, packId: "global", difficulty: "hard", flag: "🇫🇷",
+    free: false, packId: "france", difficulty: "hard", flag: "🇫🇷",
     label: "2017 · Macron v. Le Pen",
     description: "A 39-year-old insurgent, a movement a year old, and the debate meltdown that sealed a landslide.",
   },
   {
     scenarioId: "fr-2012", country: "FR", engine: "country", nativeId: "2012", year: 2012,
-    free: false, packId: "global", difficulty: "hard", flag: "🇫🇷",
+    free: false, packId: "france", difficulty: "hard", flag: "🇫🇷",
     label: "2012 · Hollande v. Sarkozy",
     description: "A crisis president nobody warmed to against the man who promised to be normal. A left-right runoff decided by a whisker.",
   },
   {
     scenarioId: "au-2025", country: "AU", engine: "country", nativeId: "2025", year: 2025,
-    free: false, packId: "global", difficulty: "hard", flag: "🇦🇺",
+    free: false, packId: "australia", difficulty: "hard", flag: "🇦🇺",
     label: "2025 · Albanese v. Dutton",
     description: "Preferential voting, a cyclone-delayed budget, and a Trump-shaped shadow over 150 seats.",
   },
   {
     scenarioId: "au-2022", country: "AU", engine: "country", nativeId: "2022", year: 2022,
-    free: false, packId: "global", difficulty: "medium", flag: "🇦🇺",
+    free: false, packId: "australia", difficulty: "medium", flag: "🇦🇺",
     label: "2022 · Albanese v. Morrison",
     description: "Nine years of Coalition rule, a teal wave on the harbourside, and a PM who doesn't hold a hose.",
   },
   {
     scenarioId: "au-2019", country: "AU", engine: "country", nativeId: "2019", year: 2019,
-    free: false, packId: "global", difficulty: "hard", flag: "🇦🇺",
+    free: false, packId: "australia", difficulty: "hard", flag: "🇦🇺",
     label: "2019 · Morrison v. Shorten",
     description: "The unlosable election. A big-target Labor agenda, a wall of yellow ads, and a daggy-dad miracle. 151 seats under preferences.",
   },
@@ -224,10 +224,9 @@ export const FREE_SCENARIO_IDS = SCENARIO_REGISTRY.filter((s) => s.free).map((s)
 // the packs/activation machinery stays intact so flipping this back on
 // restores the paid tiers without further changes.
 //
-// OFF for the pre-release / "free for now" period: the whole catalog is
-// playable and pack prices render struck through as a preview of the paid
-// tiers to come. Flip back to true when the paid tiers begin.
-export const PAYWALL_ENABLED = false;
+// ON at release: US 2024, US 2020 and the daily challenge are free; every
+// other scenario needs its country bundle or the Complete Collection.
+export const PAYWALL_ENABLED = true;
 
 export function isFreeScenario(scenarioId: string): boolean {
   const meta = SCENARIOS_BY_ID[scenarioId];
