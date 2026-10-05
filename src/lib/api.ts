@@ -35,7 +35,7 @@ export interface Purchase {
   packId: string | null;
   packName: string | null;
   scenarioId: string | null;
-  provider: "stripe" | "code" | "apple" | "google";
+  provider: "stripe" | "code" | "apple" | "google" | "supporter";
   amountCents: number | null;
   currency: string | null;
   status: "paid" | "refunded";

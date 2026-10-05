@@ -64,7 +64,7 @@ export interface PlatformPurchase {
   game: string;
   productId: string;
   name: string | null;
-  provider: "stripe" | "code" | "apple" | "google";
+  provider: "stripe" | "code" | "apple" | "google" | "supporter";
   amountCents: number | null;
   currency: string | null;
   status: string;
@@ -126,7 +126,7 @@ export async function fetchPlatformPurchaseHistory(identity: Identity): Promise<
         game: GAME,
         productId: String(p.productId ?? p.packId ?? ""),
         name: (p.name ?? p.packName ?? null) as string | null,
-        provider: ["apple", "google", "code", "stripe"].includes(String(p.provider))
+        provider: ["apple", "google", "code", "stripe", "supporter"].includes(String(p.provider))
           ? p.provider as PlatformPurchase["provider"] : Number(p.amountCents ?? 0) > 0 ? "stripe" : "code",
         amountCents: typeof p.amountCents === "number" && Number.isSafeInteger(p.amountCents) ? p.amountCents : null,
         currency: typeof p.currency === "string" ? p.currency : null,

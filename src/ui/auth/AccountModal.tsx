@@ -13,6 +13,7 @@ function fmtDate(ts: number): string {
 function fmtAmount(cents: number | null, currency: string | null, provider: string): string {
   if (provider === "apple") return "App Store";
   if (provider === "google") return "Google Play";
+  if (provider === "supporter") return "Supporter perk";
   if (cents == null || currency == null) return provider === "code" ? "Code" : "Purchase";
   if (cents === 0) return "Code";
   return `$${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
