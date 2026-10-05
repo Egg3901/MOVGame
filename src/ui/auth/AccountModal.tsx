@@ -13,6 +13,7 @@ function fmtDate(ts: number): string {
 function fmtAmount(cents: number | null, currency: string | null, provider: string): string {
   if (provider === "apple") return "App Store";
   if (provider === "google") return "Google Play";
+  if (provider === "supporter") return "Supporter perk";
   if (cents == null || currency == null) return provider === "code" ? "Code" : "Purchase";
   if (cents === 0) return "Code";
   return `$${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
@@ -97,7 +98,7 @@ export function AccountModal() {
             </div>
             {purchases.length === 0 ? (
               <p className="muted small" style={{ margin: "4px 0 0" }}>
-                No purchases yet. Everything is free to play during the open beta.
+                No purchases yet. US 2024, US 2020 and the daily challenge are free; other countries unlock from any locked election.
               </p>
             ) : (
               <div>

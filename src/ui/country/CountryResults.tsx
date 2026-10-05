@@ -196,7 +196,7 @@ export function CountryResults({ onExit }: { onExit: () => void }) {
                 ctaLabel: `Play ${nextData.year} →`,
                 lockLabel: `🔒 Unlock ${nextData.year}`,
                 onPlay: () => newGame(country.id, next.id, nextParty, String(Date.now()), difficulty),
-                onUnlock: () => openModal(user ? "activate" : "login", packId),
+                onUnlock: () => openModal("activate", packId),
                 mapPreview,
               }
             : null

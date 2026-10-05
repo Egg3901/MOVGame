@@ -88,7 +88,6 @@ export function ResultsScreen() {
 
   const canPlay = useAuthStore((s) => s.canPlay);
   const openModal = useAuthStore((s) => s.openModal);
-  const user = useAuthStore((s) => s.user);
 
   // ── Election Night reveal — plays instead of the results until done ──
   const reveal = useMemo(() => usReveal(game), [game]);
@@ -178,7 +177,7 @@ export function ResultsScreen() {
             done && next && nextMeta
               ? {
                   title: nextMeta.label,
-                  blurb: `${next.blurb}${!unlocked ? " · part of the US Historical pack" : ""}`,
+                  blurb: `${next.blurb}${!unlocked ? " · part of the United States bundle" : ""}`,
                   unlocked,
                   ctaLabel: `Play ${nextMeta.year} →`,
                   lockLabel: `🔒 Unlock ${nextMeta.year}`,
@@ -190,7 +189,7 @@ export function ResultsScreen() {
                       eventMode: game.eventMode,
                       difficulty,
                     }),
-                  onUnlock: () => openModal(user ? "activate" : "login", `us-${next.id}`),
+                  onUnlock: () => openModal("activate", `us-${next.id}`),
                   mapPreview: <UsMiniMapPreview byState={byState} cands={cands} />,
                 }
               : null

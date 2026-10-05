@@ -64,9 +64,9 @@ describe("App renders without crashing", () => {
     // The landing page: featured tier up top, full catalog, packs strip.
     expect(m.html()).toContain(PAYWALL_ENABLED ? "Play free" : "Start here");
     expect(m.html()).toContain("Harris v. Trump");
-    expect(m.html()).toContain("Scenario packs");
+    expect(m.html()).toContain(PAYWALL_ENABLED ? "Country bundles" : "Scenario packs");
     const storeLinks = [...m.container.querySelectorAll<HTMLAnchorElement>('a[href]')]
-      .filter((link) => link.textContent?.includes("Store") || link.textContent?.includes("Browse packs"));
+      .filter((link) => link.textContent?.includes("Store"));
     expect(storeLinks.length).toBeGreaterThan(0);
     expect(storeLinks.every((link) => link.href === BRAND.storeUrl)).toBe(true);
     // Entering a free U.S. scenario shows the setup wizard on that year.
@@ -126,7 +126,9 @@ describe("App renders without crashing", () => {
     await m.flush(); // AuthModals is lazy-loaded
     const html = m.html();
     if (PAYWALL_ENABLED) {
-      expect(html).toContain("Log In"); // signed-out click routes to login
+      expect(html).toContain("Unlock this election"); // signed-out click opens the unlock prompt
+      expect(html).toContain("Buy United States");
+      expect(html).toContain("Buy everything");
       expect(m.html()).not.toContain("The War Room"); // no setup wizard
     } else {
       expect(html).toContain("The Election"); // setup wizard, no gate

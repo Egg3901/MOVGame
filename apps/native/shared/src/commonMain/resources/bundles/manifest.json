@@ -1,6 +1,6 @@
 {
-  "webHead": "09b66999db120bd2551d0d138f8ba9773ac3ca9f",
-  "exportedAt": "2026-10-01T00:29:38.781Z",
+  "webHead": "6d343dd4096e8469661d75eb8c337af2b3971514",
+  "exportedAt": "2026-10-05T14:09:26.048Z",
   "bundles": {
     "editor-defaults": {
       "bytes": 62894
@@ -9,7 +9,7 @@
       "bytes": 779
     },
     "scenario-registry": {
-      "bytes": 14268
+      "bytes": 14280
     },
     "next-campaigns": {
       "bytes": 5401

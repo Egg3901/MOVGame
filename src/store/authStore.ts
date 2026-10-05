@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { api, ApiError, clearSession, getStoredUser, getToken, lakesideCheckoutUrl, storeSession, type ApiUser, type Purchase, type Unlocked } from "@lib/api";
+import { api, ApiError, clearSession, getStoredUser, getToken, lakesideCheckoutUrl, lakesideLoginUrl, storeSession, type ApiUser, type Purchase, type Unlocked } from "@lib/api";
 import { isFreeScenario } from "@content/scenarioRegistry";
-import { PACKS_BY_ID } from "@content/packs";
+import { PACKS_BY_ID, STORE_PACKS } from "@content/packs";
 import { dailyAssignment, utcDateString } from "@lib/daily";
 
 // Post-redirect notices (Stripe success/cancel, Lakeside sign-in).
@@ -9,7 +9,8 @@ export type AuthNotice =
   | { kind: "purchase-success"; packName: string | null }
   | { kind: "purchase-cancelled" }
   | { kind: "lakeside-signed-in"; username: string }
-  | { kind: "lakeside-failed" };
+  | { kind: "lakeside-failed" }
+  | { kind: "lakeside-link-needs-login" };
 
 interface AuthStore {
   user: ApiUser | null;
@@ -84,8 +85,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   buyPack: async (packId) => {
-    // Checkout is owned by the Lakeside platform now. Hand off to it; it takes
-    // over the page and returns with ?purchase=success.
+    if (!STORE_PACKS.some((p) => p.id === packId)) return "That pack is not on sale.";
+    // Purchases are recorded against the Lakeside identity, so the game account
+    // must be linked first or the unlock could never reach it. Sign in with
+    // Lakeside (this links a signed-in local account in place), then come back
+    // with ?buy= and continue straight to checkout.
+    if (!get().user?.ahdLinked) {
+      window.location.assign(lakesideLoginUrl({ buy: packId }));
+      return null;
+    }
+    // Checkout is owned by the Lakeside platform. Hand off to it; it takes over
+    // the page and returns with ?purchase=success&pack=<id>.
     window.location.assign(lakesideCheckoutUrl(packId));
     return null;
   },
@@ -162,9 +172,10 @@ async function consumeRedirectParams(): Promise<void> {
   const lakesideCode = params.get("lakeside_code");
   const purchase = params.get("purchase");
   const packId = params.get("pack");
-  if (!lakesideCode && !purchase) return;
+  const buy = params.get("buy");
+  if (!lakesideCode && !purchase && !buy) return;
 
-  for (const p of ["lakeside_code", "purchase", "pack", "session_id"]) params.delete(p);
+  for (const p of ["lakeside_code", "purchase", "pack", "session_id", "buy"]) params.delete(p);
   const clean = window.location.pathname + (params.toString() ? `?${params}` : "") + window.location.hash;
   window.history.replaceState(null, "", clean);
 
@@ -173,16 +184,35 @@ async function consumeRedirectParams(): Promise<void> {
       const { token, user, unlocked } = await api.lakesideExchange(lakesideCode);
       storeSession(token, user);
       useAuthStore.setState({ user, unlocked, notice: { kind: "lakeside-signed-in", username: user.username } });
-    } catch {
-      useAuthStore.setState({ notice: { kind: "lakeside-failed" } });
+      // A Buy click that needed sign-in first resumes here.
+      if (buy && STORE_PACKS.some((p) => p.id === buy) && user.ahdLinked) {
+        window.location.assign(lakesideCheckoutUrl(buy));
+        return;
+      }
+    } catch (e) {
+      const needsLogin = e instanceof ApiError && e.status === 409;
+      useAuthStore.setState({ notice: { kind: needsLogin ? "lakeside-link-needs-login" : "lakeside-failed" } });
     }
   }
   if (purchase === "success") {
     useAuthStore.setState({
       notice: { kind: "purchase-success", packName: packId ? PACKS_BY_ID[packId]?.name ?? null : null },
     });
+    void awaitPurchasedPack(packId);
   } else if (purchase === "cancelled") {
     useAuthStore.setState({ notice: { kind: "purchase-cancelled" } });
+  }
+}
+
+// Stripe returns before (or just as) its webhook records the purchase, and the
+// server caches platform entitlements briefly. Re-check a few times so the
+// unlock appears without a manual reload.
+async function awaitPurchasedPack(packId: string | null): Promise<void> {
+  for (const delay of [3_000, 8_000, 20_000, 35_000]) {
+    await new Promise((r) => setTimeout(r, delay));
+    await useAuthStore.getState().refresh();
+    const owned = useAuthStore.getState().unlocked.packIds;
+    if (!packId || owned.includes(packId)) return;
   }
 }
 

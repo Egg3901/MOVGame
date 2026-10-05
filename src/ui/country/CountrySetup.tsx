@@ -28,7 +28,6 @@ export function CountrySetup({ country, onBack, initialElection, initialSeed, in
   const newGame = useCountryStore((s) => s.newGame);
   const canPlay = useAuthStore((s) => s.canPlay);
   const openModal = useAuthStore((s) => s.openModal);
-  const user = useAuthStore((s) => s.user);
   const ids = Object.keys(country.elections).sort((a, b) => Number(b) - Number(a));
   const [election, setElection] = useState(initialElection && country.elections[initialElection] ? initialElection : ids[0]);
   const [party, setParty] = useState<PartyId>(initialParty && country.playable.includes(initialParty) ? initialParty : country.playable[0]);
@@ -163,7 +162,7 @@ export function CountrySetup({ country, onBack, initialElection, initialSeed, in
             className="primary su-next"
             onClick={() => {
               const sid = `${country.id.toLowerCase()}-${election}`;
-              if (!canPlay(sid)) { openModal(user ? "activate" : "login", sid); return; }
+              if (!canPlay(sid)) { openModal("activate", sid); return; }
               newGame(country.id, election, activeParty, seed, difficulty);
             }}
           >

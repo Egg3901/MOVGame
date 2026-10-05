@@ -3,7 +3,7 @@ package com.lakesidegames.electioneer.engine
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 
-private val storePacks = setOf("us-historical", "uk-elections", "global", "complete")
+private val storePacks = setOf("us-historical", "uk-elections", "canada", "germany", "france", "australia", "complete", "global")
 private const val storeGraceMillis = 7L * 86_400_000L
 @Serializable
 private data class StoreOwnership(val owner: String, val packIds: List<String>, val verifiedAt: Long)
