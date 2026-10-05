@@ -65,6 +65,15 @@ final class GameSession: ObservableObject {
     @Published var dailySetup: NativeDailyAssignment?
     let account = CampaignAccount()
     lazy var store = StoreKitAdapter(account: account)
+    /// The bundle a blocked launch needs; ContentView turns it into an Unlock prompt.
+    @Published var paywallPack: String?
+
+    /// Pack a new campaign needs, or nil when it is playable. Locks follow the
+    /// server's native gating switch, so with gating off this is always nil.
+    func lockedPack(country: String, nativeId: String) -> String? {
+        NativeAccess.shared.lockedPack(country: country, nativeId: nativeId, ownedPacks: Array(store.owned),
+                                       gating: store.gating, dailyScenarioId: dailyAssignment().scenarioId)
+    }
     let settings = NativePreferences()
     @Published var shortcutSequence = 0
     private(set) var shortcut = ""
@@ -350,6 +359,7 @@ final class GameSession: ObservableObject {
     var savedCampaignLabel: String { campaign?.label() ?? game?.campaignLabel() ?? "Your campaign" }
 
     func newCampaign(countryId: String, electionId: String, partyId: String, difficulty: String, seed: String) {
+        if let pack = lockedPack(country: countryId, nativeId: electionId) { paywallPack = pack; return }
         beginAutosave()
         playScreen = .loading
         DispatchQueue.global(qos: .userInitiated).async {
@@ -439,6 +449,7 @@ final class GameSession: ObservableObject {
     func staffChoices() -> [StaffChoice] { MobileGame.companion.staffChoices() }
 
     func newGame(scenarioId: String, playerSerial: String, mateId: String, staffIds: [String], difficulty: String, eventMode: String, totalTurns: Int, seed: String, whatIfState: String, mirrorMatch: Bool, pandemic: Bool) {
+        if let pack = lockedPack(country: "US", nativeId: scenarioId) { paywallPack = pack; return }
         beginAutosave()
         playScreen = .loading
         DispatchQueue.global(qos: .userInitiated).async {

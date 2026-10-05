@@ -61,6 +61,24 @@ authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ user: { ...user, ahdLinked: !!ahd_user_id }, unlocked: await unlockedForUserWithPlatform(req.auth!.userId) });
 });
 
+// Account deletion (App Store Guideline 5.1.1(v)). Removes the game account and
+// everything keyed to it: saves, scores, achievements, activations. Purchases
+// recorded on the Lakeside platform belong to the Lakeside identity and stay
+// there. Activation codes the player redeemed are kept as spent, unlinked.
+authRouter.delete("/account", requireAuth, (req: AuthedRequest, res) => {
+  const userId = req.auth!.userId;
+  const db = getDb();
+  const removed = db.transaction(() => {
+    for (const table of ["cloud_saves", "leaderboard", "daily_scores", "achievements", "activations", "purchases"]) {
+      db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(userId);
+    }
+    db.prepare("UPDATE activation_codes SET redeemed_by = NULL WHERE redeemed_by = ?").run(userId);
+    return db.prepare("DELETE FROM users WHERE id = ?").run(userId).changes;
+  })();
+  if (removed === 0) return res.status(404).json({ error: "User not found" });
+  res.json({ deleted: true });
+});
+
 authRouter.post("/activate", requireAuth, async (req: AuthedRequest, res) => {
   const { code } = req.body ?? {};
   if (typeof code !== "string" || !code.trim()) return res.status(400).json({ error: "Code required" });

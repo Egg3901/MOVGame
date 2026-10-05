@@ -351,6 +351,14 @@ struct ContentView: View {
             Button("Account and saves") { menuDestination = .account }
             Button("Image credits") { menuDestination = .credits }
         }
+        .task { _ = session.store }
+        .alert("Unlock this election", isPresented: Binding(get: { session.paywallPack != nil },
+                                                           set: { if !$0 { session.paywallPack = nil } })) {
+            Button("Open store") { session.paywallPack = nil; menuDestination = .store }
+            Button("Not now", role: .cancel) { session.paywallPack = nil }
+        } message: {
+            Text("This election is part of the \(nativePackName(session.paywallPack)) bundle. Each country is a one-time purchase, or get every country with the Complete Collection.")
+        }
         .sheet(item: $menuDestination) { destination in
             NavigationStack {
                 Group {
@@ -367,7 +375,7 @@ struct ContentView: View {
                     case .settings: NativeSettingsView(settings: session.settings)
                     }
                 }
-                .navigationTitle(destination == .editor ? "Scenario editor" : destination == .settings ? "Settings" : destination == .store ? "Campaign library" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .replay ? "Campaign replay" : destination == .boards ? "Leaderboards" : destination == .guide ? "How to play" : "Image credits")
+                .navigationTitle(destination == .editor ? "Scenario editor" : destination == .settings ? "Settings" : destination == .store ? "Store" : destination == .account ? "Account and saves" : destination == .saves ? "Saved campaigns" : destination == .analysis ? "Campaign analysis" : destination == .replay ? "Campaign replay" : destination == .boards ? "Leaderboards" : destination == .guide ? "How to play" : "Image credits")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { menuDestination = nil }
@@ -505,5 +513,19 @@ struct CampaignGuideView: View {
                 }
             }.padding(20)
         }.background(CampaignStyle.background).preferredColorScheme(.dark)
+    }
+}
+
+/// Player-facing bundle names, matching the store products.
+func nativePackName(_ packId: String?) -> String {
+    switch packId {
+    case "us-historical": return "United States"
+    case "uk-elections": return "United Kingdom"
+    case "canada": return "Canada"
+    case "germany": return "Germany"
+    case "france": return "France"
+    case "australia": return "Australia"
+    case "complete": return "Complete Collection"
+    default: return "country"
     }
 }

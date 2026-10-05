@@ -9,6 +9,7 @@ import kotlinx.serialization.encodeToString
 data class NativeElection(
     val scenarioId: String, val country: String, val engine: String, val nativeId: String,
     val year: Int, val label: String, @SerialName("description") val blurb: String, val flag: String,
+    val free: Boolean = true, val packId: String? = null,
 )
 
 data class NativeCountry(val id: String, val name: String, val flag: String)
