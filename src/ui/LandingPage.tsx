@@ -594,7 +594,7 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
               <p className="muted small" style={{ marginTop: 8 }}>No ads, no time limit, no trial.</p>
             </div>
             <div className="pricing-card">
-              <h3>Scenario packs</h3>
+              <h3>Country bundles</h3>
               <p className="pricing-price">{PAYWALL_ENABLED ? `$${((packPrices["us-historical"] ?? 99) / 100).toFixed(2)} per country` : "Free for now"}</p>
               <ul className="pricing-list">
                 <li><Check size={13} /> {SCENARIO_REGISTRY.length - free.length} additional elections across {STORE_PACKS.length - 1} country bundles</li>
@@ -608,11 +608,7 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
                   <li><Check size={13} /> Play every election free while paid tiers are being prepared</li>
                 )}
               </ul>
-              {!PAYWALL_ENABLED ? null : DISTRIBUTION.externalStore ? (
-                <a className="ghost small" style={{ marginTop: 8 }} href={BRAND.storeUrl}>
-                  <ShoppingBag size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />Browse packs on lakesidegames.net
-                </a>
-              ) : (
+              {PAYWALL_ENABLED && !DISTRIBUTION.externalStore && (
                 <p className="muted small" style={{ marginTop: 8 }}>
                   Purchases and restoration will be handled by {DISTRIBUTION.nativeStoreName}.
                 </p>
@@ -622,7 +618,7 @@ export function LandingPage({ onGo, onResume }: { onGo: (dest: LandingDestinatio
         </div>
 
         {/* Packs strip: text-led, no cover art */}
-        <div className="field" style={{ textAlign: "left", margin: "36px 0 0" }}>
+        <div className="field" id="country-bundles" style={{ textAlign: "left", margin: "36px 0 0" }}>
           <label>{PAYWALL_ENABLED ? "Country bundles" : "Scenario packs: free for now, every scenario is playable while we finish the paid tiers"}</label>
           <div className="scenario-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
             {STORE_PACKS.map((p) => {

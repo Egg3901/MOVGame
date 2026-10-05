@@ -167,6 +167,14 @@ button.gop { background: var(--gop); border-color: var(--gop-bright); font-weigh
 button.gop:hover:not(:disabled) { background: var(--gop-bright); border-color: var(--gop-bright); }
 button.ghost { background: transparent; }
 button.ghost:hover:not(:disabled) { background: var(--panel-2); }
+/* Links styled as ghost buttons (store links) match the button chrome. */
+a.ghost {
+  display: inline-flex; align-items: center; text-decoration: none; color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: transparent;
+  padding: 8px 14px; font-size: 13px; font-weight: 500; line-height: 1.15;
+}
+a.ghost.small { padding: 6px 11px; font-size: 12px; white-space: nowrap; }
+a.ghost:hover { background: var(--panel-2); border-color: var(--border-hover); }
 button.danger { border-color: var(--edge-danger); color: var(--rose); }
 button.small { padding: 6px 11px; font-size: 12px; }
 
